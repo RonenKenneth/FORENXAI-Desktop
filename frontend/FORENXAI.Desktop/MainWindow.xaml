@@ -1,0 +1,530 @@
+﻿<Window x:Class="FORENXAI.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FORENXAI"
+        Width="1450"
+        Height="900"
+        MinWidth="1100"
+        MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        Background="#0F172A">
+
+    <Window.Resources>
+
+        <!-- ==================================================
+             SIDEBAR BUTTON STYLE
+             ================================================== -->
+
+        <Style x:Key="SidebarButtonStyle"
+               TargetType="Button">
+
+            <Setter Property="Height"
+                    Value="48"/>
+
+            <Setter Property="Margin"
+                    Value="10,3"/>
+
+            <Setter Property="Padding"
+                    Value="16,0"/>
+
+            <Setter Property="Background"
+                    Value="Transparent"/>
+
+            <Setter Property="Foreground"
+                    Value="#CBD5E1"/>
+
+            <Setter Property="BorderThickness"
+                    Value="0"/>
+
+            <Setter Property="HorizontalContentAlignment"
+                    Value="Left"/>
+
+            <Setter Property="VerticalContentAlignment"
+                    Value="Center"/>
+
+            <Setter Property="FontSize"
+                    Value="13"/>
+
+            <Setter Property="FontWeight"
+                    Value="Normal"/>
+
+            <Setter Property="Cursor"
+                    Value="Hand"/>
+
+            <Setter Property="FocusVisualStyle"
+                    Value="{x:Null}"/>
+
+            <Setter Property="Template">
+
+                <Setter.Value>
+
+                    <ControlTemplate TargetType="Button">
+
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="7">
+
+                            <ContentPresenter
+                                Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+
+                        </Border>
+
+
+                        <ControlTemplate.Triggers>
+
+                            <!-- Mouse hover only -->
+
+                            <Trigger Property="IsMouseOver"
+                                     Value="True">
+
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#172554"/>
+
+                                <Setter Property="Foreground"
+                                        Value="#FFFFFF"/>
+
+                            </Trigger>
+
+
+                            <!-- Pressed -->
+
+                            <Trigger Property="IsPressed"
+                                     Value="True">
+
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#1E3A8A"/>
+
+                            </Trigger>
+
+
+                            <!-- Disabled -->
+
+                            <Trigger Property="IsEnabled"
+                                     Value="False">
+
+                                <Setter Property="Opacity"
+                                        Value="0.45"/>
+
+                            </Trigger>
+
+                        </ControlTemplate.Triggers>
+
+                    </ControlTemplate>
+
+                </Setter.Value>
+
+            </Setter>
+
+        </Style>
+
+
+        <!-- ==================================================
+             SMALL TOP STATUS LABEL
+             ================================================== -->
+
+        <Style x:Key="TopLabelStyle"
+               TargetType="TextBlock">
+
+            <Setter Property="Foreground"
+                    Value="#64748B"/>
+
+            <Setter Property="FontSize"
+                    Value="11"/>
+
+        </Style>
+
+
+        <Style x:Key="TopValueStyle"
+               TargetType="TextBlock">
+
+            <Setter Property="Foreground"
+                    Value="#E2E8F0"/>
+
+            <Setter Property="FontSize"
+                    Value="12"/>
+
+            <Setter Property="FontWeight"
+                    Value="SemiBold"/>
+
+        </Style>
+
+    </Window.Resources>
+
+
+    <!-- ======================================================
+         ROOT
+         ====================================================== -->
+
+    <Grid>
+
+        <Grid.ColumnDefinitions>
+
+            <!-- Sidebar -->
+            <ColumnDefinition Width="235"/>
+
+            <!-- Main application -->
+            <ColumnDefinition Width="*"/>
+
+        </Grid.ColumnDefinitions>
+
+
+        <!-- ==================================================
+             LEFT SIDEBAR
+             ================================================== -->
+
+        <Border Grid.Column="0"
+                Background="#0B1220"
+                BorderBrush="#1E293B"
+                BorderThickness="0,0,1,0">
+
+            <Grid>
+
+                <Grid.RowDefinitions>
+
+                    <RowDefinition Height="Auto"/>
+
+                    <RowDefinition Height="*"/>
+
+                    <RowDefinition Height="Auto"/>
+
+                </Grid.RowDefinitions>
+
+
+                <!-- ==========================================
+                     BRAND
+                     ========================================== -->
+
+                <Border Grid.Row="0"
+                        Padding="20,22,20,18"
+                        BorderBrush="#1E293B"
+                        BorderThickness="0,0,0,1">
+
+                    <StackPanel>
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <Border Width="38"
+                                    Height="38"
+                                    CornerRadius="9"
+                                    Background="#172554"
+                                    Margin="0,0,10,0">
+
+                                <TextBlock Text="FX"
+                                           Foreground="#F4C542"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+
+                            </Border>
+
+
+                            <StackPanel VerticalAlignment="Center">
+
+                                <TextBlock Text="FORENXAI"
+                                           Foreground="#F8FAFC"
+                                           FontSize="19"
+                                           FontWeight="Bold"/>
+
+                                <TextBlock Text="NETWORK FORENSICS"
+                                           Foreground="#64748B"
+                                           FontSize="9"
+                                           FontWeight="SemiBold"
+                                           Margin="0,2,0,0"/>
+
+                            </StackPanel>
+
+                        </StackPanel>
+
+                    </StackPanel>
+
+                </Border>
+
+
+                <!-- ==========================================
+                     NAVIGATION
+                     ========================================== -->
+
+                <StackPanel Grid.Row="1"
+                            Margin="0,20,0,0">
+
+
+                    <TextBlock Text="WORKSPACE"
+                               Foreground="#475569"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Margin="26,0,0,8"/>
+
+
+                    <!-- EVIDENCE -->
+
+                    <Button x:Name="EvidenceButton"
+                            Click="Evidence_Click"
+                            Style="{StaticResource SidebarButtonStyle}">
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <TextBlock Text="▣"
+                                       Width="28"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontSize="17"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Text="EVIDENCE"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="{Binding FontWeight,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"/>
+
+                        </StackPanel>
+
+                    </Button>
+
+
+                    <!-- DASHBOARD -->
+
+                    <Button x:Name="DashboardButton"
+                            Click="Dashboard_Click"
+                            Style="{StaticResource SidebarButtonStyle}">
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <TextBlock Text="▤"
+                                       Width="28"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontSize="17"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Text="DASHBOARD"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="{Binding FontWeight,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"/>
+
+                        </StackPanel>
+
+                    </Button>
+
+
+                    <!-- XAI -->
+
+                    <Button x:Name="XaiButton"
+                            Click="Xai_Click"
+                            Style="{StaticResource SidebarButtonStyle}">
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <TextBlock Text="✦"
+                                       Width="28"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontSize="17"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Text="XAI"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="{Binding FontWeight,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"/>
+
+                        </StackPanel>
+
+                    </Button>
+
+
+                    <!-- INVESTIGATION -->
+
+                    <Button x:Name="InvestigationButton"
+                            Style="{StaticResource SidebarButtonStyle}">
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <TextBlock Text="⌕"
+                                       Width="28"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontSize="18"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Text="INVESTIGATION"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="{Binding FontWeight,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"/>
+
+                        </StackPanel>
+
+                    </Button>
+
+
+                    <!-- REPORTS -->
+
+                    <Button x:Name="ReportsButton"
+                            Click="Reports_Click"
+                            Style="{StaticResource SidebarButtonStyle}">
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <TextBlock Text="▧"
+                                       Width="28"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontSize="17"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Text="REPORTS"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="{Binding FontWeight,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"/>
+
+                        </StackPanel>
+
+                    </Button>
+
+                </StackPanel>
+
+
+                <!-- ==========================================
+                     SIDEBAR FOOTER
+                     ========================================== -->
+
+                <Border Grid.Row="2"
+                        BorderBrush="#1E293B"
+                        BorderThickness="0,1,0,0"
+                        Padding="22,14">
+
+                    <StackPanel>
+
+                        <TextBlock Text="FORENXAI"
+                                   Foreground="#64748B"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"/>
+
+                        <TextBlock Text="Explainable Network Forensics"
+                                   Foreground="#475569"
+                                   FontSize="9"
+                                   Margin="0,3,0,0"/>
+
+                    </StackPanel>
+
+                </Border>
+
+            </Grid>
+
+        </Border>
+
+
+        <!-- ==================================================
+             RIGHT AREA
+             ================================================== -->
+
+        <Grid Grid.Column="1"
+              Background="#0F172A">
+
+            <Grid.RowDefinitions>
+
+                <!-- Top header -->
+                <RowDefinition Height="64"/>
+
+                <!-- Page -->
+                <RowDefinition Height="*"/>
+
+            </Grid.RowDefinitions>
+
+
+            <!-- ==============================================
+                 TOP HEADER
+                 ============================================== -->
+
+            <Border Grid.Row="0"
+                    Background="#0F172A"
+                    BorderBrush="#1E293B"
+                    BorderThickness="0,0,0,1">
+
+                <Grid Margin="22,0">
+
+                    <Grid.ColumnDefinitions>
+
+                        <ColumnDefinition Width="*"/>
+
+                        <ColumnDefinition Width="Auto"/>
+
+                    </Grid.ColumnDefinitions>
+
+
+                    <!-- Left -->
+
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+
+                        <TextBlock Text="FORENXAI"
+                                   Foreground="#F4C542"
+                                   FontSize="13"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+
+
+                        <Border Width="1"
+                                Height="18"
+                                Background="#334155"
+                                Margin="14,0"/>
+
+
+                        <TextBlock Text="Cybersecurity &amp; Digital Forensics"
+                                   Foreground="#94A3B8"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"/>
+
+                    </StackPanel>
+
+
+                    <!-- Right -->
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+
+                        <Ellipse Width="8"
+                                 Height="8"
+                                 Fill="#22C55E"
+                                 Margin="0,0,7,0"/>
+
+                        <TextBlock Text="System Ready"
+                                   Foreground="#94A3B8"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"/>
+
+                    </StackPanel>
+
+                </Grid>
+
+            </Border>
+
+
+            <!-- ==============================================
+                 PAGE CONTENT HOST
+                 ============================================== -->
+
+            <ContentControl x:Name="MainContent"
+                            Grid.Row="1"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"/>
+
+        </Grid>
+
+    </Grid>
+
+</Window>

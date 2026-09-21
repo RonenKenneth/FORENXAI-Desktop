@@ -162,6 +162,24 @@ Expected: four `PASS` lines and `ALL CHECKS PASSED`, exit code 0. It verifies th
 
 For the full application, follow the sections below (CICFlowMeter, Java, Wireshark, the language model in `backend/models/llm/`). `python verify_bundle.py --llm` also checks the language model file.
 
+To build and run the desktop window, install the .NET 10 SDK first (the project targets `net10.0-windows`; a machine with only .NET 8 or 9 cannot build it):
+
+```powershell
+winget install Microsoft.DotNet.SDK.10
+```
+
+Open a new terminal so the updated PATH is used, then start the two parts in separate terminals:
+
+```powershell
+# Terminal 1: backend
+cd backend
+.\.venv\Scripts\python.exe run_backend.py     # http://127.0.0.1:8000, /health returns {"status":"healthy"}
+
+# Terminal 2: desktop window
+cd frontend\FORENXAI.Desktop
+dotnet run -c Release
+```
+
 ---
 
 # 3. Clone the Repository

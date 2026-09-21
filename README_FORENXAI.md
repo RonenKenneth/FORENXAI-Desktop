@@ -131,6 +131,20 @@ backend\models\llm\qwen2.5-3b-q4.gguf
 
 The XGBoost model bundle must remain internally consistent. Do not replace only `XGBoost.pkl` unless the new model uses the same feature order, preprocessing, label encoding, and compatible SHAP setup.
 
+## Model bundle provenance
+
+The bundle in `backend\modelsorenxai\` is the multiclass XGBoost trained on the GPU (NVIDIA GeForce RTX 4050 Laptop GPU, CUDA 12.1) with leakage-safe splits, in which rows with an identical feature vector are kept in the same partition. It was trained on TRUSTLab only (16 classes, 74 features).
+
+| File | SHA-256 (first 16) |
+|---|---|
+| XGBoost.pkl | 257f40e37094ccf7 |
+| scaler.pkl | cb7d1b995316fd6e |
+| label_encoder.pkl | 64ed93e1e30701b1 |
+| features.pkl | bff07530c1852f17 |
+| shap_global.json | 8fe52e3537b62577 |
+
+`manifest.json` carries the full SHA-256 of each file and the backend verifies them at startup. Git is set not to convert line endings in this folder (`.gitattributes`), so the hashes stay valid on every clone.
+
 ---
 
 # 3. Clone the Repository

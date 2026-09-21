@@ -104,28 +104,33 @@
     "scikit-learn": "1.9.0",
     "shap": "0.51.0",
     "joblib": "1.5.3",
-    "numpy": "2.4.6"
+    "numpy": "1.26.4"
   },
   "files": {
     "features.pkl": {
       "bytes": 1364,
-      "sha256_16": "bff07530c1852f17"
+      "sha256_16": "bff07530c1852f17",
+      "sha256": "bff07530c1852f170db77ec14fad9db168d5eb194693ddd7b462b2024a533712"
     },
     "label_encoder.pkl": {
       "bytes": 1223,
-      "sha256_16": "64ed93e1e30701b1"
+      "sha256_16": "64ed93e1e30701b1",
+      "sha256": "64ed93e1e30701b1cc8769e45a73c1c71d3f8480b10ffa37d1632674e0572cbf"
     },
     "scaler.pkl": {
       "bytes": 2359,
-      "sha256_16": "65458f718b916b19"
+      "sha256_16": "cb7d1b995316fd6e",
+      "sha256": "cb7d1b995316fd6e651cac2774a7bbf8d84fb6843d2b53e27f2aa71274920805"
     },
     "shap_global.json": {
-      "bytes": 26964,
-      "sha256_16": "2df50550692a86c5"
+      "bytes": 26998,
+      "sha256_16": "8fe52e3537b62577",
+      "sha256": "8fe52e3537b6257778905f6b5db52a0502e893372b6acff78191efe591a6dc90"
     },
     "XGBoost.pkl": {
-      "size": 27076684,
-      "sha256": "D243B124DA3692ECD5BA1242E2071188E3190086F4227FB20D7FACB027202A94"
+      "bytes": 26684738,
+      "sha256_16": "257f40e37094ccf7",
+      "sha256": "257f40e37094ccf756d91e283cc0d608e529b0160d7dd0f91eece6cd26e316d6"
     }
   }
 }

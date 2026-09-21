@@ -1,0 +1,2 @@
+# Model bundle files are hashed in manifest.json, so they must stay byte-exact.
+backend/models/forenxai/* -text

@@ -4,1018 +4,1018 @@
   "n_sample": 8000,
   "n_features": 74,
   "base_values": [
-    -1.556704,
-    -0.129709,
-    -0.014864,
-    0.179249,
-    0.01607,
-    -0.700156,
-    -3.276093,
-    0.298116,
-    -1.496409,
-    -2.618701,
-    0.194969,
-    -1.409583,
-    -0.44417,
-    0.201828,
-    -0.346067,
-    -0.583532
+    -1.557403,
+    -0.116627,
+    -0.018972,
+    0.172153,
+    0.013694,
+    -0.682088,
+    -3.177558,
+    0.296177,
+    -1.452272,
+    -2.622412,
+    0.184935,
+    -1.447776,
+    -0.455139,
+    0.203132,
+    -0.337076,
+    -0.589055
   ],
   "units": "log-odds (margin), not probability",
   "feature_perturbation": "tree_path_dependent",
-  "additivity_max_error": 1.83582e-05,
+  "additivity_max_error": 1.42008e-05,
   "note": "mean_abs_shap over a stratified sample of the test set. Computed on scaled features -- the space the model was trained in. Values sum to the raw margin plus base_values, NOT to predict_proba.",
   "per_class": {
     "API": [
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 2.557381,
-        "mean_signed_shap": -1.482709
+        "mean_abs_shap": 2.53131,
+        "mean_signed_shap": -1.430569
       },
       {
         "feature": "FIN Flag Count",
-        "mean_abs_shap": 1.157845,
-        "mean_signed_shap": -0.630742
-      },
-      {
-        "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.565059,
-        "mean_signed_shap": -0.431917
+        "mean_abs_shap": 1.115309,
+        "mean_signed_shap": -0.629621
       },
       {
         "feature": "Packet Length Max",
-        "mean_abs_shap": 0.530496,
-        "mean_signed_shap": -0.192292
+        "mean_abs_shap": 0.693603,
+        "mean_signed_shap": -0.19724
       },
       {
-        "feature": "Flow IAT Max",
-        "mean_abs_shap": 0.427463,
-        "mean_signed_shap": -0.280448
+        "feature": "Bwd Packet Length Max",
+        "mean_abs_shap": 0.528542,
+        "mean_signed_shap": -0.372345
       },
       {
         "feature": "Fwd Bulk Rate Avg",
-        "mean_abs_shap": 0.402103,
-        "mean_signed_shap": -0.071483
+        "mean_abs_shap": 0.427011,
+        "mean_signed_shap": -0.022922
       },
       {
         "feature": "Packet Length Min",
-        "mean_abs_shap": 0.388054,
-        "mean_signed_shap": -0.221266
-      },
-      {
-        "feature": "Fwd IAT Min",
-        "mean_abs_shap": 0.374851,
-        "mean_signed_shap": -0.315853
+        "mean_abs_shap": 0.408859,
+        "mean_signed_shap": -0.280269
       },
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.290045,
-        "mean_signed_shap": -0.178327
-      },
-      {
-        "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.25721,
-        "mean_signed_shap": -0.173838
-      },
-      {
-        "feature": "Bwd Packet Length Std",
-        "mean_abs_shap": 0.216705,
-        "mean_signed_shap": -0.140688
+        "mean_abs_shap": 0.38759,
+        "mean_signed_shap": -0.259324
       },
       {
         "feature": "Fwd IAT Total",
-        "mean_abs_shap": 0.20239,
-        "mean_signed_shap": -0.162559
+        "mean_abs_shap": 0.380275,
+        "mean_signed_shap": -0.305617
+      },
+      {
+        "feature": "Fwd IAT Min",
+        "mean_abs_shap": 0.371739,
+        "mean_signed_shap": -0.316298
+      },
+      {
+        "feature": "Flow IAT Max",
+        "mean_abs_shap": 0.307179,
+        "mean_signed_shap": -0.213488
+      },
+      {
+        "feature": "Packet Length Std",
+        "mean_abs_shap": 0.291314,
+        "mean_signed_shap": -0.126061
+      },
+      {
+        "feature": "Bwd IAT Std",
+        "mean_abs_shap": 0.256561,
+        "mean_signed_shap": -0.162374
       }
     ],
     "Benign": [
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.637882,
-        "mean_signed_shap": -0.487076
-      },
-      {
-        "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.568298,
-        "mean_signed_shap": 0.074192
+        "mean_abs_shap": 0.621307,
+        "mean_signed_shap": -0.511362
       },
       {
         "feature": "Packet Length Max",
-        "mean_abs_shap": 0.526622,
-        "mean_signed_shap": -0.377363
-      },
-      {
-        "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.525438,
-        "mean_signed_shap": -0.393721
+        "mean_abs_shap": 0.507762,
+        "mean_signed_shap": -0.390523
       },
       {
         "feature": "Fwd Header Length",
-        "mean_abs_shap": 0.493613,
-        "mean_signed_shap": -0.404042
+        "mean_abs_shap": 0.493659,
+        "mean_signed_shap": -0.396652
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 0.466005,
-        "mean_signed_shap": -0.159232
+        "mean_abs_shap": 0.492673,
+        "mean_signed_shap": -0.201735
       },
       {
         "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.397578,
-        "mean_signed_shap": -0.124536
+        "mean_abs_shap": 0.47097,
+        "mean_signed_shap": -0.190008
+      },
+      {
+        "feature": "Down/Up Ratio",
+        "mean_abs_shap": 0.461833,
+        "mean_signed_shap": -0.237933
+      },
+      {
+        "feature": "Fwd Bytes/Bulk Avg",
+        "mean_abs_shap": 0.326086,
+        "mean_signed_shap": 0.05953
       },
       {
         "feature": "RST Flag Count",
-        "mean_abs_shap": 0.335838,
-        "mean_signed_shap": -0.202904
-      },
-      {
-        "feature": "Fwd Packet Length Mean",
-        "mean_abs_shap": 0.299082,
-        "mean_signed_shap": -0.260905
-      },
-      {
-        "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.277874,
-        "mean_signed_shap": -0.180239
-      },
-      {
-        "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.275388,
-        "mean_signed_shap": 0.013007
+        "mean_abs_shap": 0.325206,
+        "mean_signed_shap": -0.217018
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.226048,
-        "mean_signed_shap": -0.082308
+        "mean_abs_shap": 0.324872,
+        "mean_signed_shap": -0.149291
+      },
+      {
+        "feature": "Fwd Packet Length Mean",
+        "mean_abs_shap": 0.293286,
+        "mean_signed_shap": -0.252934
+      },
+      {
+        "feature": "Fwd Packet Length Min",
+        "mean_abs_shap": 0.245949,
+        "mean_signed_shap": -0.216396
+      },
+      {
+        "feature": "Bwd Packet Length Max",
+        "mean_abs_shap": 0.242575,
+        "mean_signed_shap": 0.016595
       }
     ],
     "Bruteforce": [
       {
         "feature": "Fwd Bulk Rate Avg",
-        "mean_abs_shap": 1.254416,
-        "mean_signed_shap": -1.182171
-      },
-      {
-        "feature": "Dst Port",
-        "mean_abs_shap": 0.778452,
-        "mean_signed_shap": -0.626879
+        "mean_abs_shap": 1.258731,
+        "mean_signed_shap": -1.205632
       },
       {
         "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.76097,
-        "mean_signed_shap": -0.520306
+        "mean_abs_shap": 0.916009,
+        "mean_signed_shap": -0.583466
+      },
+      {
+        "feature": "Dst Port",
+        "mean_abs_shap": 0.812124,
+        "mean_signed_shap": -0.667622
       },
       {
         "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.424775,
-        "mean_signed_shap": -0.308378
+        "mean_abs_shap": 0.447146,
+        "mean_signed_shap": -0.371375
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.368572,
-        "mean_signed_shap": -0.228808
+        "mean_abs_shap": 0.33422,
+        "mean_signed_shap": -0.206384
       },
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.344743,
-        "mean_signed_shap": -0.235929
+        "mean_abs_shap": 0.321347,
+        "mean_signed_shap": -0.236545
       },
       {
         "feature": "Packet Length Max",
-        "mean_abs_shap": 0.330092,
-        "mean_signed_shap": -0.157934
+        "mean_abs_shap": 0.304768,
+        "mean_signed_shap": -0.187126
       },
       {
         "feature": "Fwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.31446,
-        "mean_signed_shap": -0.291516
+        "mean_abs_shap": 0.237714,
+        "mean_signed_shap": -0.226577
       },
       {
         "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.27478,
-        "mean_signed_shap": -0.231697
-      },
-      {
-        "feature": "Average Packet Size",
-        "mean_abs_shap": 0.205013,
-        "mean_signed_shap": -0.157997
+        "mean_abs_shap": 0.213078,
+        "mean_signed_shap": -0.185188
       },
       {
         "feature": "Bwd Packet Length Mean",
-        "mean_abs_shap": 0.198591,
-        "mean_signed_shap": -0.134036
+        "mean_abs_shap": 0.2106,
+        "mean_signed_shap": -0.162754
       },
       {
-        "feature": "Flow IAT Min",
-        "mean_abs_shap": 0.194165,
-        "mean_signed_shap": -0.1632
+        "feature": "Fwd Packet Length Std",
+        "mean_abs_shap": 0.200725,
+        "mean_signed_shap": 0.000844
+      },
+      {
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.189721,
+        "mean_signed_shap": -0.154786
       }
     ],
     "BufferOverflow": [
       {
         "feature": "Packet Length Std",
-        "mean_abs_shap": 0.910403,
-        "mean_signed_shap": -0.90723
+        "mean_abs_shap": 1.054384,
+        "mean_signed_shap": -1.049706
       },
       {
         "feature": "Bwd Packet Length Std",
-        "mean_abs_shap": 0.7666,
-        "mean_signed_shap": -0.225112
-      },
-      {
-        "feature": "Average Packet Size",
-        "mean_abs_shap": 0.711052,
-        "mean_signed_shap": -0.696379
-      },
-      {
-        "feature": "Bwd Packet Length Mean",
-        "mean_abs_shap": 0.572568,
-        "mean_signed_shap": -0.443728
+        "mean_abs_shap": 0.692296,
+        "mean_signed_shap": -0.209763
       },
       {
         "feature": "Bwd Packet Length Min",
-        "mean_abs_shap": 0.551473,
-        "mean_signed_shap": -0.525799
+        "mean_abs_shap": 0.66897,
+        "mean_signed_shap": -0.637389
       },
       {
-        "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.494483,
-        "mean_signed_shap": -0.452629
-      },
-      {
-        "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.487741,
-        "mean_signed_shap": -0.266401
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.578209,
+        "mean_signed_shap": -0.562708
       },
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.417233,
-        "mean_signed_shap": -0.401872
+        "mean_abs_shap": 0.562125,
+        "mean_signed_shap": -0.556491
       },
       {
-        "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.372813,
-        "mean_signed_shap": -0.324019
+        "feature": "Bwd Packet Length Mean",
+        "mean_abs_shap": 0.501101,
+        "mean_signed_shap": -0.395678
       },
       {
-        "feature": "Packet Length Max",
-        "mean_abs_shap": 0.360038,
-        "mean_signed_shap": -0.350545
+        "feature": "Fwd Bytes/Bulk Avg",
+        "mean_abs_shap": 0.468819,
+        "mean_signed_shap": -0.416169
+      },
+      {
+        "feature": "Bwd Packet Length Max",
+        "mean_abs_shap": 0.452025,
+        "mean_signed_shap": -0.316437
+      },
+      {
+        "feature": "Down/Up Ratio",
+        "mean_abs_shap": 0.377398,
+        "mean_signed_shap": -0.134828
       },
       {
         "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.284633,
-        "mean_signed_shap": -0.273449
+        "mean_abs_shap": 0.31654,
+        "mean_signed_shap": -0.296515
       },
       {
-        "feature": "Dst Port",
-        "mean_abs_shap": 0.26061,
-        "mean_signed_shap": -0.198445
+        "feature": "Subflow Fwd Bytes",
+        "mean_abs_shap": 0.194784,
+        "mean_signed_shap": -0.187225
+      },
+      {
+        "feature": "Subflow Bwd Bytes",
+        "mean_abs_shap": 0.186108,
+        "mean_signed_shap": -0.131318
       }
     ],
     "C2Beaconing": [
       {
         "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 1.238154,
-        "mean_signed_shap": -0.95419
+        "mean_abs_shap": 1.240595,
+        "mean_signed_shap": -0.98683
       },
       {
         "feature": "Bwd Packet Length Min",
-        "mean_abs_shap": 0.904411,
-        "mean_signed_shap": -0.83519
+        "mean_abs_shap": 0.765948,
+        "mean_signed_shap": -0.702179
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 0.819302,
-        "mean_signed_shap": -0.660474
+        "mean_abs_shap": 0.721415,
+        "mean_signed_shap": -0.564117
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.637027,
-        "mean_signed_shap": -0.452605
+        "mean_abs_shap": 0.696492,
+        "mean_signed_shap": -0.506613
       },
       {
         "feature": "Bwd Packet Length Mean",
-        "mean_abs_shap": 0.558936,
-        "mean_signed_shap": -0.489359
+        "mean_abs_shap": 0.602032,
+        "mean_signed_shap": -0.555327
       },
       {
         "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.390054,
-        "mean_signed_shap": -0.343197
-      },
-      {
-        "feature": "Bwd Init Win Bytes",
-        "mean_abs_shap": 0.347375,
-        "mean_signed_shap": 0.148728
-      },
-      {
-        "feature": "Bwd PSH Flags",
-        "mean_abs_shap": 0.282814,
-        "mean_signed_shap": -0.052433
+        "mean_abs_shap": 0.389568,
+        "mean_signed_shap": -0.355982
       },
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.278373,
-        "mean_signed_shap": -0.24019
+        "mean_abs_shap": 0.311248,
+        "mean_signed_shap": -0.286202
       },
       {
-        "feature": "Packet Length Std",
-        "mean_abs_shap": 0.243461,
-        "mean_signed_shap": -0.238872
+        "feature": "Bwd PSH Flags",
+        "mean_abs_shap": 0.291387,
+        "mean_signed_shap": -0.016308
+      },
+      {
+        "feature": "Bwd Init Win Bytes",
+        "mean_abs_shap": 0.287119,
+        "mean_signed_shap": 0.164338
       },
       {
         "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.15581,
-        "mean_signed_shap": -0.121627
+        "mean_abs_shap": 0.248886,
+        "mean_signed_shap": -0.216252
       },
       {
-        "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.144918,
-        "mean_signed_shap": -0.097004
+        "feature": "Packet Length Std",
+        "mean_abs_shap": 0.191812,
+        "mean_signed_shap": -0.183624
+      },
+      {
+        "feature": "Down/Up Ratio",
+        "mean_abs_shap": 0.174744,
+        "mean_signed_shap": -0.07025
       }
     ],
     "DDoS": [
       {
         "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 4.193319,
-        "mean_signed_shap": -3.409317
+        "mean_abs_shap": 4.016651,
+        "mean_signed_shap": -3.292738
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 1.1653,
-        "mean_signed_shap": -1.121379
+        "mean_abs_shap": 1.168148,
+        "mean_signed_shap": -1.135977
       },
       {
         "feature": "Bwd Packet Length Mean",
-        "mean_abs_shap": 0.809629,
-        "mean_signed_shap": -0.680831
+        "mean_abs_shap": 0.934885,
+        "mean_signed_shap": -0.751061
       },
       {
         "feature": "SYN Flag Count",
-        "mean_abs_shap": 0.670874,
-        "mean_signed_shap": -0.120674
+        "mean_abs_shap": 0.761956,
+        "mean_signed_shap": -0.227288
       },
       {
         "feature": "Packet Length Max",
-        "mean_abs_shap": 0.661882,
-        "mean_signed_shap": -0.627098
+        "mean_abs_shap": 0.667787,
+        "mean_signed_shap": -0.641957
       },
       {
         "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.660999,
-        "mean_signed_shap": 0.448797
+        "mean_abs_shap": 0.480243,
+        "mean_signed_shap": 0.329141
       },
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.425713,
-        "mean_signed_shap": -0.312473
+        "mean_abs_shap": 0.35738,
+        "mean_signed_shap": -0.262536
       },
       {
         "feature": "RST Flag Count",
-        "mean_abs_shap": 0.239715,
-        "mean_signed_shap": -0.200454
+        "mean_abs_shap": 0.244077,
+        "mean_signed_shap": -0.229565
       },
       {
-        "feature": "Subflow Fwd Bytes",
-        "mean_abs_shap": 0.184183,
-        "mean_signed_shap": -0.148648
-      },
-      {
-        "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.155135,
-        "mean_signed_shap": -0.153519
+        "feature": "Flow Packets/s",
+        "mean_abs_shap": 0.170602,
+        "mean_signed_shap": -0.16875
       },
       {
         "feature": "Bwd Packet Length Min",
-        "mean_abs_shap": 0.124553,
-        "mean_signed_shap": -0.089025
+        "mean_abs_shap": 0.129606,
+        "mean_signed_shap": -0.099166
       },
       {
-        "feature": "Flow IAT Min",
-        "mean_abs_shap": 0.119898,
-        "mean_signed_shap": -0.115085
+        "feature": "Subflow Fwd Bytes",
+        "mean_abs_shap": 0.108586,
+        "mean_signed_shap": -0.101843
+      },
+      {
+        "feature": "Fwd Bytes/Bulk Avg",
+        "mean_abs_shap": 0.084099,
+        "mean_signed_shap": -0.08306
       }
     ],
     "DNS": [
       {
         "feature": "Fwd Packet Length Min",
-        "mean_abs_shap": 2.339217,
-        "mean_signed_shap": -1.336942
+        "mean_abs_shap": 2.467195,
+        "mean_signed_shap": -1.408541
       },
       {
         "feature": "Packet Length Min",
-        "mean_abs_shap": 1.7042,
-        "mean_signed_shap": -0.947931
-      },
-      {
-        "feature": "Fwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.421533,
-        "mean_signed_shap": -0.20556
-      },
-      {
-        "feature": "Dst Port",
-        "mean_abs_shap": 0.411645,
-        "mean_signed_shap": -0.271524
+        "mean_abs_shap": 1.437773,
+        "mean_signed_shap": -0.717152
       },
       {
         "feature": "Bwd Packet Length Min",
-        "mean_abs_shap": 0.375803,
-        "mean_signed_shap": -0.156523
+        "mean_abs_shap": 0.434193,
+        "mean_signed_shap": -0.23383
       },
       {
-        "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.326485,
-        "mean_signed_shap": -0.042887
+        "feature": "Dst Port",
+        "mean_abs_shap": 0.3994,
+        "mean_signed_shap": -0.257515
       },
       {
-        "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.304259,
-        "mean_signed_shap": -0.252457
+        "feature": "Fwd Packet/Bulk Avg",
+        "mean_abs_shap": 0.345332,
+        "mean_signed_shap": -0.164703
       },
       {
         "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.303335,
-        "mean_signed_shap": -0.228007
-      },
-      {
-        "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.218104,
-        "mean_signed_shap": -0.10559
+        "mean_abs_shap": 0.342706,
+        "mean_signed_shap": -0.227305
       },
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.206704,
-        "mean_signed_shap": -0.061138
+        "mean_abs_shap": 0.244467,
+        "mean_signed_shap": -0.086453
       },
       {
-        "feature": "Packet Length Std",
-        "mean_abs_shap": 0.187992,
-        "mean_signed_shap": -0.013411
+        "feature": "Bwd Packet Length Max",
+        "mean_abs_shap": 0.240823,
+        "mean_signed_shap": -0.233337
+      },
+      {
+        "feature": "Bwd Packet/Bulk Avg",
+        "mean_abs_shap": 0.221474,
+        "mean_signed_shap": -0.026532
       },
       {
         "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.162517,
-        "mean_signed_shap": -0.141582
+        "mean_abs_shap": 0.193107,
+        "mean_signed_shap": -0.175654
+      },
+      {
+        "feature": "Fwd Packet Length Max",
+        "mean_abs_shap": 0.165792,
+        "mean_signed_shap": -0.074765
+      },
+      {
+        "feature": "Packet Length Std",
+        "mean_abs_shap": 0.165248,
+        "mean_signed_shap": -0.032432
       }
     ],
     "DoS": [
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 2.696213,
-        "mean_signed_shap": -2.17621
+        "mean_abs_shap": 2.415066,
+        "mean_signed_shap": -1.992135
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 1.965807,
-        "mean_signed_shap": -1.865146
-      },
-      {
-        "feature": "FWD Init Win Bytes",
-        "mean_abs_shap": 0.807663,
-        "mean_signed_shap": -0.806815
-      },
-      {
-        "feature": "Bwd Header Length",
-        "mean_abs_shap": 0.581341,
-        "mean_signed_shap": 0.518331
+        "mean_abs_shap": 1.918487,
+        "mean_signed_shap": -1.814455
       },
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.501636,
-        "mean_signed_shap": -0.494942
+        "mean_abs_shap": 0.648818,
+        "mean_signed_shap": -0.64192
       },
       {
-        "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.381997,
-        "mean_signed_shap": -0.357459
+        "feature": "FWD Init Win Bytes",
+        "mean_abs_shap": 0.62914,
+        "mean_signed_shap": -0.614957
       },
       {
         "feature": "Fwd Packet Length Mean",
-        "mean_abs_shap": 0.347885,
-        "mean_signed_shap": -0.293177
+        "mean_abs_shap": 0.610984,
+        "mean_signed_shap": -0.482276
+      },
+      {
+        "feature": "Bwd Header Length",
+        "mean_abs_shap": 0.581793,
+        "mean_signed_shap": 0.502526
+      },
+      {
+        "feature": "Bwd Packet/Bulk Avg",
+        "mean_abs_shap": 0.315909,
+        "mean_signed_shap": -0.294393
       },
       {
         "feature": "Protocol",
-        "mean_abs_shap": 0.191693,
-        "mean_signed_shap": -0.191635
+        "mean_abs_shap": 0.260121,
+        "mean_signed_shap": -0.260045
+      },
+      {
+        "feature": "Fwd Segment Size Avg",
+        "mean_abs_shap": 0.225431,
+        "mean_signed_shap": -0.187271
       },
       {
         "feature": "SYN Flag Count",
-        "mean_abs_shap": 0.177624,
-        "mean_signed_shap": -0.177402
+        "mean_abs_shap": 0.218759,
+        "mean_signed_shap": -0.218462
       },
       {
         "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.141889,
-        "mean_signed_shap": -0.140843
-      },
-      {
-        "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.117864,
-        "mean_signed_shap": -0.117849
+        "mean_abs_shap": 0.142382,
+        "mean_signed_shap": -0.141238
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 0.095271,
-        "mean_signed_shap": -0.036635
+        "mean_abs_shap": 0.107406,
+        "mean_signed_shap": -0.055215
       }
     ],
     "Evasion": [
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 4.109165,
-        "mean_signed_shap": -3.450475
+        "mean_abs_shap": 4.221339,
+        "mean_signed_shap": -3.47076
       },
       {
         "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 1.319884,
-        "mean_signed_shap": -1.251694
+        "mean_abs_shap": 1.273882,
+        "mean_signed_shap": -1.195298
       },
       {
         "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.733455,
-        "mean_signed_shap": -0.055715
+        "mean_abs_shap": 0.633302,
+        "mean_signed_shap": -0.116048
       },
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.445842,
-        "mean_signed_shap": -0.38037
+        "mean_abs_shap": 0.306073,
+        "mean_signed_shap": -0.245255
       },
       {
         "feature": "Subflow Bwd Bytes",
-        "mean_abs_shap": 0.341901,
-        "mean_signed_shap": -0.277593
-      },
-      {
-        "feature": "SYN Flag Count",
-        "mean_abs_shap": 0.160002,
-        "mean_signed_shap": -0.147577
+        "mean_abs_shap": 0.271508,
+        "mean_signed_shap": -0.212723
       },
       {
         "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.154263,
-        "mean_signed_shap": -0.066779
+        "mean_abs_shap": 0.217421,
+        "mean_signed_shap": -0.12424
       },
       {
-        "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.123727,
-        "mean_signed_shap": 0.108516
-      },
-      {
-        "feature": "RST Flag Count",
-        "mean_abs_shap": 0.090471,
-        "mean_signed_shap": -0.031527
-      },
-      {
-        "feature": "Flow IAT Mean",
-        "mean_abs_shap": 0.087423,
-        "mean_signed_shap": 0.081083
+        "feature": "Bwd Header Length",
+        "mean_abs_shap": 0.14299,
+        "mean_signed_shap": -0.12839
       },
       {
         "feature": "Packet Length Max",
-        "mean_abs_shap": 0.087119,
-        "mean_signed_shap": -0.064869
+        "mean_abs_shap": 0.110912,
+        "mean_signed_shap": -0.098444
       },
       {
-        "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.077001,
-        "mean_signed_shap": -0.044921
+        "feature": "SYN Flag Count",
+        "mean_abs_shap": 0.107512,
+        "mean_signed_shap": -0.097363
+      },
+      {
+        "feature": "Flow IAT Std",
+        "mean_abs_shap": 0.088621,
+        "mean_signed_shap": 0.060809
+      },
+      {
+        "feature": "Fwd Packet Length Max",
+        "mean_abs_shap": 0.0872,
+        "mean_signed_shap": -0.080125
+      },
+      {
+        "feature": "Flow IAT Min",
+        "mean_abs_shap": 0.086044,
+        "mean_signed_shap": 0.04976
       }
     ],
     "Exfiltration": [
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 2.681915,
-        "mean_signed_shap": -1.795287
+        "mean_abs_shap": 2.591083,
+        "mean_signed_shap": -1.883952
       },
       {
         "feature": "Fwd Packet/Bulk Avg",
-        "mean_abs_shap": 1.91795,
-        "mean_signed_shap": -0.801575
+        "mean_abs_shap": 2.027334,
+        "mean_signed_shap": -0.810092
       },
       {
         "feature": "Average Packet Size",
-        "mean_abs_shap": 0.61722,
-        "mean_signed_shap": -0.271517
-      },
-      {
-        "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.478765,
-        "mean_signed_shap": -0.262232
-      },
-      {
-        "feature": "Packet Length Max",
-        "mean_abs_shap": 0.406503,
-        "mean_signed_shap": -0.212886
+        "mean_abs_shap": 0.588288,
+        "mean_signed_shap": -0.230359
       },
       {
         "feature": "Fwd Packet Length Mean",
-        "mean_abs_shap": 0.350304,
-        "mean_signed_shap": -0.099494
+        "mean_abs_shap": 0.474474,
+        "mean_signed_shap": -0.170849
       },
       {
-        "feature": "Subflow Fwd Bytes",
-        "mean_abs_shap": 0.324361,
-        "mean_signed_shap": -0.109778
+        "feature": "Bwd Packet/Bulk Avg",
+        "mean_abs_shap": 0.35426,
+        "mean_signed_shap": -0.196747
       },
       {
-        "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.279667,
-        "mean_signed_shap": -0.253517
+        "feature": "Packet Length Max",
+        "mean_abs_shap": 0.349557,
+        "mean_signed_shap": -0.195071
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.186847,
-        "mean_signed_shap": -0.103273
+        "mean_abs_shap": 0.258341,
+        "mean_signed_shap": -0.150573
+      },
+      {
+        "feature": "Fwd Bytes/Bulk Avg",
+        "mean_abs_shap": 0.240267,
+        "mean_signed_shap": -0.150367
       },
       {
         "feature": "Packet Length Mean",
-        "mean_abs_shap": 0.140758,
-        "mean_signed_shap": -0.083678
+        "mean_abs_shap": 0.146109,
+        "mean_signed_shap": -0.060841
+      },
+      {
+        "feature": "Subflow Fwd Bytes",
+        "mean_abs_shap": 0.130089,
+        "mean_signed_shap": -0.035453
       },
       {
         "feature": "Fwd Bulk Rate Avg",
-        "mean_abs_shap": 0.11983,
-        "mean_signed_shap": -0.096568
+        "mean_abs_shap": 0.118111,
+        "mean_signed_shap": -0.096318
       },
       {
-        "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.119281,
-        "mean_signed_shap": -0.008084
+        "feature": "Bwd Packet Length Mean",
+        "mean_abs_shap": 0.117774,
+        "mean_signed_shap": -0.009709
       }
     ],
     "Exploitation": [
       {
-        "feature": "Fwd Bulk Rate Avg",
-        "mean_abs_shap": 0.985151,
-        "mean_signed_shap": -0.88575
+        "feature": "Fwd Bytes/Bulk Avg",
+        "mean_abs_shap": 1.326512,
+        "mean_signed_shap": -1.236019
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 0.795629,
-        "mean_signed_shap": -0.702218
+        "mean_abs_shap": 0.770012,
+        "mean_signed_shap": -0.668347
       },
       {
-        "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.77139,
-        "mean_signed_shap": -0.659647
+        "feature": "Fwd Bulk Rate Avg",
+        "mean_abs_shap": 0.747194,
+        "mean_signed_shap": -0.641495
       },
       {
         "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.344498,
-        "mean_signed_shap": -0.106411
-      },
-      {
-        "feature": "Fwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.302077,
-        "mean_signed_shap": -0.289358
+        "mean_abs_shap": 0.367456,
+        "mean_signed_shap": -0.128882
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.277621,
-        "mean_signed_shap": -0.218267
-      },
-      {
-        "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.264035,
-        "mean_signed_shap": -0.229548
+        "mean_abs_shap": 0.246431,
+        "mean_signed_shap": -0.218382
       },
       {
         "feature": "Bwd Packet Length Mean",
-        "mean_abs_shap": 0.235607,
-        "mean_signed_shap": -0.227923
+        "mean_abs_shap": 0.218486,
+        "mean_signed_shap": -0.213607
       },
       {
-        "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.2251,
-        "mean_signed_shap": -0.166589
+        "feature": "Fwd Packet/Bulk Avg",
+        "mean_abs_shap": 0.218186,
+        "mean_signed_shap": -0.183374
+      },
+      {
+        "feature": "Bwd Packet/Bulk Avg",
+        "mean_abs_shap": 0.193817,
+        "mean_signed_shap": -0.172732
       },
       {
         "feature": "Packet Length Min",
-        "mean_abs_shap": 0.186508,
-        "mean_signed_shap": -0.183183
-      },
-      {
-        "feature": "Fwd IAT Total",
-        "mean_abs_shap": 0.181128,
-        "mean_signed_shap": -0.151366
+        "mean_abs_shap": 0.176726,
+        "mean_signed_shap": -0.170561
       },
       {
         "feature": "SYN Flag Count",
-        "mean_abs_shap": 0.17113,
-        "mean_signed_shap": -0.139926
+        "mean_abs_shap": 0.175581,
+        "mean_signed_shap": -0.15075
+      },
+      {
+        "feature": "Bwd Bytes/Bulk Avg",
+        "mean_abs_shap": 0.168034,
+        "mean_signed_shap": -0.086146
+      },
+      {
+        "feature": "Bwd Packet Length Max",
+        "mean_abs_shap": 0.155306,
+        "mean_signed_shap": -0.11335
       }
     ],
     "MITM": [
       {
         "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 3.380924,
-        "mean_signed_shap": -2.56948
+        "mean_abs_shap": 3.286342,
+        "mean_signed_shap": -2.500734
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 1.218946,
-        "mean_signed_shap": -0.848315
+        "mean_abs_shap": 1.280984,
+        "mean_signed_shap": -0.912373
       },
       {
         "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.808087,
-        "mean_signed_shap": -0.738839
-      },
-      {
-        "feature": "FWD Init Win Bytes",
-        "mean_abs_shap": 0.442009,
-        "mean_signed_shap": -0.424597
+        "mean_abs_shap": 0.943449,
+        "mean_signed_shap": -0.878348
       },
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.395553,
-        "mean_signed_shap": -0.258599
+        "mean_abs_shap": 0.555444,
+        "mean_signed_shap": -0.370159
       },
       {
-        "feature": "Packet Length Min",
-        "mean_abs_shap": 0.281255,
-        "mean_signed_shap": 0.071287
-      },
-      {
-        "feature": "Bwd Header Length",
-        "mean_abs_shap": 0.275458,
-        "mean_signed_shap": -0.224529
-      },
-      {
-        "feature": "Bwd Init Win Bytes",
-        "mean_abs_shap": 0.235447,
-        "mean_signed_shap": -0.101975
-      },
-      {
-        "feature": "Flow IAT Min",
-        "mean_abs_shap": 0.21547,
-        "mean_signed_shap": -0.080268
-      },
-      {
-        "feature": "SYN Flag Count",
-        "mean_abs_shap": 0.202517,
-        "mean_signed_shap": 0.014154
+        "feature": "FWD Init Win Bytes",
+        "mean_abs_shap": 0.422384,
+        "mean_signed_shap": -0.406098
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.16189,
-        "mean_signed_shap": -0.09842
+        "mean_abs_shap": 0.253126,
+        "mean_signed_shap": -0.090934
       },
       {
-        "feature": "ACK Flag Count",
-        "mean_abs_shap": 0.131376,
-        "mean_signed_shap": -0.121883
+        "feature": "Bwd Init Win Bytes",
+        "mean_abs_shap": 0.24435,
+        "mean_signed_shap": -0.086985
+      },
+      {
+        "feature": "Flow IAT Min",
+        "mean_abs_shap": 0.231026,
+        "mean_signed_shap": -0.059281
+      },
+      {
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.198172,
+        "mean_signed_shap": 0.080301
+      },
+      {
+        "feature": "SYN Flag Count",
+        "mean_abs_shap": 0.185578,
+        "mean_signed_shap": 0.044471
+      },
+      {
+        "feature": "Bwd Header Length",
+        "mean_abs_shap": 0.184155,
+        "mean_signed_shap": -0.140608
+      },
+      {
+        "feature": "Packet Length Min",
+        "mean_abs_shap": 0.157597,
+        "mean_signed_shap": -0.004521
       }
     ],
     "PortScan": [
       {
         "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 4.393203,
-        "mean_signed_shap": -3.750091
+        "mean_abs_shap": 4.623413,
+        "mean_signed_shap": -3.819994
       },
       {
         "feature": "Bwd Packet Length Mean",
-        "mean_abs_shap": 1.097752,
-        "mean_signed_shap": -0.811144
+        "mean_abs_shap": 0.75044,
+        "mean_signed_shap": -0.676782
       },
       {
         "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.704992,
-        "mean_signed_shap": -0.694509
+        "mean_abs_shap": 0.648829,
+        "mean_signed_shap": -0.637056
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 0.598456,
-        "mean_signed_shap": -0.266308
+        "mean_abs_shap": 0.579375,
+        "mean_signed_shap": -0.267181
       },
       {
         "feature": "SYN Flag Count",
-        "mean_abs_shap": 0.388205,
-        "mean_signed_shap": -0.333423
-      },
-      {
-        "feature": "Flow Bytes/s",
-        "mean_abs_shap": 0.183513,
-        "mean_signed_shap": -0.152415
+        "mean_abs_shap": 0.39962,
+        "mean_signed_shap": -0.352936
       },
       {
         "feature": "Fwd Header Length",
-        "mean_abs_shap": 0.180609,
-        "mean_signed_shap": -0.170023
-      },
-      {
-        "feature": "RST Flag Count",
-        "mean_abs_shap": 0.153693,
-        "mean_signed_shap": -0.090012
-      },
-      {
-        "feature": "Subflow Fwd Bytes",
-        "mean_abs_shap": 0.141202,
-        "mean_signed_shap": -0.068355
-      },
-      {
-        "feature": "ACK Flag Count",
-        "mean_abs_shap": 0.124815,
-        "mean_signed_shap": -0.044088
-      },
-      {
-        "feature": "Average Packet Size",
-        "mean_abs_shap": 0.088697,
-        "mean_signed_shap": -0.008619
+        "mean_abs_shap": 0.232771,
+        "mean_signed_shap": -0.194994
       },
       {
         "feature": "Bwd Packet Length Min",
-        "mean_abs_shap": 0.085955,
-        "mean_signed_shap": -0.077598
+        "mean_abs_shap": 0.225704,
+        "mean_signed_shap": -0.186642
+      },
+      {
+        "feature": "Flow Bytes/s",
+        "mean_abs_shap": 0.197511,
+        "mean_signed_shap": -0.171735
+      },
+      {
+        "feature": "Fwd Bulk Rate Avg",
+        "mean_abs_shap": 0.166127,
+        "mean_signed_shap": -0.161896
+      },
+      {
+        "feature": "ACK Flag Count",
+        "mean_abs_shap": 0.121672,
+        "mean_signed_shap": -0.058393
+      },
+      {
+        "feature": "Fwd Packet Length Min",
+        "mean_abs_shap": 0.112357,
+        "mean_signed_shap": -0.090297
+      },
+      {
+        "feature": "Average Packet Size",
+        "mean_abs_shap": 0.098514,
+        "mean_signed_shap": -0.001208
       }
     ],
     "Slowloris": [
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 2.495525,
-        "mean_signed_shap": -2.055159
+        "mean_abs_shap": 2.703459,
+        "mean_signed_shap": -2.269463
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 1.404175,
-        "mean_signed_shap": -1.359249
+        "mean_abs_shap": 1.345845,
+        "mean_signed_shap": -1.246541
       },
       {
         "feature": "Subflow Bwd Bytes",
-        "mean_abs_shap": 0.788217,
-        "mean_signed_shap": -0.742127
+        "mean_abs_shap": 0.915203,
+        "mean_signed_shap": -0.886015
       },
       {
         "feature": "Protocol",
-        "mean_abs_shap": 0.777315,
-        "mean_signed_shap": -0.776809
+        "mean_abs_shap": 0.700723,
+        "mean_signed_shap": -0.700243
       },
       {
         "feature": "Fwd Packet Length Mean",
-        "mean_abs_shap": 0.516707,
-        "mean_signed_shap": -0.411621
-      },
-      {
-        "feature": "Bwd Header Length",
-        "mean_abs_shap": 0.406868,
-        "mean_signed_shap": -0.403878
+        "mean_abs_shap": 0.516246,
+        "mean_signed_shap": -0.425379
       },
       {
         "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.351781,
-        "mean_signed_shap": -0.273784
+        "mean_abs_shap": 0.43485,
+        "mean_signed_shap": -0.419401
+      },
+      {
+        "feature": "Bwd Header Length",
+        "mean_abs_shap": 0.320427,
+        "mean_signed_shap": -0.317505
       },
       {
         "feature": "Total Length of Bwd Packet",
-        "mean_abs_shap": 0.213315,
-        "mean_signed_shap": -0.208862
-      },
-      {
-        "feature": "Fwd Segment Size Avg",
-        "mean_abs_shap": 0.164139,
-        "mean_signed_shap": -0.154942
+        "mean_abs_shap": 0.174141,
+        "mean_signed_shap": -0.156871
       },
       {
         "feature": "Dst Port",
-        "mean_abs_shap": 0.136121,
-        "mean_signed_shap": -0.003066
+        "mean_abs_shap": 0.144988,
+        "mean_signed_shap": -0.032957
       },
       {
-        "feature": "Packet Length Max",
-        "mean_abs_shap": 0.08935,
-        "mean_signed_shap": -0.08932
+        "feature": "Fwd Segment Size Avg",
+        "mean_abs_shap": 0.118768,
+        "mean_signed_shap": -0.099899
       },
       {
-        "feature": "Average Packet Size",
-        "mean_abs_shap": 0.089315,
-        "mean_signed_shap": -0.088483
+        "feature": "Flow Duration",
+        "mean_abs_shap": 0.097833,
+        "mean_signed_shap": -0.091515
+      },
+      {
+        "feature": "Flow Bytes/s",
+        "mean_abs_shap": 0.076426,
+        "mean_signed_shap": -0.075063
       }
     ],
     "TLSSSL": [
       {
         "feature": "Fwd Packet/Bulk Avg",
-        "mean_abs_shap": 1.542965,
-        "mean_signed_shap": -1.220661
+        "mean_abs_shap": 1.487338,
+        "mean_signed_shap": -1.224168
       },
       {
         "feature": "Bwd Bulk Rate Avg",
-        "mean_abs_shap": 0.93912,
-        "mean_signed_shap": -0.539043
-      },
-      {
-        "feature": "Dst Port",
-        "mean_abs_shap": 0.567436,
-        "mean_signed_shap": -0.481926
-      },
-      {
-        "feature": "Bwd Packet Length Min",
-        "mean_abs_shap": 0.550762,
-        "mean_signed_shap": -0.498815
-      },
-      {
-        "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.546939,
-        "mean_signed_shap": -0.175223
+        "mean_abs_shap": 0.911778,
+        "mean_signed_shap": -0.540894
       },
       {
         "feature": "Bwd Packet Length Std",
-        "mean_abs_shap": 0.488512,
-        "mean_signed_shap": -0.228624
+        "mean_abs_shap": 0.608964,
+        "mean_signed_shap": -0.268483
       },
       {
         "feature": "Packet Length Max",
-        "mean_abs_shap": 0.417908,
-        "mean_signed_shap": -0.345322
+        "mean_abs_shap": 0.548403,
+        "mean_signed_shap": -0.431533
+      },
+      {
+        "feature": "Fwd Packet Length Max",
+        "mean_abs_shap": 0.542536,
+        "mean_signed_shap": -0.193864
+      },
+      {
+        "feature": "Bwd Packet Length Min",
+        "mean_abs_shap": 0.520457,
+        "mean_signed_shap": -0.46841
+      },
+      {
+        "feature": "Dst Port",
+        "mean_abs_shap": 0.518873,
+        "mean_signed_shap": -0.439554
       },
       {
         "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.344602,
-        "mean_signed_shap": -0.096664
+        "mean_abs_shap": 0.368227,
+        "mean_signed_shap": -0.082178
       },
       {
-        "feature": "Packet Length Std",
-        "mean_abs_shap": 0.308011,
-        "mean_signed_shap": -0.236301
+        "feature": "Fwd PSH Flags",
+        "mean_abs_shap": 0.228444,
+        "mean_signed_shap": -0.052613
       },
       {
-        "feature": "Bwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.270927,
-        "mean_signed_shap": -0.219743
+        "feature": "Fwd Bytes/Bulk Avg",
+        "mean_abs_shap": 0.226759,
+        "mean_signed_shap": -0.209324
       },
       {
         "feature": "Bwd Packet/Bulk Avg",
-        "mean_abs_shap": 0.216381,
-        "mean_signed_shap": -0.156905
+        "mean_abs_shap": 0.219553,
+        "mean_signed_shap": -0.161595
       },
       {
-        "feature": "Down/Up Ratio",
-        "mean_abs_shap": 0.190787,
-        "mean_signed_shap": -0.125954
+        "feature": "Packet Length Std",
+        "mean_abs_shap": 0.212257,
+        "mean_signed_shap": -0.1741
       }
     ],
     "WebBased": [
       {
-        "feature": "Fwd IAT Min",
-        "mean_abs_shap": 1.151078,
-        "mean_signed_shap": -1.061143
+        "feature": "Fwd Packet Length Std",
+        "mean_abs_shap": 1.117567,
+        "mean_signed_shap": -0.692552
       },
       {
-        "feature": "Fwd Packet Length Std",
-        "mean_abs_shap": 1.135389,
-        "mean_signed_shap": -0.666532
+        "feature": "Fwd IAT Min",
+        "mean_abs_shap": 0.990521,
+        "mean_signed_shap": -0.887268
       },
       {
         "feature": "Fwd Bytes/Bulk Avg",
-        "mean_abs_shap": 0.794787,
-        "mean_signed_shap": -0.325444
+        "mean_abs_shap": 0.757477,
+        "mean_signed_shap": -0.301935
       },
       {
         "feature": "Fwd Packet Length Max",
-        "mean_abs_shap": 0.53274,
-        "mean_signed_shap": -0.342301
+        "mean_abs_shap": 0.52776,
+        "mean_signed_shap": -0.296144
       },
       {
         "feature": "Bwd Header Length",
-        "mean_abs_shap": 0.437422,
-        "mean_signed_shap": -0.162002
+        "mean_abs_shap": 0.450345,
+        "mean_signed_shap": -0.177604
       },
       {
         "feature": "Bwd IAT Std",
-        "mean_abs_shap": 0.380355,
-        "mean_signed_shap": -0.237668
+        "mean_abs_shap": 0.372423,
+        "mean_signed_shap": -0.255158
       },
       {
         "feature": "ACK Flag Count",
-        "mean_abs_shap": 0.364134,
-        "mean_signed_shap": -0.315164
-      },
-      {
-        "feature": "Bwd Packet Length Max",
-        "mean_abs_shap": 0.346485,
-        "mean_signed_shap": -0.231463
-      },
-      {
-        "feature": "Fwd IAT Total",
-        "mean_abs_shap": 0.342369,
-        "mean_signed_shap": -0.298301
-      },
-      {
-        "feature": "Fwd Header Length",
-        "mean_abs_shap": 0.324794,
-        "mean_signed_shap": -0.024525
-      },
-      {
-        "feature": "Flow IAT Std",
-        "mean_abs_shap": 0.320009,
-        "mean_signed_shap": -0.22165
+        "mean_abs_shap": 0.362122,
+        "mean_signed_shap": -0.305157
       },
       {
         "feature": "Bwd Packet Length Std",
-        "mean_abs_shap": 0.315333,
-        "mean_signed_shap": -0.236457
+        "mean_abs_shap": 0.345535,
+        "mean_signed_shap": -0.290244
+      },
+      {
+        "feature": "Flow IAT Std",
+        "mean_abs_shap": 0.34095,
+        "mean_signed_shap": -0.220741
+      },
+      {
+        "feature": "Fwd Header Length",
+        "mean_abs_shap": 0.339126,
+        "mean_signed_shap": -0.020184
+      },
+      {
+        "feature": "Packet Length Min",
+        "mean_abs_shap": 0.305379,
+        "mean_signed_shap": -0.265325
+      },
+      {
+        "feature": "FIN Flag Count",
+        "mean_abs_shap": 0.300623,
+        "mean_signed_shap": -0.255005
       }
     ]
   }

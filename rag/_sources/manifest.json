@@ -1,0 +1,182 @@
+{
+  "NIST.SP.800-61r3": {
+    "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf",
+    "landing": "https://csrc.nist.gov/pubs/sp/800/61/r3/final",
+    "citation": "A. Nelson, S. Rekhi, M. Souppaya and K. Scarfone, \"Incident response recommendations and considerations for cybersecurity risk management,\" NIST SP 800-61r3, Apr. 2025, doi: 10.6028/NIST.SP.800-61r3.",
+    "file": "NIST.SP.800-61r3.pdf",
+    "bytes": 1040566,
+    "sha256": "e5593d6bb85daecec7e8d9549400c7b3473bcc3f06e469c82218073afa7fba2d",
+    "retrieved": "2026-09-08T10:01:06"
+  },
+  "NIST.SP.800-53r5": {
+    "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf",
+    "landing": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+    "citation": "Joint Task Force, \"Security and privacy controls for information systems and organizations,\" NIST SP 800-53r5, rel. 5.2.0, Aug. 2025, doi: 10.6028/NIST.SP.800-53r5.",
+    "file": "NIST.SP.800-53r5.pdf",
+    "bytes": 6073678,
+    "sha256": "fc63bcd61715d0181dd8e85998b1e6201ae3515fc6626102101cab1841e11ec6",
+    "retrieved": "2026-09-08T10:03:36"
+  },
+  "NIST.SP.800-52r2": {
+    "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-52r2.pdf",
+    "landing": "https://csrc.nist.gov/pubs/sp/800/52/r2/final",
+    "citation": "K. McKay and D. Cooper, \"Guidelines for the selection, configuration, and use of Transport Layer Security (TLS) implementations,\" NIST SP 800-52r2, Aug. 2019, doi: 10.6028/NIST.SP.800-52r2.",
+    "file": "NIST.SP.800-52r2.pdf",
+    "bytes": 814862,
+    "sha256": "f9a4dbb9cc6ac6778bb9f4e6be9272c2f14d113f3ad241a295684ac6bd71f257",
+    "retrieved": "2026-09-08T10:03:54"
+  },
+  "NIST.CSWP.29": {
+    "url": "https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf",
+    "landing": "https://www.nist.gov/cyberframework",
+    "citation": "National Institute of Standards and Technology, \"The NIST Cybersecurity Framework (CSF) 2.0,\" NIST CSWP 29, Feb. 2024, doi: 10.6028/NIST.CSWP.29.",
+    "file": "NIST.CSWP.29.pdf",
+    "bytes": 1518858,
+    "sha256": "3c31f46fee98cac0c4323453e5109291a213b4de7fef8c058af9bf67f717433c",
+    "retrieved": "2026-09-08T10:04:07"
+  },
+  "CISA.playbooks": {
+    "url": "https://www.cisa.gov/sites/default/files/publications/Federal_Government_Cybersecurity_Incident_and_Vulnerability_Response_Playbooks_508C.pdf",
+    "landing": "https://www.cisa.gov/resources-tools/resources/federal-government-cybersecurity-incident-and-vulnerability-response-playbooks",
+    "citation": "Cybersecurity and Infrastructure Security Agency, \"Federal government cybersecurity incident and vulnerability response playbooks,\" CISA, Aug. 2024.",
+    "file": "CISA.playbooks.pdf",
+    "bytes": 2703130,
+    "sha256": "2277247542d844d2258c0f6892d649d6885f783fc629664924e60638086f47f0",
+    "retrieved": "2026-09-08T10:04:33"
+  },
+  "RFC9424": {
+    "url": "https://www.rfc-editor.org/rfc/rfc9424.txt",
+    "landing": "https://www.rfc-editor.org/rfc/rfc9424.html",
+    "citation": "K. Paine, O. Whitehouse, J. Sellwood and A. Shaw, \"Indicators of compromise (IoCs) and their role in attack defence,\" RFC 9424, Aug. 2023, doi: 10.17487/RFC9424.",
+    "file": "RFC9424.txt",
+    "bytes": 70488,
+    "sha256": "c11e9ebbcf4c5df555c3038bd8661711a6c8f49cc7cb6206d1fa39e957aeeb46",
+    "retrieved": "2026-09-08T10:04:34"
+  },
+  "RFC1858": {
+    "url": "https://www.rfc-editor.org/rfc/rfc1858.txt",
+    "landing": "https://www.rfc-editor.org/rfc/rfc1858.html",
+    "citation": "G. Ziemba, D. Reed and P. Traina, \"Security considerations for IP fragment filtering,\" RFC 1858, Oct. 1995, doi: 10.17487/RFC1858.",
+    "file": "RFC1858.txt",
+    "bytes": 20468,
+    "sha256": "29f44b2153e734727882799fb476614b8f580c4627329b55966dfc510bcf8005",
+    "retrieved": "2026-09-08T10:04:34"
+  },
+  "RFC3128": {
+    "url": "https://www.rfc-editor.org/rfc/rfc3128.txt",
+    "landing": "https://www.rfc-editor.org/rfc/rfc3128.html",
+    "citation": "I. Miller, \"Protection against a variant of the tiny fragment attack,\" RFC 3128, Jun. 2001, doi: 10.17487/RFC3128.",
+    "file": "RFC3128.txt",
+    "bytes": 8242,
+    "sha256": "0e2bb17258b58a467ee5cf93a5b0828c85056f61ebdc67a5bd7d5a8dc00b9ec3",
+    "retrieved": "2026-09-08T10:04:35"
+  },
+  "OWASP.Top10.2025": {
+    "url": "https://owasp.org/Top10/2025/",
+    "landing": "https://owasp.org/Top10/2025/",
+    "citation": "Open Worldwide Application Security Project, \"OWASP Top 10:2025 — web application security risks,\" OWASP Foundation, 2025.",
+    "file": "OWASP.Top10.2025.html",
+    "bytes": 25877,
+    "sha256": "37db8253029a5a6afd4f8383cda997a0a482e45766110591bf8f5a3b0d423857",
+    "retrieved": "2026-09-08T10:04:36"
+  },
+  "NIST.AI.100-1": {
+    "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf",
+    "landing": "https://www.nist.gov/itl/ai-risk-management-framework",
+    "citation": "National Institute of Standards and Technology, \"Artificial Intelligence Risk Management Framework (AI RMF 1.0),\" NIST AI 100-1, Jan. 2023, doi: 10.6028/NIST.AI.100-1.",
+    "file": "NIST.AI.100-1.pdf",
+    "bytes": 1946127,
+    "sha256": "7576edb531d9848825814ee88e28b1795d3a84b435b4b797d3670eafdc4a89f1",
+    "retrieved": "2026-09-08T17:00:03"
+  },
+  "SommerPaxson.closedworld": {
+    "url": "https://www.icir.org/robin/papers/oakland10-ml.pdf",
+    "landing": "https://ieeexplore.ieee.org/document/5504793",
+    "citation": "R. Sommer and V. Paxson, \"Outside the closed world: On using machine learning for network intrusion detection,\" in Proc. IEEE Symp. Security and Privacy, Oakland, CA, USA, May 2010, pp. 305-316, doi: 10.1109/SP.2010.25.",
+    "file": "SommerPaxson.closedworld.pdf",
+    "bytes": 162273,
+    "sha256": "b73595240914c8b75ee6255bf08a0a429b0753f669427107388af7a90281866a",
+    "retrieved": "2026-09-08T17:00:09"
+  },
+  "Lundberg.shap": {
+    "url": "https://arxiv.org/pdf/1705.07874",
+    "landing": "https://arxiv.org/abs/1705.07874",
+    "citation": "S. M. Lundberg and S.-I. Lee, \"A unified approach to interpreting model predictions,\" in Advances in Neural Information Processing Systems 30, Long Beach, CA, USA, Dec. 2017, pp. 4765-4774.",
+    "file": "Lundberg.shap.pdf",
+    "bytes": 1014198,
+    "sha256": "01c7aa8f7d9edcf0cd185bf02e82363f743e441fcaf05b99e6054bfb470bf8ae",
+    "retrieved": "2026-09-08T17:00:11"
+  },
+  "Lundberg.treeshap": {
+    "url": "https://arxiv.org/pdf/1905.04610",
+    "landing": "https://arxiv.org/abs/1905.04610",
+    "citation": "S. M. Lundberg et al., \"From local explanations to global understanding with explainable AI for trees,\" Nature Machine Intelligence, vol. 2, no. 1, pp. 56-67, Jan. 2020, doi: 10.1038/s42256-019-0138-9.",
+    "file": "Lundberg.treeshap.pdf",
+    "bytes": 19028452,
+    "sha256": "aa3824ce44c797539ec61cbb24a900a348363dc609a3ae717df5c92315557482",
+    "retrieved": "2026-09-08T17:01:08"
+  },
+  "OWASP.A01.2025": {
+    "url": "https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/",
+    "landing": "https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/",
+    "citation": "Open Worldwide Application Security Project, \"A01:2025 — Broken access control,\" in OWASP Top 10:2025, OWASP Foundation, 2025.",
+    "file": "OWASP.A01.2025.html",
+    "bytes": 36881,
+    "sha256": "da315070df0ad805417c9b6d5a8715b6211513afc5d70d3cf780d52bb56c5a39",
+    "retrieved": "2026-09-08T19:55:51"
+  },
+  "OWASP.A05.2025": {
+    "url": "https://owasp.org/Top10/2025/A05_2025-Injection/",
+    "landing": "https://owasp.org/Top10/2025/A05_2025-Injection/",
+    "citation": "Open Worldwide Application Security Project, \"A05:2025 — Injection,\" in OWASP Top 10:2025, OWASP Foundation, 2025.",
+    "file": "OWASP.A05.2025.html",
+    "bytes": 38472,
+    "sha256": "df8f178b38dc4be8099690aee02701d07ad7d2b0dabc0363ea4309265518d6a3",
+    "retrieved": "2026-09-08T19:55:51"
+  },
+  "OWASP.A07.2025": {
+    "url": "https://owasp.org/Top10/2025/A07_2025-Authentication_Failures/",
+    "landing": "https://owasp.org/Top10/2025/A07_2025-Authentication_Failures/",
+    "citation": "Open Worldwide Application Security Project, \"A07:2025 — Authentication failures,\" in OWASP Top 10:2025, OWASP Foundation, 2025.",
+    "file": "OWASP.A07.2025.html",
+    "bytes": 37855,
+    "sha256": "e5e4c51698ed4c966e5a767fd09db489edc11544cb24da09c76265a9015f8092",
+    "retrieved": "2026-09-08T19:55:52"
+  },
+  "NIST.SP.800-86": {
+    "url": "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-86.pdf",
+    "landing": "https://csrc.nist.gov/pubs/sp/800/86/final",
+    "citation": "K. Kent, S. Chevalier, T. Grance and H. Dang, \"Guide to integrating forensic techniques into incident response,\" NIST SP 800-86, Aug. 2006, doi: 10.6028/NIST.SP.800-86.",
+    "file": "NIST.SP.800-86.pdf",
+    "bytes": 2818618,
+    "sha256": "ea7eb645bcd3feaf3ab9ea7dfc3c8987a08bf260c40682df1e5e8292bf9fe9b4",
+    "retrieved": "2026-09-08T20:20:26"
+  },
+  "Chen.xgboost": {
+    "url": "https://dl.acm.org/doi/pdf/10.1145/2939672.2939785",
+    "landing": "https://dl.acm.org/doi/10.1145/2939672.2939785",
+    "citation": "T. Chen and C. Guestrin, \"XGBoost: A scalable tree boosting system,\" in Proc. 22nd ACM SIGKDD Int. Conf. Knowledge Discovery and Data Mining, San Francisco, CA, USA, Aug. 2016, pp. 785-794, doi: 10.1145/2939672.2939785.",
+    "file": "Chen.xgboost.pdf",
+    "bytes": 1438617,
+    "sha256": "87b526dc80c61a18f776474be520cf616f204af863363d615a4e22a254a0a2e4",
+    "retrieved": "2026-09-08T22:09:00"
+  },
+  "Iyengar.aip": {
+    "url": "https://link.springer.com/book/10.1007/978-3-031-89327-8",
+    "landing": "https://link.springer.com/book/10.1007/978-3-031-89327-8",
+    "citation": "S. S. Iyengar, S. Nabavirazavi, Y. Hariprasad, Prasad HB and C. Krishna Mohan, Artificial Intelligence in Practice: Theory and Application for Cyber Security and Forensics. Cham, Switzerland: Springer Nature, 2025, doi: 10.1007/978-3-031-89327-8.",
+    "file": "Iyengar.aip.pdf",
+    "bytes": 32841364,
+    "sha256": "dd84822d0f207c0dac4d34eea4f601d95604c9589ad076a13b7f083ba04f5b24",
+    "retrieved": "2026-09-08T22:09:00"
+  },
+  "Arp.cacm": {
+    "url": "https://dl.acm.org/doi/pdf/10.1145/3643456",
+    "landing": "https://dl.acm.org/doi/10.1145/3643456",
+    "citation": "D. Arp, E. Quiring, F. Pendlebury, A. Warnecke, F. Pierazzi, C. Wressnegger, L. Cavallaro and K. Rieck, \"Pitfalls in machine learning for computer security,\" Commun. ACM, vol. 67, no. 11, pp. 104-112, Nov. 2024, doi: 10.1145/3643456.",
+    "file": "Arp.cacm.pdf",
+    "bytes": 1189895,
+    "sha256": "a30c5d3c6e998fd4608199860968a5d70013030c8957337203147daef4559eee",
+    "retrieved": "2026-09-09T07:11:45"
+  }
+}

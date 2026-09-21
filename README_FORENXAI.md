@@ -145,6 +145,23 @@ The bundle in `backend\modelsorenxai\` is the multiclass XGBoost trained on the
 
 `manifest.json` carries the full SHA-256 of each file and the backend verifies them at startup. Git is set not to convert line endings in this folder (`.gitattributes`), so the hashes stay valid on every clone.
 
+## Testing the model bundle (branch `gpu-leakage-safe-model`)
+
+A short check that needs no PCAP, CICFlowMeter, Java or language model:
+
+```powershell
+git checkout gpu-leakage-safe-model
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python verify_bundle.py
+```
+
+Expected: four `PASS` lines and `ALL CHECKS PASSED`, exit code 0. It verifies the bundle hashes, classifies 3,008 held-out flows (`sample_data/heldout_sample.csv`, accuracy about 0.92), and checks that TreeSHAP reconstructs the model output (error about 1e-5).
+
+For the full application, follow the sections below (CICFlowMeter, Java, Wireshark, the language model in `backend/models/llm/`). `python verify_bundle.py --llm` also checks the language model file.
+
 ---
 
 # 3. Clone the Repository

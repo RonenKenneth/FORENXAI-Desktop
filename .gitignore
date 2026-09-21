@@ -37,3 +37,11 @@ frontend/FORENXAI.Desktop/obj/
 # Miscellaneous
 # ==========================================
 *.log
+
+# ==========================================
+# RAG source documents: third-party publications, kept off Git.
+# Only the manifest and the hash list are tracked.
+# ==========================================
+rag/_sources/*
+!rag/_sources/manifest.json
+!rag/_sources/SHA256SUMS.txt

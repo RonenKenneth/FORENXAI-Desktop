@@ -830,8 +830,15 @@ public partial class XaiView : UserControl
         }
 
 
+        // Prefer the cited form: the same sentence with its in-text
+        // citation appended. Falls back to the plain text for a bundle
+        // produced before citations were added.
         RecommendationActionsList.ItemsSource =
-            recommendation.Actions;
+            recommendation.ActionsCited != null
+            && recommendation.ActionsCited.Count
+                == recommendation.Actions.Count
+                ? recommendation.ActionsCited
+                : recommendation.Actions;
     }
 
 
@@ -901,6 +908,15 @@ public partial class XaiView : UserControl
                 + "itself as uncertain.";
         }
 
+        if (actionCount > 0
+            && !recommendation.StandardsGrounded)
+        {
+            verification +=
+                " No action here rests on a published standard: all of "
+                + "them trace to the internal corpus, whose response "
+                + "playbooks are marked PLACEHOLDER.";
+        }
+
         RecommendationVerificationText.Text =
             verification;
 
@@ -945,14 +961,16 @@ public partial class XaiView : UserControl
             );
         }
 
-        if (recommendation.Sources != null
-            && recommendation.Sources.Count > 0)
+        if (recommendation.References != null
+            && recommendation.References.Count > 0)
         {
-            lines.Add("PUBLICATIONS CITED");
+            lines.Add("REFERENCES (ACM Reference Format)");
 
-            foreach (SourceCitation source in recommendation.Sources)
+            foreach (ReferenceEntry reference in recommendation.References)
             {
-                lines.Add("  " + source.Citation);
+                lines.Add(
+                    $"  [{reference.Number}] {reference.Acm}"
+                );
             }
         }
 

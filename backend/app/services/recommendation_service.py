@@ -253,6 +253,7 @@ def retrieve(predicted_class: str) -> Dict[str, Any]:
 
         passages.append({
             "role": role,
+            "doc_id": "FORENXAI.corpus",
             "path": f"knowledge/{document['path']}",
             "text": text
         })
@@ -271,6 +272,7 @@ def retrieve(predicted_class: str) -> Dict[str, Any]:
 
         passages.append({
             "role": "always",
+            "doc_id": "FORENXAI.corpus",
             "path": f"knowledge/{relative_path}",
             "text": clipped
         })
@@ -413,6 +415,8 @@ def verify(action: str, passages: List[Dict[str, Any]]) -> Optional[Dict]:
 
         label = passage.get("label") or passage.get("path") or "unknown"
 
+        doc_id = passage.get("doc_id", "FORENXAI.corpus")
+
         if action_spans:
 
             shared = action_spans & _ngrams(source_words, SPAN_WORDS)
@@ -420,6 +424,7 @@ def verify(action: str, passages: List[Dict[str, Any]]) -> Optional[Dict]:
             if shared:
                 return {
                     "source": label,
+                    "doc_id": doc_id,
                     "match": "span",
                     "span": " ".join(sorted(shared)[0]),
                     "coverage": 1.0,
@@ -437,6 +442,7 @@ def verify(action: str, passages: List[Dict[str, Any]]) -> Optional[Dict]:
         ):
             best = {
                 "source": label,
+                "doc_id": doc_id,
                 "match": "terms",
                 "span": "",
                 "coverage": round(coverage, 3),
@@ -736,6 +742,93 @@ def _parse_actions(generated: str) -> List[str]:
 
 
 # ============================================================
+# REFERENCES -- ACM Reference Format, with in-text citations
+# ============================================================
+
+_LOCATOR_CONTROL = re.compile(r"NIST SP 800-53r5 ([A-Z]{2}-\d+)")
+
+_LOCATOR_SECTION = re.compile(r"section ([\d.]+).*?\(p\.(\d+)\)")
+
+
+def _locator(label: str) -> str:
+    """The precise place inside a document, for an in-text citation.
+
+    ACM permits a locator beside the number -- [1, SC-5], [2, Sec. 3.2,
+    p. 31]. In a forensic report that matters: a reader checking an
+    action should not have to search a 48-page publication for the
+    sentence it came from.
+    """
+    control = _LOCATOR_CONTROL.search(label)
+
+    if control:
+        return control.group(1)
+
+    section = _LOCATOR_SECTION.search(label)
+
+    if section:
+        return f"Sec. {section.group(1)}, p. {section.group(2)}"
+
+    if label.startswith("knowledge/"):
+        # The folder is already named in the reference entry; the file
+        # name alone keeps an in-text citation short enough to read.
+        return label.rsplit("/", 1)[-1]
+
+    return ""
+
+
+def _build_references(evidence: List[Dict[str, Any]],
+                      standards: List[Dict[str, Any]]):
+    """Number every document the displayed actions actually rest on.
+
+    Only documents an action was traced to are numbered. A publication
+    that was retrieved but that nothing ended up citing is not listed,
+    because a reference list is a record of what was used, not of what
+    was available.
+    """
+    si = _source_index()
+
+    order: List[str] = []
+
+    for item in evidence:
+
+        doc_id = item.get("doc_id", "FORENXAI.corpus")
+
+        if doc_id not in order:
+            order.append(doc_id)
+
+    # Published standards before the internal corpus: a reader checks
+    # the authority first.
+    order.sort(key=lambda d: (d == "FORENXAI.corpus", d))
+
+    references = []
+    number_of = {}
+
+    for position, doc_id in enumerate(order, start=1):
+
+        number_of[doc_id] = position
+
+        if doc_id == "FORENXAI.corpus":
+            acm = (
+                "FORENXAI. 2026. Detection profiles and response notes. "
+                "Internal knowledge base, rag/knowledge/. "
+                "Derived from the cited publications; the incident-response "
+                "playbooks are marked PLACEHOLDER and are not a standard."
+            )
+        else:
+            acm = (
+                si.acm_citation(doc_id) if si else None
+            ) or doc_id
+
+        references.append({
+            "number": position,
+            "doc_id": doc_id,
+            "acm": acm,
+        })
+
+    return references, number_of
+
+
+# ============================================================
 # PUBLIC ENTRY POINT
 # ============================================================
 
@@ -799,14 +892,72 @@ def get_recommendation(predicted_class: str,
             texts = list(actions)
             evidence = []
 
+        references, number_of = _build_references(
+            evidence,
+            retrieved.get("standards", [])
+        )
+
+        # The action text with its in-text citation appended, ready to
+        # render or paste into a report.
+        #
+        # Benign is the one class with no retrieved playbook, by design:
+        # its three actions are fixed policy text, neither generated nor
+        # quoted, so they carry no citation. They still belong in
+        # actions_cited so the field always lines up with actions and the
+        # caller never has to decide which list to read.
+        cited = []
+
+        if not evidence:
+            cited = list(texts)
+
+        for text, item in zip(texts, evidence):
+
+            number = number_of.get(
+                item.get("doc_id", "FORENXAI.corpus")
+            )
+
+            if not number:
+                cited.append(text)
+                continue
+
+            locator = _locator(item.get("source", ""))
+
+            item["reference_number"] = number
+            item["locator"] = locator
+
+            marker = (
+                f"[{number}, {locator}]" if locator else f"[{number}]"
+            )
+
+            cited.append(
+                f"{text.rstrip('.')} {marker}."
+            )
+
+        # Whether any displayed action rests on a published standard, as
+        # opposed to the internal corpus alone. Worth surfacing: the
+        # response playbooks are still marked PLACEHOLDER, so a class
+        # whose actions all trace to them is grounded in less than it
+        # looks.
+        standards_grounded = any(
+            item.get("doc_id", "FORENXAI.corpus") != "FORENXAI.corpus"
+            for item in evidence
+        )
+
         result = {
             "predicted_class": predicted_class,
             "summary": retrieved["summary"],
             "actions": texts,
+            "actions_cited": cited,
+            "references": references,
+            "standards_grounded": standards_grounded,
             "action_evidence": evidence,
-            "verified": bool(evidence) and all(
-                e for e in evidence
-            ),
+            # True when every action that was generated traced back to a
+            # source. Benign generates nothing, so there is nothing to
+            # verify and the answer is vacuously true -- reporting False
+            # there would read as a failed check rather than an absent
+            # one. An action that failed verification is never in this
+            # list; it is in rejected_ungrounded.
+            "verified": all(evidence),
             "generator": generator,
             "grounded": True,
             "citations": retrieved["citations"],

@@ -118,6 +118,19 @@ def citation(doc_id: str) -> Optional[str]:
     return entry.get("citation")
 
 
+def acm_citation(doc_id: str) -> Optional[str]:
+    """The ACM Reference Format citation, when one is recorded.
+
+    Falls back to the IEEE form the archive already holds rather than
+    attempting a conversion: expanding author initials into the full
+    names ACM wants cannot be done reliably from the string alone.
+    """
+    entry = manifest().get(doc_id)
+    if not entry:
+        return None
+    return entry.get("acm") or entry.get("citation")
+
+
 # ------------------------------------------------------------------
 # extraction
 # ------------------------------------------------------------------

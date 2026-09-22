@@ -218,6 +218,41 @@ public class RecommendationData
 
     [JsonPropertyName("low_confidence_f1")]
     public double? LowConfidenceF1 { get; set; }
+
+    /// <summary>
+    /// Each action with its in-text citation appended, ACM style:
+    /// "Apply rate limiting at the perimeter [1, SC-5]."
+    /// </summary>
+    [JsonPropertyName("actions_cited")]
+    public List<string> ActionsCited { get; set; } = new();
+
+    /// <summary>
+    /// The numbered reference list, in ACM Reference Format. Only
+    /// documents an action was actually traced to appear here.
+    /// </summary>
+    [JsonPropertyName("references")]
+    public List<ReferenceEntry> References { get; set; } = new();
+
+    /// <summary>
+    /// False when every action traces to the internal corpus rather
+    /// than to a published standard.
+    /// </summary>
+    [JsonPropertyName("standards_grounded")]
+    public bool StandardsGrounded { get; set; }
+}
+
+
+public class ReferenceEntry
+{
+    [JsonPropertyName("number")]
+    public int Number { get; set; }
+
+    [JsonPropertyName("doc_id")]
+    public string DocId { get; set; } = string.Empty;
+
+    /// <summary>ACM Reference Format.</summary>
+    [JsonPropertyName("acm")]
+    public string Acm { get; set; } = string.Empty;
 }
 
 

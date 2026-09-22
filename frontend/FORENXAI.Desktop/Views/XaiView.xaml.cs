@@ -1,3 +1,5 @@
+using System.Windows.Data;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System;
 using System.Collections.ObjectModel;
@@ -39,7 +41,7 @@ public partial class XaiView : UserControl
         shapRows =
             new ObservableCollection<ShapRow>();
 
-        ThreatDataGrid.ItemsSource =
+        ThreatList.ItemsSource =
             threats;
 
         ShapDataGrid.ItemsSource =
@@ -209,7 +211,7 @@ public partial class XaiView : UserControl
             threats.Clear();
             shapRows.Clear();
 
-            ThreatDataGrid.SelectedItem =
+            ThreatList.SelectedItem =
                 null;
 
             ShapDataGrid.SelectedItem =
@@ -254,7 +256,7 @@ public partial class XaiView : UserControl
         threats.Clear();
         shapRows.Clear();
 
-        ThreatDataGrid.SelectedItem =
+        ThreatList.SelectedItem =
             null;
 
         ShapDataGrid.SelectedItem =
@@ -313,7 +315,12 @@ public partial class XaiView : UserControl
                         finding.PredictedClass,
 
                     Confidence =
-                        finding.Confidence
+                        finding.Confidence,
+
+                    TopDriver =
+                        DescribeTopDriver(
+                            finding.FlowIndex
+                        )
                 }
             );
         }
@@ -336,11 +343,14 @@ public partial class XaiView : UserControl
         }
 
 
+        ApplyThreatFilter();
+
+
         if (
             threats.Count > 0
         )
         {
-            ThreatDataGrid.SelectedIndex =
+            ThreatList.SelectedIndex =
                 0;
         }
     }
@@ -350,12 +360,12 @@ public partial class XaiView : UserControl
     // THREAT SELECTION
     // =========================================================
 
-    private void ThreatDataGrid_SelectionChanged(
+    private void ThreatList_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
         if (
-            ThreatDataGrid.SelectedItem
+            ThreatList.SelectedItem
             is not ThreatRow selected
         )
         {
@@ -407,7 +417,7 @@ public partial class XaiView : UserControl
             target == null
         )
         {
-            ThreatDataGrid.SelectedItem =
+            ThreatList.SelectedItem =
                 null;
 
             ShapDataGrid.SelectedItem =
@@ -434,11 +444,11 @@ public partial class XaiView : UserControl
         }
 
 
-        ThreatDataGrid.SelectedItem =
+        ThreatList.SelectedItem =
             target;
 
 
-        ThreatDataGrid.ScrollIntoView(
+        ThreatList.ScrollIntoView(
             target
         );
 
@@ -1070,7 +1080,7 @@ public partial class XaiView : UserControl
         try
         {
             if (
-                ThreatDataGrid.SelectedItem
+                ThreatList.SelectedItem
                 is not ThreatRow selected
             )
             {
@@ -1356,6 +1366,140 @@ public partial class XaiView : UserControl
 
 
     // =========================================================
+    // CARD SUPPORT
+    // =========================================================
+
+    /// <summary>
+    /// The single feature TreeSHAP attributes most of this flow's
+    /// decision to, phrased for a card. Returns an empty string when
+    /// SHAP has not run, rather than inventing a driver.
+    /// </summary>
+    private string DescribeTopDriver(
+        int flowIndex)
+    {
+        List<ShapContributor>? contributors =
+            currentAnalysis?
+                .ShapAnalysis?
+                .TopFeaturesPerFlow?
+                .GetValueOrDefault(
+                    flowIndex.ToString()
+                );
+
+        if (contributors == null
+            || contributors.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        ShapContributor top =
+            contributors[0];
+
+        string direction =
+            top.ShapValue >= 0
+                ? "toward"
+                : "away from";
+
+        return
+            $"{top.Feature}  {top.ShapValue:+0.000;-0.000}  "
+            + $"({direction} this class)";
+    }
+
+
+    /// <summary>
+    /// Filter the card list by class name or flow number. Substring
+    /// matching, case-insensitive: a capture can hold hundreds of
+    /// detections and scrolling to find one is slower than typing it.
+    /// </summary>
+    private void ThreatFilterBox_TextChanged(
+        object sender,
+        TextChangedEventArgs e)
+    {
+        ApplyThreatFilter();
+    }
+
+
+    private void ApplyThreatFilter()
+    {
+        if (ThreatList == null
+            || ThreatEmptyText == null)
+        {
+            return;
+        }
+
+        string query =
+            (ThreatFilterBox?.Text ?? string.Empty)
+            .Trim();
+
+        if (ThreatFilterPlaceholder != null)
+        {
+            ThreatFilterPlaceholder.Visibility =
+                query.Length == 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+        }
+
+        ICollectionView view =
+            CollectionViewSource.GetDefaultView(
+                ThreatList.ItemsSource
+            );
+
+        if (view == null)
+        {
+            return;
+        }
+
+        if (query.Length == 0)
+        {
+            view.Filter = null;
+        }
+        else
+        {
+            view.Filter = item =>
+            {
+                if (item is not ThreatRow row)
+                {
+                    return false;
+                }
+
+                return
+                    row.PredictedClass.Contains(
+                        query,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                    || row.FlowIndex
+                        .ToString()
+                        .Contains(query);
+            };
+        }
+
+        view.Refresh();
+
+        int shown = 0;
+
+        foreach (object _ in view)
+        {
+            shown++;
+        }
+
+        ThreatEmptyText.Text =
+            shown == 0
+                ? $"No detection matches \"{query}\"."
+                : string.Empty;
+
+        ThreatList.Visibility =
+            shown == 0
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+        if (shown > 0
+            && ThreatList.SelectedItem == null)
+        {
+            ThreatList.SelectedIndex = 0;
+        }
+    }
+
+
+    // =========================================================
     // DISPLAY MODELS
     // =========================================================
 
@@ -1373,6 +1517,51 @@ public partial class XaiView : UserControl
 
         public string ConfidenceDisplay =>
             $"{Confidence:P2}";
+
+
+        public string FlowLabel =>
+            $"flow {FlowIndex}";
+
+
+        /// <summary>
+        /// The feature TreeSHAP says moved this decision most. Shown on
+        /// the card so a list can be triaged without opening every one.
+        /// </summary>
+        public string TopDriver { get; set; }
+            = string.Empty;
+
+
+        /// <summary>
+        /// Width of the filled part of the confidence bar, in a fixed
+        /// 120px track. Bound rather than computed in XAML so the card
+        /// template stays declarative.
+        /// </summary>
+        public double ConfidenceBarWidth =>
+            Math.Max(
+                2.0,
+                Math.Min(1.0, Confidence) * 120.0
+            );
+
+
+        /// <summary>
+        /// Colour is a second channel only -- the class name carries the
+        /// same information in words, so the card is still readable
+        /// without it.
+        /// </summary>
+        public string SeverityBrush =>
+            PredictedClass switch
+            {
+                "Benign" => "#475569",
+
+                "DoS" or "DDoS" or "Slowloris" =>
+                    "#F97316",
+
+                "Exploitation" or "BufferOverflow" or "C2Beaconing"
+                    or "Exfiltration" or "MITM" =>
+                    "#EF4444",
+
+                _ => "#EAB308",
+            };
     }
 
 

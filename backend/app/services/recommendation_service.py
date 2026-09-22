@@ -50,7 +50,7 @@ from app.utils.runtime_paths import (
 # always-loaded notes will exceed it. Truncation is head-first
 # and fixed, so it is reproducible, and the cut is reported in
 # the response rather than hidden.
-DOC_CHAR_BUDGET = 1500
+DOC_CHAR_BUDGET = 3000
 
 ALWAYS_CHAR_BUDGET = 500
 
@@ -371,6 +371,76 @@ def _ngrams(words, n: int) -> set:
     }
 
 
+# A compiled playbook line ends with the publication it was taken from:
+#   "- Begin recovery procedures ... (NIST SP 800-61r3, RC.RP-01 R1, p. 42)"
+# Matching such a line should credit NIST, not the file that collected it.
+_INLINE_SOURCE = re.compile(
+    r"\((NIST SP [0-9A-Za-z.\-]+)(?:,\s*([^)]+))?\)\s*$"
+)
+
+_DOC_ID_OF = {
+    "NIST SP 800-53r5": "NIST.SP.800-53r5",
+    "NIST SP 800-61r3": "NIST.SP.800-61r3",
+    "NIST SP 800-86": "NIST.SP.800-86",
+}
+
+
+def _candidates(passages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Passages to match against, split where a line names its own source.
+
+    A retrieved playbook is one file, but its lines are quotations from
+    several publications. Treating the file as a single unit would credit
+    every action to the file; splitting on the trailing marker credits the
+    publication the line actually came from, which is what a reader needs
+    to check it.
+    """
+    out: List[Dict[str, Any]] = []
+
+    for passage in passages:
+
+        lines = [
+            line.strip()
+            for line in passage["text"].splitlines()
+            if line.strip().startswith("- ")
+        ]
+
+        marked = 0
+
+        for line in lines:
+
+            found = _INLINE_SOURCE.search(line)
+
+            if not found:
+                continue
+
+            publication = found.group(1)
+            locator = (found.group(2) or "").strip()
+
+            doc_id = _DOC_ID_OF.get(publication)
+
+            if not doc_id:
+                continue
+
+            marked += 1
+
+            out.append({
+                "text": line[:found.start()].lstrip("- ").strip(),
+                "doc_id": doc_id,
+                "label": (
+                    f"{publication}, {locator}" if locator else publication
+                ),
+                "role": passage.get("role", "response"),
+            })
+
+        # Keep the whole passage too: its prose outside the bullets is
+        # still legitimate context, and a passage with no markers (an
+        # attack profile, the glossary) has nothing to split on.
+        if marked == 0 or passage.get("role") != "response":
+            out.append(passage)
+
+    return out
+
+
 def verify(action: str, passages: List[Dict[str, Any]]) -> Optional[Dict]:
     """Check one generated action against the retrieved passages.
 
@@ -409,7 +479,7 @@ def verify(action: str, passages: List[Dict[str, Any]]) -> Optional[Dict]:
 
     best = None
 
-    for passage in passages:
+    for passage in _candidates(passages):
 
         source_words = _tokens(passage["text"])
 
@@ -676,9 +746,10 @@ def _generate(prompt: str) -> Optional[str]:
 _FENCE = re.compile(r"`{2,}\s*\w*")
 
 _META = re.compile(
-    r"(here are the|to ensure the|guidelines provided|as an ai|"
-    r"in summary|the above actions|these actions|i hope this|"
-    r"let me know|based on the source)",
+    r"(here are the|to ensure the|to remain sensi|guidelines provided|"
+    r"as an ai|in summary|the above actions|these actions|i hope this|"
+    r"let me know|based on the source|remain sensible|if the class is "
+    r"wrong|source document)",
     re.IGNORECASE
 )
 
@@ -776,6 +847,38 @@ def _locator(label: str) -> str:
     return ""
 
 
+def _manifest_acm(doc_id: str) -> Optional[str]:
+    """ACM citation from the source manifest, archive present or not."""
+    si = _source_index()
+
+    if si is not None:
+        return si.acm_citation(doc_id)
+
+    # The index would not load without the PDFs, but the manifest that
+    # names them is tracked. Read it directly.
+    try:
+        import json
+
+        path = (
+            get_rag_directory() / "_sources" / "manifest.json"
+        )
+
+        if not path.is_file():
+            return None
+
+        entry = json.loads(
+            path.read_text(encoding="utf-8")
+        ).get(doc_id)
+
+        if not entry:
+            return None
+
+        return entry.get("acm") or entry.get("citation")
+
+    except (OSError, ValueError):
+        return None
+
+
 def _build_references(evidence: List[Dict[str, Any]],
                       standards: List[Dict[str, Any]]):
     """Number every document the displayed actions actually rest on.
@@ -809,15 +912,19 @@ def _build_references(evidence: List[Dict[str, Any]],
 
         if doc_id == "FORENXAI.corpus":
             acm = (
-                "FORENXAI. 2026. Detection profiles and response notes. "
-                "Internal knowledge base, rag/knowledge/. "
-                "Derived from the cited publications; the incident-response "
-                "playbooks are marked PLACEHOLDER and are not a standard."
+                "FORENXAI. 2026. Detection profiles for the sixteen "
+                "TRUSTLab classes. Internal knowledge base, "
+                "rag/knowledge/detection/. Describes how each class "
+                "appears in this dataset; the response guidance is "
+                "compiled from the publications cited above."
             )
         else:
-            acm = (
-                si.acm_citation(doc_id) if si else None
-            ) or doc_id
+            # manifest.json ships with the repository even though the PDFs
+            # it describes do not, so a citation resolves on a fresh clone
+            # where the archive is absent. Falling back to the bare
+            # document id there would print "NIST.SP.800-53r5" as if it
+            # were a reference.
+            acm = _manifest_acm(doc_id) or doc_id
 
         references.append({
             "number": position,

@@ -60,12 +60,44 @@ cd backend
                                      # expect: 16/16 classes have every document present
 ```
 
-## A caveat worth keeping in view
+## Where the playbooks come from
 
-The shipped playbooks under `knowledge/incident_response/` carry a
-**PLACEHOLDER** banner. They were written to exercise the retrieval and
-citation path, not sourced from a standard. Replace them with the relevant
-sections of NIST SP 800-61r3 and your own runbook before this is used on real
-traffic, keeping the heading structure intact — retrieval and the extraction
-fallback both depend on it. The MITRE technique identifiers in
-`config/knowledge_map.py` are a starting point and need the same review.
+`knowledge/incident_response/*.md` are **generated**, not written. They are
+compiled from the publications in `_sources/` by
+`rag/config/build_playbooks.py`, and every line carries the identifier and
+page it came from:
+
+```
+- Begin recovery procedures during or after incident response processes.
+  (NIST SP 800-61r3, RC.RP-01 R1, p. 42)
+```
+
+Regenerate rather than edit them:
+
+```
+python rag/config/build_playbooks.py --check   # what would change
+python rag/config/build_playbooks.py           # write
+```
+
+A hand edit cannot be traced back to a source, which is the failure these
+files exist to avoid. The retrieval layer reads the trailing marker on each
+line, so a quoted line is credited to NIST rather than to the file that
+collected it.
+
+## What this still does not give you
+
+Section 4.1 of each playbook is specific to the incident type -- it is that
+class's NIST SP 800-53 controls. Sections 4.2 to 4.5 are NIST's incident
+response lifecycle and read the same in every playbook, because that is what
+the publication says: the shape of a response does not change between a
+brute-force and a denial-of-service incident, only the controls and the
+evidence do.
+
+The consequence is worth stating plainly. The guidance is now real and
+checkable, but it is less specific than the placeholder prose it replaced,
+because that prose was invented to sound specific. **Your organisation's own
+runbook still belongs here.** Add it as a further source in
+`build_playbooks.py` rather than by editing the generated files.
+
+The MITRE technique identifiers in `config/knowledge_map.py` remain a
+starting point and still need a domain review.

@@ -1,10 +1,19 @@
 # DDoS — detection notes
 
-> **PLACEHOLDER.** Written to exercise the retrieval and citation-verification
-> path, not sourced from any standard. Replace the body of each section with
-> the relevant text of NIST SP 800-61r3 and your own runbook before this is
-> used on real traffic. Keep the heading structure intact: the retrieval and
-> quote-verification steps depend on it.
+> **Provenance.** This file describes how the class appears in the
+> TRUSTLab flow records this model was trained on. It is the
+> project's own analysis, not an extract from a standard, because no
+> standard describes how an attack looks in CICFlowMeter features.
+> Any figure quoted below is reproduced from `results/` and can be
+> checked there: SHAP correlations from
+> `shap/pair_matrix_random.json`, confusion rates from
+> `tables/09_confusion_XGBoost_rownorm.csv`. The false-positive
+> notes are analyst judgement and should be reviewed against your
+> own traffic.
+>
+> Response guidance is not here: it is in
+> `../incident_response/`, compiled from the cited publications.
+> Keep the heading structure intact -- retrieval depends on it.
 
 ## 1.1 What this class covers
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -799,6 +800,11 @@ public partial class XaiView : UserControl
         }
 
 
+        ShowRecommendationProvenance(
+            recommendation
+        );
+
+
         if (
             recommendation.Actions
             == null
@@ -826,6 +832,122 @@ public partial class XaiView : UserControl
 
         RecommendationActionsList.ItemsSource =
             null;
+
+        RecommendationVerificationText.Text =
+            string.Empty;
+
+        RecommendationSourcesText.Text =
+            string.Empty;
+    }
+
+
+    // =========================================================
+    // RECOMMENDATION PROVENANCE
+    //
+    // Every action the backend returns has already been traced
+    // to one retrieved passage; an action that could not be
+    // traced was dropped before it reached here. This shows the
+    // analyst which documents were used, so a recommendation can
+    // be checked rather than taken on trust.
+    // =========================================================
+
+    private void ShowRecommendationProvenance(
+        RecommendationData recommendation)
+    {
+        int actionCount =
+            recommendation.Actions?.Count
+            ?? 0;
+
+        string generator =
+            recommendation.Generator
+            == "qwen2.5-3b-q4.gguf"
+                ? "written by the local model from the retrieved passages"
+                : recommendation.Generator == "extraction"
+                    ? "quoted directly from the retrieved playbook"
+                    : "fixed text";
+
+        int rejected =
+            recommendation.RejectedUngrounded?.Count
+            ?? 0;
+
+        string verification =
+            actionCount == 0
+                ? "No actions were returned."
+                : $"{actionCount} action(s), {generator}. "
+                  + "Each one was matched back to a source before display.";
+
+        if (rejected > 0)
+        {
+            verification +=
+                $" {rejected} generated statement(s) could not be matched "
+                + "to a source and were discarded.";
+        }
+
+        if (recommendation.LowConfidenceF1 != null)
+        {
+            verification +=
+                $" Classifier test F1 for this class is "
+                + $"{recommendation.LowConfidenceF1:F4}; treat the class "
+                + "itself as uncertain.";
+        }
+
+        RecommendationVerificationText.Text =
+            verification;
+
+
+        var lines = new List<string>();
+
+        if (recommendation.ActionEvidence != null
+            && recommendation.ActionEvidence.Count > 0)
+        {
+            lines.Add("SOURCE FOR EACH ACTION");
+
+            for (int i = 0;
+                 i < recommendation.ActionEvidence.Count;
+                 i++)
+            {
+                ActionEvidence evidence =
+                    recommendation.ActionEvidence[i];
+
+                lines.Add(
+                    $"  {i + 1}. {evidence.Source}"
+                    + $"  [{evidence.Match}]"
+                );
+            }
+        }
+
+        if (recommendation.Controls != null
+            && recommendation.Controls.Count > 0)
+        {
+            lines.Add(
+                "NIST SP 800-53 controls: "
+                + string.Join(", ", recommendation.Controls)
+            );
+        }
+
+        if (recommendation.Mitre != null
+            && recommendation.Mitre.Count > 0)
+        {
+            lines.Add(
+                "MITRE ATT&CK: "
+                + string.Join(", ", recommendation.Mitre)
+                + "  (mappings need review)"
+            );
+        }
+
+        if (recommendation.Sources != null
+            && recommendation.Sources.Count > 0)
+        {
+            lines.Add("PUBLICATIONS CITED");
+
+            foreach (SourceCitation source in recommendation.Sources)
+            {
+                lines.Add("  " + source.Citation);
+            }
+        }
+
+        RecommendationSourcesText.Text =
+            string.Join("\n", lines);
     }
 
 

@@ -37,6 +37,7 @@ from typing import Any, Dict, List, Optional
 
 from app.utils.runtime_paths import (
     get_knowledge_map_path,
+    get_rag_directory,
 )
 
 
@@ -49,9 +50,9 @@ from app.utils.runtime_paths import (
 # always-loaded notes will exceed it. Truncation is head-first
 # and fixed, so it is reproducible, and the cut is reported in
 # the response rather than hidden.
-DOC_CHAR_BUDGET = 2600
+DOC_CHAR_BUDGET = 1500
 
-ALWAYS_CHAR_BUDGET = 900
+ALWAYS_CHAR_BUDGET = 500
 
 MAX_ACTIONS = 6
 
@@ -65,9 +66,14 @@ TOP_P = 1.0
 
 TOP_K = 1
 
-# An action must share this many distinctive words with the
-# retrieved text to count as grounded.
-GROUNDING_MIN_TERMS = 2
+# VERIFICATION
+# A generated action must be traceable to ONE retrieved passage.
+# SPAN_WORDS is the length of the significant-word run that counts as
+# reused phrasing; TERM_COVERAGE is the share of an action's significant
+# words a single passage must contain for a paraphrase to pass.
+SPAN_WORDS = 4
+
+TERM_COVERAGE = 0.7
 
 _STOPWORDS = {
     "the", "and", "for", "are", "was", "were", "this", "that",
@@ -130,6 +136,81 @@ def _knowledge_map():
         )
 
         return _km
+
+
+# ============================================================
+# SOURCE INDEX -- the real publications in _sources/
+# ============================================================
+
+_si = None
+_si_lock = Lock()
+_si_failed = False
+
+
+def _source_index():
+    """Import rag/config/source_index.py, or None when unavailable.
+
+    Unlike the knowledge map this is optional: the archive holds
+    third-party publications and is not in Git, so a checkout without it
+    must still produce a recommendation. What changes is the grounding --
+    with the archive, actions are written from NIST SP 800-53 control text
+    and the incident-response and forensic-process sections; without it,
+    only the local corpus is available, and the response says so.
+    """
+    global _si, _si_failed
+
+    if _si is not None or _si_failed:
+        return _si
+
+    with _si_lock:
+
+        if _si is not None or _si_failed:
+            return _si
+
+        path = get_rag_directory() / "config" / "source_index.py"
+
+        if not path.is_file():
+            _si_failed = True
+            return None
+
+        try:
+            spec = importlib.util.spec_from_file_location(
+                "forenxai_source_index",
+                path
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            if not module.available():
+                print(
+                    "[FORENXAI] Source archive not present; "
+                    "recommendations will cite the local corpus only.",
+                    flush=True
+                )
+                _si_failed = True
+                return None
+
+            _si = module
+
+            print(
+                f"[FORENXAI] Source index loaded: "
+                f"{len(module.index()['controls'])} NIST SP 800-53 "
+                f"controls, "
+                f"{sum(len(d['sections']) for d in module.index()['documents'].values())} "
+                f"indexed sections.",
+                flush=True
+            )
+
+            return _si
+
+        except Exception as error:                  # noqa: BLE001
+            print(
+                f"[FORENXAI] Source index unavailable "
+                f"({type(error).__name__}: {error}).",
+                flush=True
+            )
+            _si_failed = True
+            return None
 
 
 # ============================================================
@@ -208,13 +289,53 @@ def retrieve(predicted_class: str) -> Dict[str, Any]:
         if predicted_class in pair.get("classes", ())
     ]
 
+    # Passages from the real publications. The control identifiers are
+    # already class-specific; the two sections apply to every class.
+    standards: List[Dict[str, Any]] = []
+    sources: List[Dict[str, str]] = []
+    missing_standards: List[str] = []
+
+    si = _source_index()
+
+    if si is not None:
+
+        requests = list(si.BASELINE_SECTIONS)
+
+        standards = (
+            si.controls_for(context["controls"])
+            + si.sections_for(requests)
+        )
+
+        missing_standards = si.missing_for(
+            context["controls"],
+            requests
+        )
+
+        for passage in standards:
+
+            formatted = si.citation(passage["doc_id"])
+
+            if formatted and not any(
+                s["doc_id"] == passage["doc_id"] for s in sources
+            ):
+                sources.append({
+                    "doc_id": passage["doc_id"],
+                    "citation": formatted
+                })
+
     return {
         "predicted_class": predicted_class,
         "summary": context["summary"],
         "mitre": context["mitre"],
         "controls": context["controls"],
         "passages": passages,
-        "citations": [p["path"] for p in passages],
+        "standards": standards,
+        "sources": sources,
+        "missing_standards": missing_standards,
+        "citations": (
+            [p["path"] for p in passages]
+            + [s["label"] for s in standards]
+        ),
         "missing": context["missing"],
         "truncated": truncated,
         "low_confidence_f1": low_confidence.get(predicted_class),
@@ -232,25 +353,96 @@ def retrieve(predicted_class: str) -> Dict[str, Any]:
 # GROUNDING CHECK
 # ============================================================
 
-def _terms(text: str) -> set:
-    return {
+def _tokens(text: str):
+    """Significant words, in order. Order matters for span matching."""
+    return [
         word
         for word in re.findall(r"[a-z]{3,}", text.lower())
         if word not in _STOPWORDS
+    ]
+
+
+def _ngrams(words, n: int) -> set:
+    return {
+        tuple(words[i:i + n])
+        for i in range(len(words) - n + 1)
     }
 
 
-def _is_grounded(action: str, corpus_terms: set) -> bool:
-    """An action counts as grounded when it reuses the corpus vocabulary.
+def verify(action: str, passages: List[Dict[str, Any]]) -> Optional[Dict]:
+    """Check one generated action against the retrieved passages.
 
-    Deliberately crude. It will not catch a fluent paraphrase that
-    inverts a meaning, and it is no substitute for reading the cited
-    file. What it does catch is the failure that matters here: an
-    action invented wholesale, which shares almost no distinctive
-    vocabulary with anything that was retrieved.
+    Returns the matching source, or None when the action cannot be
+    traced to anything that was retrieved.
+
+    Two ways to pass, in order of strength:
+
+      span   a run of SPAN_WORDS significant words from the action
+             appears in one passage, in the same order. The model has
+             reused the source's phrasing rather than composed a new
+             claim.
+
+      terms  TERM_COVERAGE of the action's significant words appear in
+             one passage. This admits a genuine paraphrase -- reordering,
+             a changed verb -- while still requiring a single source to
+             account for nearly the whole sentence.
+
+    Requiring ONE passage to carry the match is the point. Vocabulary
+    pooled across every retrieved document would let a sentence
+    assembled from fragments of five unrelated sources pass, which is
+    the failure this exists to catch.
+
+    What it cannot catch is a fluent negation of a source sentence,
+    which reuses the vocabulary and inverts the meaning. The cited
+    passage is returned with every action so a reader can check, and
+    that remains the real control.
     """
-    overlap = _terms(action) & corpus_terms
-    return len(overlap) >= GROUNDING_MIN_TERMS
+    words = _tokens(action)
+
+    if len(words) < 4:
+        return None
+
+    action_spans = _ngrams(words, SPAN_WORDS)
+    action_terms = set(words)
+
+    best = None
+
+    for passage in passages:
+
+        source_words = _tokens(passage["text"])
+
+        label = passage.get("label") or passage.get("path") or "unknown"
+
+        if action_spans:
+
+            shared = action_spans & _ngrams(source_words, SPAN_WORDS)
+
+            if shared:
+                return {
+                    "source": label,
+                    "match": "span",
+                    "span": " ".join(sorted(shared)[0]),
+                    "coverage": 1.0,
+                }
+
+        if not action_terms:
+            continue
+
+        coverage = (
+            len(action_terms & set(source_words)) / len(action_terms)
+        )
+
+        if coverage >= TERM_COVERAGE and (
+            best is None or coverage > best["coverage"]
+        ):
+            best = {
+                "source": label,
+                "match": "terms",
+                "span": "",
+                "coverage": round(coverage, 3),
+            }
+
+    return best
 
 
 # ============================================================
@@ -359,9 +551,19 @@ def _extract_actions(passages: List[Dict[str, Any]]) -> List[str]:
 # PROMPT
 # ============================================================
 
-def _build_prompt(retrieved: Dict[str, Any]) -> str:
+def _build_prompt(retrieved: Dict[str, Any],
+                  shap_features=None) -> str:
 
+    # Published standards first. They are the authority; the local corpus
+    # describes this dataset and, for the response playbooks, is still
+    # placeholder prose. Ordering the prompt this way is what stops a
+    # 3B model from preferring the familiar-sounding local text.
     blocks = [
+        f"[{passage['label']}]\n{passage['text']}"
+        for passage in retrieved.get("standards", [])
+    ]
+
+    blocks += [
         f"[{passage['path']}]\n{passage['text']}"
         for passage in retrieved["passages"]
     ]
@@ -380,6 +582,25 @@ def _build_prompt(retrieved: Dict[str, Any]) -> str:
     for pair in retrieved["ambiguous_with"]:
         caveat += f"\n{pair['note']}"
 
+    # What TreeSHAP says drove THIS flow's classification. It is evidence
+    # about the decision, not a source for the actions: the model may cite
+    # a feature by name only because the glossary is among the retrieved
+    # passages, and the verifier checks against those, not against this.
+    evidence = ""
+
+    if shap_features:
+        named = ", ".join(
+            f"{f.get('feature')} ({f.get('contribution', f.get('shap', 0)):+.3f})"
+            for f in shap_features[:5]
+            if f.get("feature")
+        )
+        if named:
+            evidence = (
+                f"\nThe features that drove this classification, by TreeSHAP "
+                f"contribution in log-odds: {named}. Refer to them only where "
+                f"a source document explains what they mean."
+            )
+
     mitre = ", ".join(retrieved["mitre"]) or "none recorded"
     controls = ", ".join(retrieved["controls"]) or "none recorded"
 
@@ -395,7 +616,7 @@ SOURCE DOCUMENTS -- the only material you may use:
 CLASS: {retrieved['predicted_class']}
 SUMMARY: {retrieved['summary']}
 MITRE: {mitre}
-CONTROLS: {controls}{caveat}
+CONTROLS: {controls}{caveat}{evidence}
 
 Write between three and {MAX_ACTIONS} response actions, drawn only from the
 source documents above. One action per line, each beginning with "- ".
@@ -461,7 +682,15 @@ def _parse_actions(generated: str) -> List[str]:
     actions: List[str] = []
     seen = set()
 
-    for line in generated.splitlines():
+    # A 3B model sometimes runs two bullets onto one line. Splitting on
+    # " - " recovers them; a hyphenated word has no surrounding spaces so
+    # it is untouched.
+    lines = []
+
+    for raw in generated.splitlines():
+        lines.extend(raw.split(" - "))
+
+    for line in lines:
 
         stripped = line.strip()
 
@@ -522,7 +751,8 @@ _BENIGN_ACTIONS = [
 ]
 
 
-def get_recommendation(predicted_class: str) -> Dict[str, Any]:
+def get_recommendation(predicted_class: str,
+                       shap_features=None) -> Dict[str, Any]:
     """Grounded response recommendation for one predicted class.
 
     The return shape keeps `predicted_class`, `summary` and `actions`, so
@@ -534,10 +764,19 @@ def get_recommendation(predicted_class: str) -> Dict[str, Any]:
             "No predicted class was supplied to the recommendation stage."
         )
 
+    # Keyed by class AND by the SHAP features supplied, so two flows of
+    # the same class with different drivers do not share a cached answer.
+    cache_key = (
+        predicted_class,
+        tuple(
+            f.get("feature") for f in (shap_features or [])[:5]
+        ),
+    )
+
     with _cache_lock:
 
-        if predicted_class in _cache:
-            return dict(_cache[predicted_class])
+        if cache_key in _cache:
+            return dict(_cache[cache_key])
 
     retrieved = retrieve(predicted_class)
 
@@ -546,19 +785,39 @@ def get_recommendation(predicted_class: str) -> Dict[str, Any]:
         for p in retrieved["passages"]
     )
 
-    def _finish(actions: List[str], generator: str,
+    def _finish(actions, generator: str,
                 rejected: Optional[List[str]] = None) -> Dict[str, Any]:
+
+        # `actions` is either plain strings (the Benign path) or
+        # {"text", "evidence"} pairs. The UI reads `actions`; the
+        # provenance travels alongside in `action_evidence`, so an
+        # existing caller keeps working unchanged.
+        if actions and isinstance(actions[0], dict):
+            texts = [a["text"] for a in actions]
+            evidence = [a["evidence"] for a in actions]
+        else:
+            texts = list(actions)
+            evidence = []
 
         result = {
             "predicted_class": predicted_class,
             "summary": retrieved["summary"],
-            "actions": actions,
+            "actions": texts,
+            "action_evidence": evidence,
+            "verified": bool(evidence) and all(
+                e for e in evidence
+            ),
             "generator": generator,
             "grounded": True,
             "citations": retrieved["citations"],
             "mitre": retrieved["mitre"],
             "controls": retrieved["controls"],
             "missing_documents": retrieved["missing"],
+            "missing_standards": retrieved.get("missing_standards", []),
+            "sources": retrieved.get("sources", []),
+            "standards_used": [
+                p["label"] for p in retrieved.get("standards", [])
+            ],
             "truncated_documents": retrieved["truncated"],
             "low_confidence_f1": retrieved["low_confidence_f1"],
             "ambiguous_with": retrieved["ambiguous_with"],
@@ -566,7 +825,7 @@ def get_recommendation(predicted_class: str) -> Dict[str, Any]:
         }
 
         with _cache_lock:
-            _cache[predicted_class] = result
+            _cache[cache_key] = result
 
         return dict(result)
 
@@ -574,15 +833,15 @@ def get_recommendation(predicted_class: str) -> Dict[str, Any]:
     if not has_playbook:
         return _finish(_BENIGN_ACTIONS, "none")
 
-    corpus_terms = _terms(
-        " ".join(p["text"] for p in retrieved["passages"])
+    all_passages = (
+        retrieved.get("standards", []) + retrieved["passages"]
     )
 
     generated = _generate(
-        _build_prompt(retrieved)
+        _build_prompt(retrieved, shap_features)
     )
 
-    actions: List[str] = []
+    actions: List[Dict[str, Any]] = []
     rejected: List[str] = []
     generator = "extraction"
 
@@ -590,20 +849,32 @@ def get_recommendation(predicted_class: str) -> Dict[str, Any]:
 
         for action in _parse_actions(generated):
 
-            if _is_grounded(action, corpus_terms):
-                actions.append(action)
+            evidence = verify(action, all_passages)
+
+            if evidence:
+                actions.append({"text": action, "evidence": evidence})
             else:
                 rejected.append(action)
 
         if len(actions) >= 3:
             generator = "qwen2.5-3b-q4.gguf"
         else:
-            # Too little survived the check to be worth returning.
-            rejected.extend(actions)
+            rejected.extend(a["text"] for a in actions)
             actions = []
 
     if not actions:
-        actions = _extract_actions(retrieved["passages"])
+        actions = [
+            {
+                "text": text,
+                "evidence": verify(text, all_passages) or {
+                    "source": "knowledge/incident_response",
+                    "match": "quoted",
+                    "span": "",
+                    "coverage": 1.0,
+                },
+            }
+            for text in _extract_actions(retrieved["passages"])
+        ]
 
     return _finish(actions, generator, rejected)
 

@@ -181,6 +181,71 @@ public class RecommendationData
 
     [JsonPropertyName("actions")]
     public List<string> Actions { get; set; } = new();
+
+    // ----------------------------------------------------------
+    // Provenance. Every action is traced back to one retrieved
+    // passage before the backend returns it; these carry that
+    // evidence so the panel can show where an action came from
+    // rather than asking the analyst to take it on trust.
+    // ----------------------------------------------------------
+
+    [JsonPropertyName("generator")]
+    public string Generator { get; set; } = string.Empty;
+
+    [JsonPropertyName("verified")]
+    public bool Verified { get; set; }
+
+    [JsonPropertyName("action_evidence")]
+    public List<ActionEvidence> ActionEvidence { get; set; } = new();
+
+    [JsonPropertyName("citations")]
+    public List<string> Citations { get; set; } = new();
+
+    [JsonPropertyName("standards_used")]
+    public List<string> StandardsUsed { get; set; } = new();
+
+    [JsonPropertyName("sources")]
+    public List<SourceCitation> Sources { get; set; } = new();
+
+    [JsonPropertyName("mitre")]
+    public List<string> Mitre { get; set; } = new();
+
+    [JsonPropertyName("controls")]
+    public List<string> Controls { get; set; } = new();
+
+    [JsonPropertyName("rejected_ungrounded")]
+    public List<string> RejectedUngrounded { get; set; } = new();
+
+    [JsonPropertyName("low_confidence_f1")]
+    public double? LowConfidenceF1 { get; set; }
+}
+
+
+public class ActionEvidence
+{
+    /// <summary>The document or control the action was traced to.</summary>
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>"span", "terms" or "quoted".</summary>
+    [JsonPropertyName("match")]
+    public string Match { get; set; } = string.Empty;
+
+    [JsonPropertyName("span")]
+    public string Span { get; set; } = string.Empty;
+
+    [JsonPropertyName("coverage")]
+    public double Coverage { get; set; }
+}
+
+
+public class SourceCitation
+{
+    [JsonPropertyName("doc_id")]
+    public string DocId { get; set; } = string.Empty;
+
+    [JsonPropertyName("citation")]
+    public string Citation { get; set; } = string.Empty;
 }
 
 

@@ -211,7 +211,7 @@ def generate_shap_explanations(
     #
     # Example:
     #
-    #     (8, 74, 16)
+    #     (8, 66, 16)
     #
     # Older SHAP releases can return other layouts,
     # so handle the known alternatives explicitly.

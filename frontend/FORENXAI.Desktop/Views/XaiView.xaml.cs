@@ -1,3 +1,6 @@
+using System.Windows.Data;
+using System.ComponentModel;
+using System.Collections.Generic;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -38,7 +41,7 @@ public partial class XaiView : UserControl
         shapRows =
             new ObservableCollection<ShapRow>();
 
-        ThreatDataGrid.ItemsSource =
+        ThreatList.ItemsSource =
             threats;
 
         ShapDataGrid.ItemsSource =
@@ -208,7 +211,7 @@ public partial class XaiView : UserControl
             threats.Clear();
             shapRows.Clear();
 
-            ThreatDataGrid.SelectedItem =
+            ThreatList.SelectedItem =
                 null;
 
             ShapDataGrid.SelectedItem =
@@ -253,7 +256,7 @@ public partial class XaiView : UserControl
         threats.Clear();
         shapRows.Clear();
 
-        ThreatDataGrid.SelectedItem =
+        ThreatList.SelectedItem =
             null;
 
         ShapDataGrid.SelectedItem =
@@ -312,7 +315,12 @@ public partial class XaiView : UserControl
                         finding.PredictedClass,
 
                     Confidence =
-                        finding.Confidence
+                        finding.Confidence,
+
+                    TopDriver =
+                        DescribeTopDriver(
+                            finding.FlowIndex
+                        )
                 }
             );
         }
@@ -335,11 +343,14 @@ public partial class XaiView : UserControl
         }
 
 
+        ApplyThreatFilter();
+
+
         if (
             threats.Count > 0
         )
         {
-            ThreatDataGrid.SelectedIndex =
+            ThreatList.SelectedIndex =
                 0;
         }
     }
@@ -349,12 +360,12 @@ public partial class XaiView : UserControl
     // THREAT SELECTION
     // =========================================================
 
-    private void ThreatDataGrid_SelectionChanged(
+    private void ThreatList_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
         if (
-            ThreatDataGrid.SelectedItem
+            ThreatList.SelectedItem
             is not ThreatRow selected
         )
         {
@@ -406,7 +417,7 @@ public partial class XaiView : UserControl
             target == null
         )
         {
-            ThreatDataGrid.SelectedItem =
+            ThreatList.SelectedItem =
                 null;
 
             ShapDataGrid.SelectedItem =
@@ -433,11 +444,11 @@ public partial class XaiView : UserControl
         }
 
 
-        ThreatDataGrid.SelectedItem =
+        ThreatList.SelectedItem =
             target;
 
 
-        ThreatDataGrid.ScrollIntoView(
+        ThreatList.ScrollIntoView(
             target
         );
 
@@ -799,6 +810,11 @@ public partial class XaiView : UserControl
         }
 
 
+        ShowRecommendationProvenance(
+            recommendation
+        );
+
+
         if (
             recommendation.Actions
             == null
@@ -814,8 +830,15 @@ public partial class XaiView : UserControl
         }
 
 
+        // Prefer the cited form: the same sentence with its in-text
+        // citation appended. Falls back to the plain text for a bundle
+        // produced before citations were added.
         RecommendationActionsList.ItemsSource =
-            recommendation.Actions;
+            recommendation.ActionsCited != null
+            && recommendation.ActionsCited.Count
+                == recommendation.Actions.Count
+                ? recommendation.ActionsCited
+                : recommendation.Actions;
     }
 
 
@@ -826,6 +849,171 @@ public partial class XaiView : UserControl
 
         RecommendationActionsList.ItemsSource =
             null;
+
+        RecommendationVerificationText.Text =
+            string.Empty;
+
+        RecommendationSourcesText.Text =
+            string.Empty;
+    }
+
+
+    // =========================================================
+    // RECOMMENDATION PROVENANCE
+    //
+    // Every action the backend returns has already been traced
+    // to one retrieved passage; an action that could not be
+    // traced was dropped before it reached here. This shows the
+    // analyst which documents were used, so a recommendation can
+    // be checked rather than taken on trust.
+    // =========================================================
+
+    private void ShowRecommendationProvenance(
+        RecommendationData recommendation)
+    {
+        int actionCount =
+            recommendation.Actions?.Count
+            ?? 0;
+
+        string generator =
+            recommendation.Generator
+            == "qwen2.5-3b-q4.gguf"
+                ? "written by the local model from the retrieved passages"
+                : recommendation.Generator == "extraction"
+                    ? "quoted directly from the retrieved playbook"
+                    : "fixed text";
+
+        int rejected =
+            recommendation.RejectedUngrounded?.Count
+            ?? 0;
+
+        string verification =
+            actionCount == 0
+                ? "No actions were returned."
+                : $"{actionCount} action(s), {generator}. "
+                  + "Each one was matched back to a source before display.";
+
+        if (rejected > 0)
+        {
+            verification +=
+                $" {rejected} generated statement(s) could not be matched "
+                + "to a source and were discarded.";
+        }
+
+        MeasuredContext? measured =
+            recommendation.Measured;
+
+        if (measured != null
+            && measured.LowConfidenceClass
+            && measured.ClassF1 != null)
+        {
+            verification +=
+                $" Classifier test F1 for this class is "
+                + $"{measured.ClassF1:F4}; treat the class itself as "
+                + "uncertain.";
+        }
+
+        if (measured != null
+            && measured.Alternatives.Count > 0)
+        {
+            var names = new List<string>();
+
+            foreach (AlternativeClass alternative in measured.Alternatives)
+            {
+                names.Add(
+                    alternative.Probability != null
+                        ? $"{alternative.ClassName} "
+                          + $"({alternative.Probability:P1})"
+                        : alternative.ClassName
+                );
+            }
+
+            verification +=
+                " This flow may instead be "
+                + string.Join(", ", names)
+                + ". The guidance below was written to hold either way, "
+                + "and that class's profile was retrieved alongside.";
+        }
+
+        if (actionCount > 0
+            && !recommendation.StandardsGrounded)
+        {
+            verification +=
+                " No action here rests on a published standard: all of "
+                + "them trace to the internal corpus, whose response "
+                + "playbooks are marked PLACEHOLDER.";
+        }
+
+        RecommendationVerificationText.Text =
+            verification;
+
+
+        var lines = new List<string>();
+
+        if (recommendation.ActionEvidence != null
+            && recommendation.ActionEvidence.Count > 0)
+        {
+            lines.Add("SOURCE FOR EACH ACTION");
+
+            for (int i = 0;
+                 i < recommendation.ActionEvidence.Count;
+                 i++)
+            {
+                ActionEvidence evidence =
+                    recommendation.ActionEvidence[i];
+
+                lines.Add(
+                    $"  {i + 1}. {evidence.Source}"
+                    + $"  [{evidence.Match}]"
+                );
+            }
+        }
+
+        if (recommendation.Controls != null
+            && recommendation.Controls.Count > 0)
+        {
+            lines.Add(
+                "NIST SP 800-53 controls: "
+                + string.Join(", ", recommendation.Controls)
+            );
+        }
+
+        if (recommendation.Mitre != null
+            && recommendation.Mitre.Count > 0)
+        {
+            lines.Add(
+                "MITRE ATT&CK: "
+                + string.Join(", ", recommendation.Mitre)
+                + "  (mappings need review)"
+            );
+        }
+
+        if (measured != null
+            && measured.Notes.Count > 0)
+        {
+            lines.Add("MEASURED FOR THIS PREDICTION");
+
+            foreach (string note in measured.Notes)
+            {
+                lines.Add("  " + note);
+            }
+        }
+
+        if (recommendation.References != null
+            && recommendation.References.Count > 0)
+        {
+            lines.Add("REFERENCES (ACM Reference Format)");
+
+            foreach (ReferenceEntry reference in recommendation.References)
+            {
+                lines.Add(
+                    $"  [{reference.Number}] {reference.Acm}"
+                );
+            }
+        }
+
+        RecommendationSourcesText.Text =
+            string.Join("\n", lines);
     }
 
 
@@ -948,7 +1136,7 @@ public partial class XaiView : UserControl
         try
         {
             if (
-                ThreatDataGrid.SelectedItem
+                ThreatList.SelectedItem
                 is not ThreatRow selected
             )
             {
@@ -1234,6 +1422,140 @@ public partial class XaiView : UserControl
 
 
     // =========================================================
+    // CARD SUPPORT
+    // =========================================================
+
+    /// <summary>
+    /// The single feature TreeSHAP attributes most of this flow's
+    /// decision to, phrased for a card. Returns an empty string when
+    /// SHAP has not run, rather than inventing a driver.
+    /// </summary>
+    private string DescribeTopDriver(
+        int flowIndex)
+    {
+        List<ShapContributor>? contributors =
+            currentAnalysis?
+                .ShapAnalysis?
+                .TopFeaturesPerFlow?
+                .GetValueOrDefault(
+                    flowIndex.ToString()
+                );
+
+        if (contributors == null
+            || contributors.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        ShapContributor top =
+            contributors[0];
+
+        string direction =
+            top.ShapValue >= 0
+                ? "toward"
+                : "away from";
+
+        return
+            $"{top.Feature}  {top.ShapValue:+0.000;-0.000}  "
+            + $"({direction} this class)";
+    }
+
+
+    /// <summary>
+    /// Filter the card list by class name or flow number. Substring
+    /// matching, case-insensitive: a capture can hold hundreds of
+    /// detections and scrolling to find one is slower than typing it.
+    /// </summary>
+    private void ThreatFilterBox_TextChanged(
+        object sender,
+        TextChangedEventArgs e)
+    {
+        ApplyThreatFilter();
+    }
+
+
+    private void ApplyThreatFilter()
+    {
+        if (ThreatList == null
+            || ThreatEmptyText == null)
+        {
+            return;
+        }
+
+        string query =
+            (ThreatFilterBox?.Text ?? string.Empty)
+            .Trim();
+
+        if (ThreatFilterPlaceholder != null)
+        {
+            ThreatFilterPlaceholder.Visibility =
+                query.Length == 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+        }
+
+        ICollectionView view =
+            CollectionViewSource.GetDefaultView(
+                ThreatList.ItemsSource
+            );
+
+        if (view == null)
+        {
+            return;
+        }
+
+        if (query.Length == 0)
+        {
+            view.Filter = null;
+        }
+        else
+        {
+            view.Filter = item =>
+            {
+                if (item is not ThreatRow row)
+                {
+                    return false;
+                }
+
+                return
+                    row.PredictedClass.Contains(
+                        query,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                    || row.FlowIndex
+                        .ToString()
+                        .Contains(query);
+            };
+        }
+
+        view.Refresh();
+
+        int shown = 0;
+
+        foreach (object _ in view)
+        {
+            shown++;
+        }
+
+        ThreatEmptyText.Text =
+            shown == 0
+                ? $"No detection matches \"{query}\"."
+                : string.Empty;
+
+        ThreatList.Visibility =
+            shown == 0
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+        if (shown > 0
+            && ThreatList.SelectedItem == null)
+        {
+            ThreatList.SelectedIndex = 0;
+        }
+    }
+
+
+    // =========================================================
     // DISPLAY MODELS
     // =========================================================
 
@@ -1251,6 +1573,51 @@ public partial class XaiView : UserControl
 
         public string ConfidenceDisplay =>
             $"{Confidence:P2}";
+
+
+        public string FlowLabel =>
+            $"flow {FlowIndex}";
+
+
+        /// <summary>
+        /// The feature TreeSHAP says moved this decision most. Shown on
+        /// the card so a list can be triaged without opening every one.
+        /// </summary>
+        public string TopDriver { get; set; }
+            = string.Empty;
+
+
+        /// <summary>
+        /// Width of the filled part of the confidence bar, in a fixed
+        /// 120px track. Bound rather than computed in XAML so the card
+        /// template stays declarative.
+        /// </summary>
+        public double ConfidenceBarWidth =>
+            Math.Max(
+                2.0,
+                Math.Min(1.0, Confidence) * 120.0
+            );
+
+
+        /// <summary>
+        /// Colour is a second channel only -- the class name carries the
+        /// same information in words, so the card is still readable
+        /// without it.
+        /// </summary>
+        public string SeverityBrush =>
+            PredictedClass switch
+            {
+                "Benign" => "#475569",
+
+                "DoS" or "DDoS" or "Slowloris" =>
+                    "#F97316",
+
+                "Exploitation" or "BufferOverflow" or "C2Beaconing"
+                    or "Exfiltration" or "MITM" =>
+                    "#EF4444",
+
+                _ => "#EAB308",
+            };
     }
 
 

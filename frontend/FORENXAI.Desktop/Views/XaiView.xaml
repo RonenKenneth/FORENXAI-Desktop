@@ -248,50 +248,228 @@
                                    FontSize="12"
                                    Margin="0,4,0,0"/>
 
+                        <!-- A capture can hold hundreds of detections.
+                             Filtering by class or flow number is faster
+                             than scrolling to find one. -->
+
+                        <Border Background="#0F172A"
+                                BorderBrush="#334155"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Margin="0,10,0,0">
+
+                            <Grid>
+
+                                <!-- Watermark. Its visibility is set in
+                                     code rather than bound through a
+                                     converter, so there is no resource to
+                                     resolve at runtime. -->
+
+                                <TextBlock x:Name="ThreatFilterPlaceholder"
+                                           Text="Filter by class or flow number"
+                                           Foreground="#64748B"
+                                           FontSize="12"
+                                           Margin="10,0,0,0"
+                                           VerticalAlignment="Center"
+                                           IsHitTestVisible="False"/>
+
+                                <TextBox x:Name="ThreatFilterBox"
+                                         Background="Transparent"
+                                         Foreground="#E2E8F0"
+                                         CaretBrush="#60A5FA"
+                                         BorderThickness="0"
+                                         FontSize="12"
+                                         Padding="10,7"
+                                         TextChanged="ThreatFilterBox_TextChanged"/>
+
+                            </Grid>
+
+                        </Border>
+
                     </StackPanel>
 
 
-                    <DataGrid x:Name="ThreatDataGrid"
-                              Grid.Row="1"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              SelectionMode="Single"
-                              SelectionUnit="FullRow"
-                              SelectionChanged="ThreatDataGrid_SelectionChanged"
-                              Background="#0F172A"
-                              Foreground="#E2E8F0"
-                              BorderBrush="#334155"
-                              BorderThickness="1"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#1E293B"
-                              VerticalGridLinesBrush="#1E293B"
-                              RowBackground="#0F172A"
-                              AlternatingRowBackground="#111827"
-                              AlternationCount="2"
-                              HeadersVisibility="Column"
-                              RowStyle="{StaticResource XaiRowStyle}"
-                              CellStyle="{StaticResource XaiCellStyle}"
-                              ColumnHeaderStyle="{StaticResource XaiColumnHeaderStyle}">
+                    <!-- One card per detection: the class it was given,
+                         how confident the model was, and the feature that
+                         drove it. Clicking a card loads its SHAP breakdown
+                         and its recommendation on the right.
 
-                        <DataGrid.Columns>
+                         Virtualising means a capture with thousands of
+                         detections scrolls as smoothly as one with ten. -->
 
-                            <DataGridTextColumn Header="Flow"
-                                                Binding="{Binding FlowIndex}"
-                                                Width="70"/>
+                    <ListBox x:Name="ThreatList"
+                             Grid.Row="1"
+                             SelectionMode="Single"
+                             SelectionChanged="ThreatList_SelectionChanged"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             HorizontalContentAlignment="Stretch">
 
-                            <DataGridTextColumn Header="Class"
-                                                Binding="{Binding PredictedClass}"
-                                                Width="*"/>
+                        <ListBox.ItemContainerStyle>
 
-                            <DataGridTextColumn Header="Confidence"
-                                                Binding="{Binding ConfidenceDisplay}"
-                                                Width="120"/>
+                            <Style TargetType="ListBoxItem">
 
-                        </DataGrid.Columns>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0,0,0,8"/>
+                                <Setter Property="HorizontalContentAlignment"
+                                        Value="Stretch"/>
+                                <Setter Property="Background"
+                                        Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
 
-                    </DataGrid>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+
+                                            <Border x:Name="CardRoot"
+                                                    Background="#0F172A"
+                                                    BorderBrush="#1E293B"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8">
+
+                                                <ContentPresenter/>
+
+                                            </Border>
+
+                                            <ControlTemplate.Triggers>
+
+                                                <Trigger Property="IsMouseOver"
+                                                         Value="True">
+                                                    <Setter TargetName="CardRoot"
+                                                            Property="Background"
+                                                            Value="#152238"/>
+                                                    <Setter TargetName="CardRoot"
+                                                            Property="BorderBrush"
+                                                            Value="#334155"/>
+                                                </Trigger>
+
+                                                <Trigger Property="IsSelected"
+                                                         Value="True">
+                                                    <Setter TargetName="CardRoot"
+                                                            Property="Background"
+                                                            Value="#17263D"/>
+                                                    <Setter TargetName="CardRoot"
+                                                            Property="BorderBrush"
+                                                            Value="#60A5FA"/>
+                                                </Trigger>
+
+                                            </ControlTemplate.Triggers>
+
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+
+                            </Style>
+
+                        </ListBox.ItemContainerStyle>
+
+
+                        <ListBox.ItemTemplate>
+
+                            <DataTemplate>
+
+                                <Grid Margin="0">
+
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="4"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+
+                                    <!-- Severity stripe. Colour is a second
+                                         channel only; the class name carries
+                                         the same information in words. -->
+
+                                    <Border Grid.Column="0"
+                                            Background="{Binding SeverityBrush}"
+                                            CornerRadius="8,0,0,8"/>
+
+
+                                    <StackPanel Grid.Column="1"
+                                                Margin="12,10,12,10">
+
+                                        <Grid>
+
+                                            <TextBlock Text="{Binding PredictedClass}"
+                                                       Foreground="#F1F5F9"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       HorizontalAlignment="Left"/>
+
+                                            <TextBlock Text="{Binding FlowLabel}"
+                                                       Foreground="#64748B"
+                                                       FontSize="11"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"/>
+
+                                        </Grid>
+
+
+                                        <!-- Confidence, as a bar and as a
+                                             number. The bar is scanned; the
+                                             number is quoted in a report. -->
+
+                                        <Grid Margin="0,8,0,0">
+
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0"
+                                                    Height="4"
+                                                    Background="#1E293B"
+                                                    CornerRadius="2"
+                                                    VerticalAlignment="Center">
+
+                                                <Border Background="{Binding SeverityBrush}"
+                                                        CornerRadius="2"
+                                                        HorizontalAlignment="Left"
+                                                        Width="{Binding ConfidenceBarWidth}"/>
+
+                                            </Border>
+
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding ConfidenceDisplay}"
+                                                       Foreground="#94A3B8"
+                                                       FontSize="11"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"/>
+
+                                        </Grid>
+
+
+                                        <TextBlock Text="{Binding TopDriver}"
+                                                   Foreground="#7C8BA1"
+                                                   FontSize="11"
+                                                   Margin="0,7,0,0"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                    </StackPanel>
+
+                                </Grid>
+
+                            </DataTemplate>
+
+                        </ListBox.ItemTemplate>
+
+                    </ListBox>
+
+
+                    <TextBlock x:Name="ThreatEmptyText"
+                               Grid.Row="1"
+                               Text=""
+                               Foreground="#64748B"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Top"
+                               Margin="0,24,0,0"/>
 
                 </Grid>
 
@@ -460,7 +638,7 @@
 
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="300"/>
+                                <RowDefinition Height="Auto" MinHeight="180"/>
                             </Grid.RowDefinitions>
 
 
@@ -482,6 +660,7 @@
 
                             <DataGrid x:Name="ShapDataGrid"
                                       Grid.Row="1"
+                                      MaxHeight="320"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       CanUserAddRows="False"
@@ -614,6 +793,39 @@
                                     </ItemsControl.ItemTemplate>
 
                                 </ItemsControl>
+
+
+                                <!-- Provenance. Every action above was
+                                     traced back to one retrieved passage
+                                     before the backend returned it. -->
+
+                                <Border Background="#0B1220"
+                                        BorderBrush="#1E293B"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="12"
+                                        Margin="0,14,0,0">
+
+                                    <StackPanel>
+
+                                        <TextBlock x:Name="RecommendationVerificationText"
+                                                   Text=""
+                                                   Foreground="#7DD3A8"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,6"/>
+
+                                        <TextBlock x:Name="RecommendationSourcesText"
+                                                   Text=""
+                                                   Foreground="#94A3B8"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   LineHeight="18"/>
+
+                                    </StackPanel>
+
+                                </Border>
 
                             </StackPanel>
 

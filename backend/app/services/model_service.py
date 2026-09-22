@@ -257,6 +257,42 @@ def _get_manifest_entry(
     return None
 
 
+def _manifest_feature_count() -> int | None:
+    """
+    How many features the shipped bundle declares, or None.
+
+    Read from manifest.json rather than fixed in this file. The shared
+    feature contract went from 74 to 66 when the eight Active/Idle columns
+    TRUSTLab never populates were dropped, and a constant here turns a
+    legitimate bundle swap into a crash at load time instead of a check
+    that still does its job.
+    """
+
+    if not MANIFEST_FILE.exists():
+        return None
+
+    try:
+
+        with MANIFEST_FILE.open(
+            "r",
+            encoding="utf-8"
+        ) as manifest_file:
+
+            manifest = json.load(
+                manifest_file
+            )
+
+        count = manifest.get(
+            "n_features"
+        )
+
+        return int(count) if count else None
+
+    except (OSError, ValueError, TypeError):
+
+        return None
+
+
 # ============================================================
 # VERIFY MODEL BUNDLE
 # ============================================================
@@ -478,12 +514,26 @@ def load_model_bundle() -> dict[str, Any]:
     ]
 
 
-    if len(features) != 74:
+    expected_feature_count = (
+        _manifest_feature_count()
+    )
+
+    if (
+        expected_feature_count is not None
+        and len(features) != expected_feature_count
+    ):
 
         raise RuntimeError(
             "FORENXAI model feature schema is invalid.\n"
-            f"Expected 74 features but found "
-            f"{len(features)}."
+            f"manifest.json declares {expected_feature_count} features "
+            f"but features.pkl holds {len(features)}."
+        )
+
+
+    if not features:
+
+        raise RuntimeError(
+            "FORENXAI model feature schema is empty."
         )
 
 
@@ -559,7 +609,7 @@ def get_model_bundle() -> dict[str, Any]:
 
 def get_expected_features() -> list[str]:
     """
-    Return the frozen 74-feature model schema.
+    Return the frozen model feature schema, as shipped in the bundle.
     """
 
     bundle = load_model_bundle()
@@ -753,7 +803,7 @@ def prepare_model_input(
     np.ndarray
 ]:
     """
-    Select the frozen 74 features, sanitize them, and apply the
+    Select the frozen feature set, sanitize it, and apply the
     training-time scaler.
 
     Returns:

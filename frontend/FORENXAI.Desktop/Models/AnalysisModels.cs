@@ -181,6 +181,156 @@ public class RecommendationData
 
     [JsonPropertyName("actions")]
     public List<string> Actions { get; set; } = new();
+
+    // ----------------------------------------------------------
+    // Provenance. Every action is traced back to one retrieved
+    // passage before the backend returns it; these carry that
+    // evidence so the panel can show where an action came from
+    // rather than asking the analyst to take it on trust.
+    // ----------------------------------------------------------
+
+    [JsonPropertyName("generator")]
+    public string Generator { get; set; } = string.Empty;
+
+    [JsonPropertyName("verified")]
+    public bool Verified { get; set; }
+
+    [JsonPropertyName("action_evidence")]
+    public List<ActionEvidence> ActionEvidence { get; set; } = new();
+
+    [JsonPropertyName("citations")]
+    public List<string> Citations { get; set; } = new();
+
+    [JsonPropertyName("standards_used")]
+    public List<string> StandardsUsed { get; set; } = new();
+
+    [JsonPropertyName("sources")]
+    public List<SourceCitation> Sources { get; set; } = new();
+
+    [JsonPropertyName("mitre")]
+    public List<string> Mitre { get; set; } = new();
+
+    [JsonPropertyName("controls")]
+    public List<string> Controls { get; set; } = new();
+
+    [JsonPropertyName("rejected_ungrounded")]
+    public List<string> RejectedUngrounded { get; set; } = new();
+
+    [JsonPropertyName("low_confidence_f1")]
+    public double? LowConfidenceF1 { get; set; }
+
+    /// <summary>
+    /// Each action with its in-text citation appended, ACM style:
+    /// "Apply rate limiting at the perimeter [1, SC-5]."
+    /// </summary>
+    [JsonPropertyName("actions_cited")]
+    public List<string> ActionsCited { get; set; } = new();
+
+    /// <summary>
+    /// The numbered reference list, in ACM Reference Format. Only
+    /// documents an action was actually traced to appear here.
+    /// </summary>
+    [JsonPropertyName("references")]
+    public List<ReferenceEntry> References { get; set; } = new();
+
+    /// <summary>
+    /// False when every action traces to the internal corpus rather
+    /// than to a published standard.
+    /// </summary>
+    [JsonPropertyName("standards_grounded")]
+    public bool StandardsGrounded { get; set; }
+
+    /// <summary>
+    /// What the evaluation measured about this prediction: the class's
+    /// test F1, and what this flow might be instead. Read from the
+    /// model's own results rather than written into a document, so a
+    /// retrain updates it.
+    /// </summary>
+    [JsonPropertyName("measured")]
+    public MeasuredContext? Measured { get; set; }
+}
+
+
+public class MeasuredContext
+{
+    [JsonPropertyName("available")]
+    public bool Available { get; set; }
+
+    [JsonPropertyName("class_f1")]
+    public double? ClassF1 { get; set; }
+
+    [JsonPropertyName("low_confidence_class")]
+    public bool LowConfidenceClass { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double? Confidence { get; set; }
+
+    [JsonPropertyName("alternatives")]
+    public List<AlternativeClass> Alternatives { get; set; } = new();
+
+    /// <summary>Measured statements, ready to show verbatim.</summary>
+    [JsonPropertyName("notes")]
+    public List<string> Notes { get; set; } = new();
+}
+
+
+public class AlternativeClass
+{
+    [JsonPropertyName("class")]
+    public string ClassName { get; set; } = string.Empty;
+
+    /// <summary>The model's probability for this flow, when available.</summary>
+    [JsonPropertyName("probability")]
+    public double? Probability { get; set; }
+
+    [JsonPropertyName("basis")]
+    public string Basis { get; set; } = string.Empty;
+
+    /// <summary>Share of the predicted class misread as this one.</summary>
+    [JsonPropertyName("confusion")]
+    public double? Confusion { get; set; }
+}
+
+
+public class ReferenceEntry
+{
+    [JsonPropertyName("number")]
+    public int Number { get; set; }
+
+    [JsonPropertyName("doc_id")]
+    public string DocId { get; set; } = string.Empty;
+
+    /// <summary>ACM Reference Format.</summary>
+    [JsonPropertyName("acm")]
+    public string Acm { get; set; } = string.Empty;
+}
+
+
+public class ActionEvidence
+{
+    /// <summary>The document or control the action was traced to.</summary>
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>"span", "terms" or "quoted".</summary>
+    [JsonPropertyName("match")]
+    public string Match { get; set; } = string.Empty;
+
+    [JsonPropertyName("span")]
+    public string Span { get; set; } = string.Empty;
+
+    [JsonPropertyName("coverage")]
+    public double Coverage { get; set; }
+}
+
+
+public class SourceCitation
+{
+    [JsonPropertyName("doc_id")]
+    public string DocId { get; set; } = string.Empty;
+
+    [JsonPropertyName("citation")]
+    public string Citation { get; set; } = string.Empty;
 }
 
 

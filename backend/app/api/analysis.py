@@ -461,9 +461,21 @@ def start_analysis(
                 )
 
 
+            # TreeSHAP runs later in the pipeline, so pass whatever
+            # drivers the finding already carries. The parameter is
+            # optional: the recommendation is grounded in the retrieved
+            # documents either way, and SHAP only tells the model which
+            # features to mention where a source explains them.
+            # The class alone is not the whole prediction. Confidence and
+            # the probability distribution decide whether the flow has a
+            # live alternative, and an alternative brings its own
+            # documents into the retrieval.
             recommendation = (
                 get_recommendation(
-                    predicted_class
+                    predicted_class,
+                    finding.get("top_features"),
+                    finding.get("confidence"),
+                    finding.get("probabilities"),
                 )
             )
 

@@ -131,6 +131,55 @@ backend\models\llm\qwen2.5-3b-q4.gguf
 
 The XGBoost model bundle must remain internally consistent. Do not replace only `XGBoost.pkl` unless the new model uses the same feature order, preprocessing, label encoding, and compatible SHAP setup.
 
+## Model bundle provenance
+
+The bundle in `backend\modelsorenxai\` is the multiclass XGBoost trained on the GPU (NVIDIA GeForce RTX 4050 Laptop GPU, CUDA 12.1) with leakage-safe splits, in which rows with an identical feature vector are kept in the same partition. It was trained on TRUSTLab only (16 classes, 74 features).
+
+| File | SHA-256 (first 16) |
+|---|---|
+| XGBoost.pkl | 257f40e37094ccf7 |
+| scaler.pkl | cb7d1b995316fd6e |
+| label_encoder.pkl | 64ed93e1e30701b1 |
+| features.pkl | bff07530c1852f17 |
+| shap_global.json | 8fe52e3537b62577 |
+
+`manifest.json` carries the full SHA-256 of each file and the backend verifies them at startup. Git is set not to convert line endings in this folder (`.gitattributes`), so the hashes stay valid on every clone.
+
+## Testing the model bundle (branch `gpu-leakage-safe-model`)
+
+A short check that needs no PCAP, CICFlowMeter, Java or language model:
+
+```powershell
+git checkout gpu-leakage-safe-model
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python verify_bundle.py
+```
+
+Expected: four `PASS` lines and `ALL CHECKS PASSED`, exit code 0. It verifies the bundle hashes, classifies 3,008 held-out flows (`sample_data/heldout_sample.csv`, accuracy about 0.92), and checks that TreeSHAP reconstructs the model output (error about 1e-5).
+
+For the full application, follow the sections below (CICFlowMeter, Java, Wireshark, the language model in `backend/models/llm/`). `python verify_bundle.py --llm` also checks the language model file.
+
+To build and run the desktop window, install the .NET 10 SDK first (the project targets `net10.0-windows`; a machine with only .NET 8 or 9 cannot build it):
+
+```powershell
+winget install Microsoft.DotNet.SDK.10
+```
+
+Open a new terminal so the updated PATH is used, then start the two parts in separate terminals:
+
+```powershell
+# Terminal 1: backend
+cd backend
+.\.venv\Scripts\python.exe run_backend.py     # http://127.0.0.1:8000, /health returns {"status":"healthy"}
+
+# Terminal 2: desktop window
+cd frontend\FORENXAI.Desktop
+dotnet run -c Release
+```
+
 ---
 
 # 3. Clone the Repository

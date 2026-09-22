@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import joblib                                        # noqa: E402
 
+from app.services import model_facts                 # noqa: E402
 from app.services.recommendation_service import (    # noqa: E402
     get_recommendation,
     retrieve,
@@ -195,11 +196,85 @@ def main() -> int:
             f"matched {evidence['source'][:44]}" if evidence else "",
         )
 
-    # --------------------------------------------- 5. a real response
+    # ------------------------------------------ 5. measured facts
+    print("\n5. measured facts, not figures written into documents")
+
+    check(
+        "model_facts.json ships with the model",
+        model_facts.available(),
+        "per-class F1, confusion matrix, 120 pair similarities",
+    )
+
+    if model_facts.available():
+
+        forward = model_facts.confusion("BufferOverflow", "Exploitation")
+        reverse = model_facts.confusion("Exploitation", "BufferOverflow")
+
+        check(
+            "confusion is directional",
+            forward is not None
+            and reverse is not None
+            and abs(forward - reverse) > 0.05,
+            f"BufferOverflow->Exploitation {forward:.1%}, "
+            f"reverse {reverse:.1%}",
+        )
+
+    # the corpus must not carry evaluation figures: they go stale silently
+    import re
+
+    stale = []
+
+    for path in sorted(get_knowledge_directory().rglob("*.md")):
+
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), 1
+        ):
+            if "NIST SP" in line:
+                continue
+            if re.search(r"\b0\.\d{3,}\b|\b\d{1,2}\.\d% of\b", line):
+                stale.append(f"{path.name}:{number}")
+
+    check(
+        "no evaluation figure is hardcoded in the corpus",
+        not stale,
+        str(stale[:4]) if stale else "figures come from model_facts.json",
+    )
+
+    # ------------------------------------ 6. confidence changes retrieval
+    print("\n6. retrieval responds to confidence, not only to the class")
+
+    confident = retrieve(
+        "DDoS", {"DDoS": 0.99, "PortScan": 0.005}, 0.99
+    )
+    uncertain = retrieve(
+        "DoS", {"DoS": 0.52, "Slowloris": 0.44, "DDoS": 0.02}, 0.52
+    )
+
+    check(
+        "a confident prediction offers no alternative",
+        not confident["measured"]["alternatives"],
+        "DDoS at 99%",
+    )
+    check(
+        "an uncertain prediction names the alternative",
+        [a["class"] for a in uncertain["measured"]["alternatives"]]
+        == ["Slowloris"],
+        "DoS at 52%, Slowloris at 44%",
+    )
+    check(
+        "the alternative's profile is retrieved too",
+        any(
+            p["role"] == "alternative"
+            for p in uncertain["passages"]
+        ),
+        "so the guidance can hold either way",
+    )
+
+    # --------------------------------------------- 7. a real response
     if args.fast:
-        print("\n5. generation  (skipped, --fast)")
+        print("\n7. generation  (skipped, --fast)")
     else:
-        print("\n5. generation")
+        print("\n7. generation")
 
         result = get_recommendation("DoS")
 

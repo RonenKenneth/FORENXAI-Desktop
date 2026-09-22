@@ -35,6 +35,7 @@ import re
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
+from app.services import model_facts
 from app.utils.runtime_paths import (
     get_knowledge_map_path,
     get_rag_directory,
@@ -53,6 +54,11 @@ from app.utils.runtime_paths import (
 DOC_CHAR_BUDGET = 3000
 
 ALWAYS_CHAR_BUDGET = 500
+
+# An alternative class contributes its detection profile only -- enough
+# to describe what else this flow could be, without displacing the
+# predicted class's own guidance.
+ALTERNATIVE_CHAR_BUDGET = 900
 
 MAX_ACTIONS = 6
 
@@ -226,7 +232,9 @@ def _clip(text: Optional[str], budget: int):
     return text[:budget], True
 
 
-def retrieve(predicted_class: str) -> Dict[str, Any]:
+def retrieve(predicted_class: str,
+             probabilities: Optional[Dict[str, float]] = None,
+             confidence: Optional[float] = None) -> Dict[str, Any]:
     """Every document the recommendation stage may use for one class.
 
     Raises KeyError for an unknown class rather than substituting a
@@ -280,11 +288,45 @@ def retrieve(predicted_class: str) -> Dict[str, Any]:
         if was_cut:
             truncated.append(relative_path)
 
-    low_confidence = getattr(
-        km,
-        "LOW_CONFIDENCE_CLASSES",
-        {}
+    # What the evaluation measured about this prediction: how good the
+    # class is, and what this particular flow might be instead. Read from
+    # model_facts.json rather than from a table in the knowledge map, so a
+    # retrain updates it instead of silently invalidating it.
+    measured = model_facts.describe(
+        predicted_class,
+        probabilities,
+        confidence
     )
+
+    # A live alternative earns its own documents. An analyst told the flow
+    # might be DoS or Slowloris needs both playbooks, not one of them and a
+    # warning.
+    for alternative in measured["alternatives"]:
+
+        try:
+            other = km.context_for(alternative["class"])
+        except KeyError:
+            continue
+
+        document = other["documents"].get("attack")
+
+        if not document:
+            continue
+
+        text, was_cut = _clip(
+            document["text"],
+            ALTERNATIVE_CHAR_BUDGET
+        )
+
+        passages.append({
+            "role": "alternative",
+            "doc_id": "FORENXAI.corpus",
+            "path": f"knowledge/{document['path']}",
+            "text": text
+        })
+
+        if was_cut:
+            truncated.append(document["path"])
 
     ambiguous = [
         pair for pair in getattr(km, "AMBIGUOUS_PAIRS", [])
@@ -340,7 +382,11 @@ def retrieve(predicted_class: str) -> Dict[str, Any]:
         ),
         "missing": context["missing"],
         "truncated": truncated,
-        "low_confidence_f1": low_confidence.get(predicted_class),
+        "low_confidence_f1": (
+            measured["class_f1"]
+            if measured["low_confidence_class"] else None
+        ),
+        "measured": measured,
         "ambiguous_with": [
             {
                 "classes": list(pair["classes"]),
@@ -648,11 +694,27 @@ def _build_prompt(retrieved: Dict[str, Any],
 
     caveat = ""
 
-    if retrieved["low_confidence_f1"] is not None:
-        caveat = (
-            f"\nThe classifier's test F1 for this class is "
-            f"{retrieved['low_confidence_f1']:.4f}. Write the actions so "
-            f"they remain sensible if the class is wrong."
+    measured = retrieved.get("measured", {})
+
+    for note in measured.get("notes", []):
+        caveat += f"\n{note}"
+
+    alternatives = measured.get("alternatives", [])
+
+    if alternatives:
+        named = ", ".join(
+            a["class"] for a in alternatives
+        )
+        caveat += (
+            f"\nThis flow may instead be: {named}. Write actions that are "
+            f"correct whichever of these it is, and do not name one of them "
+            f"as settled."
+        )
+
+    if measured.get("confidence") is not None:
+        caveat += (
+            f"\nThe model's confidence in this flow is "
+            f"{measured['confidence']:.1%}."
         )
 
     for pair in retrieved["ambiguous_with"]:
@@ -952,7 +1014,10 @@ _BENIGN_ACTIONS = [
 
 
 def get_recommendation(predicted_class: str,
-                       shap_features=None) -> Dict[str, Any]:
+                       shap_features=None,
+                       confidence: Optional[float] = None,
+                       probabilities: Optional[Dict[str, float]] = None
+                       ) -> Dict[str, Any]:
     """Grounded response recommendation for one predicted class.
 
     The return shape keeps `predicted_class`, `summary` and `actions`, so
@@ -966,11 +1031,21 @@ def get_recommendation(predicted_class: str,
 
     # Keyed by class AND by the SHAP features supplied, so two flows of
     # the same class with different drivers do not share a cached answer.
+    # Bucketed, not exact: two flows of one class at 0.81 and 0.83
+    # confidence should share an answer, but one at 0.55 should not. The
+    # alternatives are part of the key because they change which documents
+    # were retrieved.
+    _measured = model_facts.describe(
+        predicted_class, probabilities, confidence
+    )
+
     cache_key = (
         predicted_class,
         tuple(
             f.get("feature") for f in (shap_features or [])[:5]
         ),
+        None if confidence is None else round(float(confidence), 1),
+        tuple(a["class"] for a in _measured["alternatives"]),
     )
 
     with _cache_lock:
@@ -978,7 +1053,7 @@ def get_recommendation(predicted_class: str,
         if cache_key in _cache:
             return dict(_cache[cache_key])
 
-    retrieved = retrieve(predicted_class)
+    retrieved = retrieve(predicted_class, probabilities, confidence)
 
     has_playbook = any(
         p["role"] == "response"
@@ -1041,10 +1116,10 @@ def get_recommendation(predicted_class: str,
             )
 
         # Whether any displayed action rests on a published standard, as
-        # opposed to the internal corpus alone. Worth surfacing: the
-        # response playbooks are still marked PLACEHOLDER, so a class
-        # whose actions all trace to them is grounded in less than it
-        # looks.
+        # opposed to the internal corpus alone. The detection profiles
+        # describe how a class looks in this dataset, which is ours to
+        # assert; what to do about it is not, so an answer built only from
+        # them is grounded in less than it looks.
         standards_grounded = any(
             item.get("doc_id", "FORENXAI.corpus") != "FORENXAI.corpus"
             for item in evidence
@@ -1078,6 +1153,7 @@ def get_recommendation(predicted_class: str,
             ],
             "truncated_documents": retrieved["truncated"],
             "low_confidence_f1": retrieved["low_confidence_f1"],
+            "measured": retrieved.get("measured", {}),
             "ambiguous_with": retrieved["ambiguous_with"],
             "rejected_ungrounded": rejected or [],
         }

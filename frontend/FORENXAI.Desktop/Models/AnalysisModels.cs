@@ -239,6 +239,56 @@ public class RecommendationData
     /// </summary>
     [JsonPropertyName("standards_grounded")]
     public bool StandardsGrounded { get; set; }
+
+    /// <summary>
+    /// What the evaluation measured about this prediction: the class's
+    /// test F1, and what this flow might be instead. Read from the
+    /// model's own results rather than written into a document, so a
+    /// retrain updates it.
+    /// </summary>
+    [JsonPropertyName("measured")]
+    public MeasuredContext? Measured { get; set; }
+}
+
+
+public class MeasuredContext
+{
+    [JsonPropertyName("available")]
+    public bool Available { get; set; }
+
+    [JsonPropertyName("class_f1")]
+    public double? ClassF1 { get; set; }
+
+    [JsonPropertyName("low_confidence_class")]
+    public bool LowConfidenceClass { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double? Confidence { get; set; }
+
+    [JsonPropertyName("alternatives")]
+    public List<AlternativeClass> Alternatives { get; set; } = new();
+
+    /// <summary>Measured statements, ready to show verbatim.</summary>
+    [JsonPropertyName("notes")]
+    public List<string> Notes { get; set; } = new();
+}
+
+
+public class AlternativeClass
+{
+    [JsonPropertyName("class")]
+    public string ClassName { get; set; } = string.Empty;
+
+    /// <summary>The model's probability for this flow, when available.</summary>
+    [JsonPropertyName("probability")]
+    public double? Probability { get; set; }
+
+    [JsonPropertyName("basis")]
+    public string Basis { get; set; } = string.Empty;
+
+    /// <summary>Share of the predicted class misread as this one.</summary>
+    [JsonPropertyName("confusion")]
+    public double? Confusion { get; set; }
 }
 
 

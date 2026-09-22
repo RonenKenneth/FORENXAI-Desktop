@@ -117,7 +117,7 @@ Plain-English definitions for every feature `artifacts/mc_random/XGBoost.pkl` wa
 ## Features that need a warning shown with them
 
 - **`Dst Port`** — Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.
-- **`FWD Init Win Bytes`** — Partly an OS fingerprint. Phase 11 ablated it to test whether the model was recognising the capture host; removing it changed macro F1 by 0.0002, so it is not carrying the result.
+- **`FWD Init Win Bytes`** — Partly an OS fingerprint. Phase 11 ablated it to test whether the model was recognising the capture host; removing it left macro F1 essentially unchanged, so it is not carrying the result. The measured delta is in the phase 11 output rather than repeated here.
 - **`Bwd Init Win Bytes`** — See FWD Init Win Bytes.
 - **`Bwd PSH Flags`** — Constant zero throughout the binary training data but non-zero in TRUSTLab, so it enters those models unscaled. See knowledge/datasets/scope.md.
 - **`Bwd URG Flags`** — Constant zero in the binary training data. See Bwd PSH Flags.

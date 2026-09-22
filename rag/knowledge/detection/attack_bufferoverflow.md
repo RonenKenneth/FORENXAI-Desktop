@@ -25,7 +25,7 @@ A small number of flows carrying unusually large forward packets to a service po
 
 ## 1.3 Classes it is confused with
 
-Exploitation. 21.9% of BufferOverflow flows are predicted as Exploitation; the reverse direction is 8.7%. The response overlaps substantially, so the two are flagged as an ambiguous pair and reported together. Note that the pair shares little evidence -- their SHAP profiles correlate at only 0.337, twenty-seventh of 120 pairs -- so the confusion is not explained by shared features.
+Exploitation. A substantial share of BufferOverflow flows are predicted as Exploitation, and the reverse happens less often; the measured rate in each direction is reported with the finding. Both are exploitation of a listening service and the response overlaps, so the two are flagged as an ambiguous pair and reported together. The pair shares little evidence, so the confusion is not explained by shared features.
 
 ## 1.4 Common false positives
 

@@ -900,12 +900,39 @@ public partial class XaiView : UserControl
                 + "to a source and were discarded.";
         }
 
-        if (recommendation.LowConfidenceF1 != null)
+        MeasuredContext? measured =
+            recommendation.Measured;
+
+        if (measured != null
+            && measured.LowConfidenceClass
+            && measured.ClassF1 != null)
         {
             verification +=
                 $" Classifier test F1 for this class is "
-                + $"{recommendation.LowConfidenceF1:F4}; treat the class "
-                + "itself as uncertain.";
+                + $"{measured.ClassF1:F4}; treat the class itself as "
+                + "uncertain.";
+        }
+
+        if (measured != null
+            && measured.Alternatives.Count > 0)
+        {
+            var names = new List<string>();
+
+            foreach (AlternativeClass alternative in measured.Alternatives)
+            {
+                names.Add(
+                    alternative.Probability != null
+                        ? $"{alternative.ClassName} "
+                          + $"({alternative.Probability:P1})"
+                        : alternative.ClassName
+                );
+            }
+
+            verification +=
+                " This flow may instead be "
+                + string.Join(", ", names)
+                + ". The guidance below was written to hold either way, "
+                + "and that class's profile was retrieved alongside.";
         }
 
         if (actionCount > 0
@@ -959,6 +986,17 @@ public partial class XaiView : UserControl
                 + string.Join(", ", recommendation.Mitre)
                 + "  (mappings need review)"
             );
+        }
+
+        if (measured != null
+            && measured.Notes.Count > 0)
+        {
+            lines.Add("MEASURED FOR THIS PREDICTION");
+
+            foreach (string note in measured.Notes)
+            {
+                lines.Add("  " + note);
+            }
         }
 
         if (recommendation.References != null

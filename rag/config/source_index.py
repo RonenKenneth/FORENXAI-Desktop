@@ -4,11 +4,11 @@ source_index.py
 Retrieval from the real publications in _sources/, not from prose we wrote.
 
 WHY THIS EXISTS
-The playbooks under knowledge/incident_response/ carry a PLACEHOLDER banner.
-They were written to exercise the citation path. A recommendation grounded in
-them is grounded in nothing, and the retrieval step makes that worse rather
-than better, because it presents invented prose with the confidence of a
-citation.
+The playbooks under knowledge/incident_response/ once carried a PLACEHOLDER
+banner: prose written to exercise the citation path. A recommendation grounded
+in them was grounded in nothing, and the retrieval step made that worse rather
+than better, because it presented invented prose with the confidence of a
+citation. build_playbooks.py now compiles them from the archive instead.
 
 The archive already holds the documents those playbooks were standing in for:
 NIST SP 800-61r3, SP 800-53r5 (with a machine-readable catalogue), SP 800-86,

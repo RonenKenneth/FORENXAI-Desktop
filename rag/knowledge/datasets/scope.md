@@ -4,7 +4,7 @@
 
 Trained and validated entirely on TRUSTLab. 951,944 training flows, 167,993
 held out for early stopping and 280,063 held-out test flows, sixteen
-classes, random split. Test accuracy 0.9313, macro F1 0.9267.
+classes, random split. Headline accuracy and macro F1 are recorded in model_facts.json beside the model.
 
 ## Where it has been shown to work
 
@@ -14,8 +14,9 @@ TRUSTLab held-out data only -- the same capture environment it learned from.
 
 Everywhere else. This is measured, not cautious wording. The same project
 trained fifteen binary detectors on CICIDS2018 and TII-SSRC-23 and tested
-them on TRUSTLab: mean ROC-AUC 0.4698, with ten of fifteen below 0.50 --
-worse than a coin flip, despite scoring 0.839-0.999 on their own data.
+them on TRUSTLab: most score at or below chance, despite scoring
+very highly on their own data. The figures are in the evaluation
+tables rather than repeated here.
 
 The cause was diagnosed: flow features do not survive a change of capture
 environment. Training flows were extracted with a 120-second timeout;
@@ -40,7 +41,4 @@ Twelve of sixteen classes are at F1 0.94 or above. Four are not:
 
 | Class | F1 | Note |
 |---|---|---|
-| DoS | 0.6714 | confused with Slowloris |
-| Slowloris | 0.7639 | confused with DoS |
-| Exploitation | 0.7838 | bleeds into BufferOverflow |
-| BufferOverflow | 0.8017 | overlaps Exploitation |
+| The four weakest classes and what each is confused with are reported with the finding, from the evaluation that shipped the model. |

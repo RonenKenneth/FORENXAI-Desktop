@@ -1,0 +1,953 @@
+{
+ "model": "XGBoost",
+ "strategy": "random",
+ "accuracy": 0.9313,
+ "macro_f1": 0.9267,
+ "classes": [
+  "API",
+  "Benign",
+  "Bruteforce",
+  "BufferOverflow",
+  "C2Beaconing",
+  "DDoS",
+  "DNS",
+  "DoS",
+  "Evasion",
+  "Exfiltration",
+  "Exploitation",
+  "MITM",
+  "PortScan",
+  "Slowloris",
+  "TLSSSL",
+  "WebBased"
+ ],
+ "per_class_f1": {
+  "API": 0.9992,
+  "Benign": 0.9786,
+  "Bruteforce": 0.944,
+  "BufferOverflow": 0.8017,
+  "C2Beaconing": 0.9499,
+  "DDoS": 0.9934,
+  "DNS": 1.0,
+  "DoS": 0.6714,
+  "Evasion": 0.9985,
+  "Exfiltration": 0.9995,
+  "Exploitation": 0.7838,
+  "MITM": 0.9985,
+  "PortScan": 0.9668,
+  "Slowloris": 0.7639,
+  "TLSSSL": 0.9827,
+  "WebBased": 0.9951
+ },
+ "per_class_support": {
+  "API": 16000,
+  "Benign": 40004,
+  "Bruteforce": 15996,
+  "BufferOverflow": 16000,
+  "C2Beaconing": 15999,
+  "DDoS": 16007,
+  "DNS": 16000,
+  "DoS": 16024,
+  "Evasion": 16003,
+  "Exfiltration": 16008,
+  "Exploitation": 16004,
+  "MITM": 16050,
+  "PortScan": 15989,
+  "Slowloris": 15979,
+  "TLSSSL": 16000,
+  "WebBased": 16000
+ },
+ "confusion_rownorm": {
+  "API": {
+   "API": 0.9994,
+   "Benign": 0.0006,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "Benign": {
+   "API": 0.0004,
+   "Benign": 0.9778,
+   "Bruteforce": 0.0002,
+   "BufferOverflow": 0.006,
+   "C2Beaconing": 0.0002,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0139,
+   "MITM": 0.0,
+   "PortScan": 0.0011,
+   "Slowloris": 0.0001,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0001
+  },
+  "Bruteforce": {
+   "API": 0.0,
+   "Benign": 0.0007,
+   "Bruteforce": 0.9357,
+   "BufferOverflow": 0.0212,
+   "C2Beaconing": 0.0023,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0001,
+   "Exploitation": 0.0317,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0083,
+   "WebBased": 0.0
+  },
+  "BufferOverflow": {
+   "API": 0.0,
+   "Benign": 0.0004,
+   "Bruteforce": 0.0006,
+   "BufferOverflow": 0.7743,
+   "C2Beaconing": 0.0054,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.2193,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "C2Beaconing": {
+   "API": 0.0001,
+   "Benign": 0.0001,
+   "Bruteforce": 0.0001,
+   "BufferOverflow": 0.034,
+   "C2Beaconing": 0.9154,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0503,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "DDoS": {
+   "API": 0.0,
+   "Benign": 0.0,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.9961,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.0039,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "DNS": {
+   "API": 0.0,
+   "Benign": 0.0,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 1.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "DoS": {
+   "API": 0.0,
+   "Benign": 0.0,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.5605,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.4395,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "Evasion": {
+   "API": 0.0,
+   "Benign": 0.0,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.9989,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0001,
+   "MITM": 0.001,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "Exfiltration": {
+   "API": 0.0,
+   "Benign": 0.0006,
+   "Bruteforce": 0.0001,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.9993,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "Exploitation": {
+   "API": 0.0,
+   "Benign": 0.0001,
+   "Bruteforce": 0.0307,
+   "BufferOverflow": 0.0869,
+   "C2Beaconing": 0.0037,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0001,
+   "Exploitation": 0.8673,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.006,
+   "WebBased": 0.0052
+  },
+  "MITM": {
+   "API": 0.0,
+   "Benign": 0.0001,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.002,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.9979,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "PortScan": {
+   "API": 0.0,
+   "Benign": 0.0486,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0094,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.942,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "Slowloris": {
+   "API": 0.0,
+   "Benign": 0.0001,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.1094,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.8905,
+   "TLSSSL": 0.0,
+   "WebBased": 0.0
+  },
+  "TLSSSL": {
+   "API": 0.0,
+   "Benign": 0.0,
+   "Bruteforce": 0.0148,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0052,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.9799,
+   "WebBased": 0.0
+  },
+  "WebBased": {
+   "API": 0.0,
+   "Benign": 0.0001,
+   "Bruteforce": 0.0,
+   "BufferOverflow": 0.0,
+   "C2Beaconing": 0.0,
+   "DDoS": 0.0,
+   "DNS": 0.0,
+   "DoS": 0.0,
+   "Evasion": 0.0,
+   "Exfiltration": 0.0,
+   "Exploitation": 0.0044,
+   "MITM": 0.0,
+   "PortScan": 0.0,
+   "Slowloris": 0.0,
+   "TLSSSL": 0.0001,
+   "WebBased": 0.9955
+  }
+ },
+ "pair_similarity": {
+  "DDoS|PortScan": {
+   "corr": 0.958982,
+   "shared_top10": 7,
+   "rank": 1
+  },
+  "DoS|Slowloris": {
+   "corr": 0.915886,
+   "shared_top10": 7,
+   "rank": 2
+  },
+  "Evasion|Exfiltration": {
+   "corr": 0.730377,
+   "shared_top10": 4,
+   "rank": 3
+  },
+  "C2Beaconing|MITM": {
+   "corr": 0.689202,
+   "shared_top10": 5,
+   "rank": 4
+  },
+  "Exfiltration|TLSSSL": {
+   "corr": 0.622711,
+   "shared_top10": 5,
+   "rank": 5
+  },
+  "Bruteforce|Exploitation": {
+   "corr": 0.594189,
+   "shared_top10": 7,
+   "rank": 6
+  },
+  "Evasion|Exploitation": {
+   "corr": 0.553498,
+   "shared_top10": 3,
+   "rank": 7
+  },
+  "Evasion|MITM": {
+   "corr": 0.535213,
+   "shared_top10": 5,
+   "rank": 8
+  },
+  "Benign|Bruteforce": {
+   "corr": 0.50612,
+   "shared_top10": 6,
+   "rank": 9
+  },
+  "API|DoS": {
+   "corr": 0.505712,
+   "shared_top10": 3,
+   "rank": 10
+  },
+  "C2Beaconing|Evasion": {
+   "corr": 0.503295,
+   "shared_top10": 3,
+   "rank": 11
+  },
+  "Benign|Exploitation": {
+   "corr": 0.498837,
+   "shared_top10": 4,
+   "rank": 12
+  },
+  "Exfiltration|Exploitation": {
+   "corr": 0.493774,
+   "shared_top10": 5,
+   "rank": 13
+  },
+  "BufferOverflow|C2Beaconing": {
+   "corr": 0.47181,
+   "shared_top10": 5,
+   "rank": 14
+  },
+  "Benign|MITM": {
+   "corr": 0.451505,
+   "shared_top10": 4,
+   "rank": 15
+  },
+  "BufferOverflow|TLSSSL": {
+   "corr": 0.42752,
+   "shared_top10": 6,
+   "rank": 16
+  },
+  "Benign|Evasion": {
+   "corr": 0.426899,
+   "shared_top10": 6,
+   "rank": 17
+  },
+  "Benign|C2Beaconing": {
+   "corr": 0.42442,
+   "shared_top10": 4,
+   "rank": 18
+  },
+  "Bruteforce|Evasion": {
+   "corr": 0.420099,
+   "shared_top10": 4,
+   "rank": 19
+  },
+  "Benign|BufferOverflow": {
+   "corr": 0.403679,
+   "shared_top10": 5,
+   "rank": 20
+  },
+  "API|Slowloris": {
+   "corr": 0.400026,
+   "shared_top10": 3,
+   "rank": 21
+  },
+  "Benign|Exfiltration": {
+   "corr": 0.397575,
+   "shared_top10": 5,
+   "rank": 22
+  },
+  "Bruteforce|Exfiltration": {
+   "corr": 0.394961,
+   "shared_top10": 5,
+   "rank": 23
+  },
+  "C2Beaconing|TLSSSL": {
+   "corr": 0.367357,
+   "shared_top10": 5,
+   "rank": 24
+  },
+  "API|TLSSSL": {
+   "corr": 0.359994,
+   "shared_top10": 4,
+   "rank": 25
+  },
+  "Bruteforce|C2Beaconing": {
+   "corr": 0.340022,
+   "shared_top10": 5,
+   "rank": 26
+  },
+  "BufferOverflow|Exploitation": {
+   "corr": 0.337309,
+   "shared_top10": 4,
+   "rank": 27
+  },
+  "DoS|TLSSSL": {
+   "corr": 0.33626,
+   "shared_top10": 3,
+   "rank": 28
+  },
+  "Benign|TLSSSL": {
+   "corr": 0.331032,
+   "shared_top10": 4,
+   "rank": 29
+  },
+  "C2Beaconing|Exploitation": {
+   "corr": 0.326381,
+   "shared_top10": 4,
+   "rank": 30
+  },
+  "Bruteforce|TLSSSL": {
+   "corr": 0.324497,
+   "shared_top10": 6,
+   "rank": 31
+  },
+  "Bruteforce|DDoS": {
+   "corr": 0.323106,
+   "shared_top10": 6,
+   "rank": 32
+  },
+  "Exploitation|TLSSSL": {
+   "corr": 0.322974,
+   "shared_top10": 4,
+   "rank": 33
+  },
+  "API|C2Beaconing": {
+   "corr": 0.308869,
+   "shared_top10": 2,
+   "rank": 34
+  },
+  "Bruteforce|BufferOverflow": {
+   "corr": 0.306874,
+   "shared_top10": 6,
+   "rank": 35
+  },
+  "Bruteforce|MITM": {
+   "corr": 0.304285,
+   "shared_top10": 5,
+   "rank": 36
+  },
+  "Slowloris|TLSSSL": {
+   "corr": 0.299061,
+   "shared_top10": 3,
+   "rank": 37
+  },
+  "Exploitation|WebBased": {
+   "corr": 0.292096,
+   "shared_top10": 1,
+   "rank": 38
+  },
+  "C2Beaconing|Exfiltration": {
+   "corr": 0.287704,
+   "shared_top10": 3,
+   "rank": 39
+  },
+  "Bruteforce|PortScan": {
+   "corr": 0.283674,
+   "shared_top10": 4,
+   "rank": 40
+  },
+  "BufferOverflow|DoS": {
+   "corr": 0.268424,
+   "shared_top10": 2,
+   "rank": 41
+  },
+  "DNS|TLSSSL": {
+   "corr": 0.265567,
+   "shared_top10": 6,
+   "rank": 42
+  },
+  "Benign|DDoS": {
+   "corr": 0.262283,
+   "shared_top10": 6,
+   "rank": 43
+  },
+  "DNS|Exfiltration": {
+   "corr": 0.261443,
+   "shared_top10": 3,
+   "rank": 44
+  },
+  "API|Bruteforce": {
+   "corr": 0.260525,
+   "shared_top10": 5,
+   "rank": 45
+  },
+  "BufferOverflow|MITM": {
+   "corr": 0.242888,
+   "shared_top10": 5,
+   "rank": 46
+  },
+  "C2Beaconing|DDoS": {
+   "corr": 0.242376,
+   "shared_top10": 5,
+   "rank": 47
+  },
+  "Exploitation|PortScan": {
+   "corr": 0.23536,
+   "shared_top10": 4,
+   "rank": 48
+  },
+  "BufferOverflow|Slowloris": {
+   "corr": 0.234981,
+   "shared_top10": 2,
+   "rank": 49
+  },
+  "C2Beaconing|DoS": {
+   "corr": 0.214885,
+   "shared_top10": 2,
+   "rank": 50
+  },
+  "C2Beaconing|PortScan": {
+   "corr": 0.212817,
+   "shared_top10": 5,
+   "rank": 51
+  },
+  "Exploitation|MITM": {
+   "corr": 0.211891,
+   "shared_top10": 3,
+   "rank": 52
+  },
+  "DDoS|Exploitation": {
+   "corr": 0.206778,
+   "shared_top10": 4,
+   "rank": 53
+  },
+  "BufferOverflow|Evasion": {
+   "corr": 0.201633,
+   "shared_top10": 5,
+   "rank": 54
+  },
+  "BufferOverflow|WebBased": {
+   "corr": 0.201612,
+   "shared_top10": 3,
+   "rank": 55
+  },
+  "Benign|PortScan": {
+   "corr": 0.199359,
+   "shared_top10": 5,
+   "rank": 56
+  },
+  "Exfiltration|MITM": {
+   "corr": 0.196431,
+   "shared_top10": 3,
+   "rank": 57
+  },
+  "Bruteforce|DoS": {
+   "corr": 0.18764,
+   "shared_top10": 3,
+   "rank": 58
+  },
+  "Benign|DNS": {
+   "corr": 0.187417,
+   "shared_top10": 3,
+   "rank": 59
+  },
+  "DDoS|Evasion": {
+   "corr": 0.187208,
+   "shared_top10": 5,
+   "rank": 60
+  },
+  "Evasion|TLSSSL": {
+   "corr": 0.187132,
+   "shared_top10": 2,
+   "rank": 61
+  },
+  "BufferOverflow|Exfiltration": {
+   "corr": 0.183979,
+   "shared_top10": 3,
+   "rank": 62
+  },
+  "DoS|MITM": {
+   "corr": 0.181481,
+   "shared_top10": 5,
+   "rank": 63
+  },
+  "Bruteforce|WebBased": {
+   "corr": 0.164189,
+   "shared_top10": 2,
+   "rank": 64
+  },
+  "DDoS|Exfiltration": {
+   "corr": 0.160404,
+   "shared_top10": 5,
+   "rank": 65
+  },
+  "API|Exploitation": {
+   "corr": 0.156478,
+   "shared_top10": 5,
+   "rank": 66
+  },
+  "Bruteforce|Slowloris": {
+   "corr": 0.155655,
+   "shared_top10": 3,
+   "rank": 67
+  },
+  "Benign|WebBased": {
+   "corr": 0.146344,
+   "shared_top10": 1,
+   "rank": 68
+  },
+  "MITM|Slowloris": {
+   "corr": 0.145809,
+   "shared_top10": 4,
+   "rank": 69
+  },
+  "C2Beaconing|Slowloris": {
+   "corr": 0.143346,
+   "shared_top10": 2,
+   "rank": 70
+  },
+  "DDoS|TLSSSL": {
+   "corr": 0.143137,
+   "shared_top10": 4,
+   "rank": 71
+  },
+  "BufferOverflow|PortScan": {
+   "corr": 0.139481,
+   "shared_top10": 4,
+   "rank": 72
+  },
+  "API|Benign": {
+   "corr": 0.12661,
+   "shared_top10": 2,
+   "rank": 73
+  },
+  "BufferOverflow|DDoS": {
+   "corr": 0.123747,
+   "shared_top10": 4,
+   "rank": 74
+  },
+  "Benign|DoS": {
+   "corr": 0.118119,
+   "shared_top10": 2,
+   "rank": 75
+  },
+  "API|WebBased": {
+   "corr": 0.11776,
+   "shared_top10": 2,
+   "rank": 76
+  },
+  "PortScan|TLSSSL": {
+   "corr": 0.117396,
+   "shared_top10": 3,
+   "rank": 77
+  },
+  "API|DDoS": {
+   "corr": 0.111822,
+   "shared_top10": 2,
+   "rank": 78
+  },
+  "DoS|WebBased": {
+   "corr": 0.110755,
+   "shared_top10": 2,
+   "rank": 79
+  },
+  "MITM|TLSSSL": {
+   "corr": 0.106387,
+   "shared_top10": 4,
+   "rank": 80
+  },
+  "DNS|Evasion": {
+   "corr": 0.104965,
+   "shared_top10": 2,
+   "rank": 81
+  },
+  "API|PortScan": {
+   "corr": 0.101307,
+   "shared_top10": 1,
+   "rank": 82
+  },
+  "Slowloris|WebBased": {
+   "corr": 0.098911,
+   "shared_top10": 2,
+   "rank": 83
+  },
+  "DNS|Exploitation": {
+   "corr": 0.098615,
+   "shared_top10": 5,
+   "rank": 84
+  },
+  "PortScan|WebBased": {
+   "corr": 0.090412,
+   "shared_top10": 2,
+   "rank": 85
+  },
+  "Evasion|PortScan": {
+   "corr": 0.084347,
+   "shared_top10": 4,
+   "rank": 86
+  },
+  "Evasion|WebBased": {
+   "corr": 0.071544,
+   "shared_top10": 3,
+   "rank": 87
+  },
+  "Bruteforce|DNS": {
+   "corr": 0.067961,
+   "shared_top10": 4,
+   "rank": 88
+  },
+  "TLSSSL|WebBased": {
+   "corr": 0.06709,
+   "shared_top10": 2,
+   "rank": 89
+  },
+  "Exfiltration|PortScan": {
+   "corr": 0.061253,
+   "shared_top10": 3,
+   "rank": 90
+  },
+  "C2Beaconing|DNS": {
+   "corr": 0.05962,
+   "shared_top10": 6,
+   "rank": 91
+  },
+  "DoS|Exfiltration": {
+   "corr": 0.054482,
+   "shared_top10": 5,
+   "rank": 92
+  },
+  "DDoS|DNS": {
+   "corr": 0.053599,
+   "shared_top10": 5,
+   "rank": 93
+  },
+  "DNS|PortScan": {
+   "corr": 0.0491,
+   "shared_top10": 5,
+   "rank": 94
+  },
+  "API|BufferOverflow": {
+   "corr": 0.047724,
+   "shared_top10": 1,
+   "rank": 95
+  },
+  "BufferOverflow|DNS": {
+   "corr": 0.047685,
+   "shared_top10": 5,
+   "rank": 96
+  },
+  "DoS|Exploitation": {
+   "corr": 0.044541,
+   "shared_top10": 2,
+   "rank": 97
+  },
+  "API|MITM": {
+   "corr": 0.044201,
+   "shared_top10": 2,
+   "rank": 98
+  },
+  "Benign|Slowloris": {
+   "corr": 0.040335,
+   "shared_top10": 2,
+   "rank": 99
+  },
+  "API|Exfiltration": {
+   "corr": 0.034474,
+   "shared_top10": 3,
+   "rank": 100
+  },
+  "Exfiltration|WebBased": {
+   "corr": 0.033209,
+   "shared_top10": 1,
+   "rank": 101
+  },
+  "Evasion|Slowloris": {
+   "corr": 0.030012,
+   "shared_top10": 3,
+   "rank": 102
+  },
+  "DDoS|WebBased": {
+   "corr": 0.02853,
+   "shared_top10": 1,
+   "rank": 103
+  },
+  "DoS|Evasion": {
+   "corr": 0.025067,
+   "shared_top10": 3,
+   "rank": 104
+  },
+  "Exploitation|Slowloris": {
+   "corr": 0.022832,
+   "shared_top10": 3,
+   "rank": 105
+  },
+  "Exfiltration|Slowloris": {
+   "corr": 0.022686,
+   "shared_top10": 4,
+   "rank": 106
+  },
+  "DDoS|MITM": {
+   "corr": 0.015053,
+   "shared_top10": 3,
+   "rank": 107
+  },
+  "DNS|MITM": {
+   "corr": 0.00456,
+   "shared_top10": 2,
+   "rank": 108
+  },
+  "MITM|WebBased": {
+   "corr": 0.003336,
+   "shared_top10": 2,
+   "rank": 109
+  },
+  "DDoS|DoS": {
+   "corr": -0.002566,
+   "shared_top10": 2,
+   "rank": 110
+  },
+  "DoS|PortScan": {
+   "corr": -0.008954,
+   "shared_top10": 1,
+   "rank": 111
+  },
+  "API|Evasion": {
+   "corr": -0.010848,
+   "shared_top10": 0,
+   "rank": 112
+  },
+  "API|DNS": {
+   "corr": -0.017601,
+   "shared_top10": 2,
+   "rank": 113
+  },
+  "DNS|WebBased": {
+   "corr": -0.021631,
+   "shared_top10": 0,
+   "rank": 114
+  },
+  "MITM|PortScan": {
+   "corr": -0.023794,
+   "shared_top10": 1,
+   "rank": 115
+  },
+  "C2Beaconing|WebBased": {
+   "corr": -0.029807,
+   "shared_top10": 0,
+   "rank": 116
+  },
+  "PortScan|Slowloris": {
+   "corr": -0.04572,
+   "shared_top10": 1,
+   "rank": 117
+  },
+  "DDoS|Slowloris": {
+   "corr": -0.051976,
+   "shared_top10": 1,
+   "rank": 118
+  },
+  "DNS|Slowloris": {
+   "corr": -0.054699,
+   "shared_top10": 1,
+   "rank": 119
+  },
+  "DNS|DoS": {
+   "corr": -0.055471,
+   "shared_top10": 1,
+   "rank": 120
+  }
+ },
+ "n_pairs": 120
+}

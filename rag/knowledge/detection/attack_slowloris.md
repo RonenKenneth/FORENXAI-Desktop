@@ -16,7 +16,7 @@ Long flow durations with very low byte counts and large minimum inter-arrival ti
 
 ## 1.3 Classes it is confused with
 
-DoS. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9044 and six of the top ten features are shared. Report both sub-types rather than choosing one.
+DoS. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9159 and seven of the top ten features are shared. Report both sub-types rather than choosing one.
 
 ## 1.4 Common false positives
 

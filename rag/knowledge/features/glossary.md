@@ -75,19 +75,6 @@ Plain-English definitions for every feature `artifacts/mc_random/XGBoost.pkl` wa
 | `Fwd IAT Std` | how irregular the gaps between outbound packets were |
 | `Fwd IAT Total` | total time spanned by the client's packets |
 
-## Active and idle periods
-
-| Feature | Plain English |
-|---|---|
-| `Active Max` | longest continuous burst of transmission |
-| `Active Mean` | average length of a continuous burst of transmission |
-| `Active Min` | shortest burst of transmission |
-| `Active Std` | how much burst lengths varied |
-| `Idle Max` | longest period the connection sat idle |
-| `Idle Mean` | average length of a quiet period |
-| `Idle Min` | shortest idle period |
-| `Idle Std` | how much idle period lengths varied |
-
 ## TCP flags
 
 | Feature | Plain English |
@@ -145,4 +132,4 @@ Plain-English definitions for every feature `artifacts/mc_random/XGBoost.pkl` wa
 
 A high attribution means the model weighted the feature, not that the feature caused the behaviour. Several of these move together — `Packet Length Mean`, `Max` and `Std` are not independent — so credit is shared between them in ways that look arbitrary. See `interpretability/caveats.md`.
 
-Covers 74 of 74 features.
+Covers 66 of 66 features.

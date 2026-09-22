@@ -16,7 +16,7 @@ Sustained flows from one source to one destination port at a rate high enough to
 
 ## 1.3 Classes it is confused with
 
-Slowloris. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9044 and six of the top ten features are shared. Always report the pair. DDoS, which is the same behaviour from many sources.
+Slowloris. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9159 and seven of the top ten features are shared. Always report the pair. DDoS, which is the same behaviour from many sources.
 
 ## 1.4 Common false positives
 

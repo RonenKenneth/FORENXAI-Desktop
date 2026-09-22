@@ -16,7 +16,7 @@ A small number of flows carrying unusually large forward packets to a service po
 
 ## 1.3 Classes it is confused with
 
-Exploitation. The model confuses these in 8.9% of cases and the response overlaps substantially; the two are flagged as an ambiguous pair and reported together.
+Exploitation. The model confuses these in 8.7% of cases and the response overlaps substantially; the two are flagged as an ambiguous pair and reported together.
 
 ## 1.4 Common false positives
 

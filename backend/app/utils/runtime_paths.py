@@ -105,3 +105,62 @@ def get_llm_model_path() -> Path:
         get_llm_directory()
         / "qwen2.5-3b-q4.gguf"
     )
+
+
+def get_rag_directory() -> Path:
+    """
+    Return the directory holding the retrieval assets.
+
+    Development:
+        ...\\FORENXAI-Desktop\\rag      (sibling of backend\\)
+
+    Packaged deployment:
+        backend\\rag, or a directory supplied through FORENXAI_RAG_DIR.
+
+    The recommendation panel reads knowledge/ and config/ from here. It is
+    resolved rather than hard-coded because the packaged layout puts the
+    assets beside the executable instead of beside the source tree.
+    """
+
+    configured_path = os.environ.get(
+        "FORENXAI_RAG_DIR"
+    )
+
+    if configured_path:
+        return Path(
+            configured_path
+        ).resolve()
+
+    backend_directory = (
+        get_backend_directory()
+    )
+
+    # Packaged: the assets ship inside the backend directory.
+    packaged = (
+        backend_directory
+        / "rag"
+    )
+
+    if packaged.is_dir():
+        return packaged
+
+    # Development: rag/ sits beside backend/.
+    return (
+        backend_directory.parent
+        / "rag"
+    )
+
+
+def get_knowledge_directory() -> Path:
+    return (
+        get_rag_directory()
+        / "knowledge"
+    )
+
+
+def get_knowledge_map_path() -> Path:
+    return (
+        get_rag_directory()
+        / "config"
+        / "knowledge_map.py"
+    )

@@ -34,7 +34,7 @@ misclassification.
 Values are computed on **scaled** features. The raw value shown in the
 interface is for human reading only; the model reasons in the scaled space.
 
-Slowloris and DoS have a per-feature importance correlation of **0.9044**
+Slowloris and DoS have a per-feature importance correlation of **0.9159**
 and share six of their top ten features. When either is predicted with the
 other close behind, the attribution will look similar for both -- because it
 genuinely is. Report the ambiguity, do not resolve it.

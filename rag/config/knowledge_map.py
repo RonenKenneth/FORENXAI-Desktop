@@ -175,7 +175,7 @@ KNOWLEDGE_MAP = {
 # Pairs this model provably cannot separate, with the evidence.
 #
 # SHAP measured the per-feature importance correlation between Slowloris and
-# DoS at 0.8898, sharing seven of their top ten features
+# DoS at 0.9159, sharing seven of their top ten features
 # (results/shap/pair_slowloris_dos_random.json). Both classes are decided by
 # the same evidence, so a confident single answer between them misrepresents
 # what the model knows. When the runner-up is one of these and its
@@ -188,7 +188,7 @@ AMBIGUOUS_PAIRS = [
         "evidence": "results/shap/pair_slowloris_dos_random.json",
         "note": ("Slow-rate denial-of-service. This model cannot reliably "
                  "separate Slowloris from DoS: per-feature SHAP importance "
-                 "correlates at 0.89 and seven of the top ten features are "
+                 "correlates at 0.92 and seven of the top ten features are "
                  "shared. Treat as one finding with two candidate "
                  "sub-types."),
         # Section titles doc_tree.search() must return for this pair whether
@@ -201,7 +201,7 @@ AMBIGUOUS_PAIRS = [
         "classes": ("Exploitation", "BufferOverflow"),
         "margin": 0.30,
         "evidence": "results/mc_random/XGBoost_confusion.csv",
-        "note": ("Exploitation is confused with BufferOverflow in 8.5% of "
+        "note": ("Exploitation is confused with BufferOverflow in 8.7% of "
                  "cases. Both are exploitation of a listening service; the "
                  "response overlaps substantially."),
         "sections": ["distinguishing a successful exploit"],
@@ -211,10 +211,10 @@ AMBIGUOUS_PAIRS = [
 # Classes whose test F1 is low enough that confidence should be shown with a
 # caveat. Figures from results/mc_per_class_random.csv, XGBoost, random split.
 LOW_CONFIDENCE_CLASSES = {
-    "DoS": 0.6882,
-    "Exploitation": 0.7847,
-    "Slowloris": 0.7547,
-    "BufferOverflow": 0.8014,
+    "DoS": 0.6714,
+    "Exploitation": 0.7838,
+    "Slowloris": 0.7639,
+    "BufferOverflow": 0.8017,
 }
 
 

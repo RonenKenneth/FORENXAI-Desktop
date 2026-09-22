@@ -19,13 +19,9 @@
     "TLSSSL",
     "WebBased"
   ],
-  "n_features": 74,
+  "n_features": 66,
   "feature_order": [
     "ACK Flag Count",
-    "Active Max",
-    "Active Mean",
-    "Active Min",
-    "Active Std",
     "Average Packet Size",
     "Bwd Bulk Rate Avg",
     "Bwd Bytes/Bulk Avg",
@@ -73,10 +69,6 @@
     "Fwd Packet/Bulk Avg",
     "Fwd Segment Size Avg",
     "Fwd URG Flags",
-    "Idle Max",
-    "Idle Mean",
-    "Idle Min",
-    "Idle Std",
     "PSH Flag Count",
     "Packet Length Max",
     "Packet Length Mean",
@@ -108,9 +100,9 @@
   },
   "files": {
     "features.pkl": {
-      "bytes": 1364,
-      "sha256_16": "bff07530c1852f17",
-      "sha256": "bff07530c1852f170db77ec14fad9db168d5eb194693ddd7b462b2024a533712"
+      "bytes": 1266,
+      "sha256_16": "64a7c523e12144dc",
+      "sha256": "64a7c523e12144dc6b739251d1599da833bf8fd907edf030363db59f4c4dd356"
     },
     "label_encoder.pkl": {
       "bytes": 1223,
@@ -118,19 +110,19 @@
       "sha256": "64ed93e1e30701b1cc8769e45a73c1c71d3f8480b10ffa37d1632674e0572cbf"
     },
     "scaler.pkl": {
-      "bytes": 2359,
-      "sha256_16": "cb7d1b995316fd6e",
-      "sha256": "cb7d1b995316fd6e651cac2774a7bbf8d84fb6843d2b53e27f2aa71274920805"
+      "bytes": 2167,
+      "sha256_16": "7b356febe0212f2d",
+      "sha256": "7b356febe0212f2db8d669d1fd676702606ff1da2f7b87814bc0deb7d95d512d"
     },
     "shap_global.json": {
-      "bytes": 26998,
-      "sha256_16": "8fe52e3537b62577",
-      "sha256": "8fe52e3537b6257778905f6b5db52a0502e893372b6acff78191efe591a6dc90"
+      "bytes": 53974,
+      "sha256_16": "89f65b8890027710",
+      "sha256": "89f65b88900277104f379d41f04447560a6799dce09fe7c82fedef2fae2a8ec9"
     },
     "XGBoost.pkl": {
-      "bytes": 26684738,
-      "sha256_16": "257f40e37094ccf7",
-      "sha256": "257f40e37094ccf756d91e283cc0d608e529b0160d7dd0f91eece6cd26e316d6"
+      "bytes": 26858847,
+      "sha256_16": "25ca234168549112",
+      "sha256": "25ca2341685491128ba53a5a536e0f9546e34ff618e81e376c7dd0666038acbc"
     }
   }
 }

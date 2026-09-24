@@ -31,7 +31,14 @@ public class BackendApiService
                 "http://127.0.0.1:8000"
             ),
 
-            Timeout = TimeSpan.FromMinutes(5)
+            // A capture with several attack classes needs one language-model
+            // generation per class. On a CPU-only llama-cpp build that is
+            // ~136 s each, so a five-class capture runs past five minutes
+            // and the client abandoned a request the backend was still
+            // serving. Sized for the worst case, not the common one; the
+            // real fix is a CUDA build of llama-cpp-python, which takes
+            // generation to single-digit seconds.
+            Timeout = TimeSpan.FromMinutes(45)
         };
     }
 

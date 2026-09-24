@@ -60,6 +60,15 @@ ALWAYS_CHAR_BUDGET = 500
 # predicted class's own guidance.
 ALTERNATIVE_CHAR_BUDGET = 900
 
+# How many sections the archive search may contribute. Two is enough
+# to bring in the document that actually covers the class without
+# crowding out the standards asked for by name.
+SEARCHED_SECTIONS = 2
+
+# Passages of published literature offered beside a recommendation. Two,
+# for the same reason as above: a panel is read, not scrolled.
+LITERATURE_SECTIONS = 2
+
 MAX_ACTIONS = 6
 
 MAX_TOKENS = 320
@@ -337,6 +346,7 @@ def retrieve(predicted_class: str,
     # already class-specific; the two sections apply to every class.
     standards: List[Dict[str, Any]] = []
     sources: List[Dict[str, str]] = []
+    literature: List[Dict[str, Any]] = []
     missing_standards: List[str] = []
 
     si = _source_index()
@@ -350,12 +360,54 @@ def retrieve(predicted_class: str,
             + si.sections_for(requests)
         )
 
+        # The two baseline sections apply to every class, and the control
+        # identifiers are fixed per class in the knowledge map. Neither
+        # reaches the rest of the archive: the OWASP risk that matches a
+        # web attack, the RFC that defines the fragmentation behaviour,
+        # the forensic step that fits this traffic. Search finds those by
+        # the terms the class is described in, so a document earns its
+        # place in the answer instead of being wired to one.
+        searched = si.search(
+            si.terms_of(
+                predicted_class,
+                context["summary"],
+                " ".join(context.get("mitre") or []),
+            ),
+            limit=SEARCHED_SECTIONS,
+            exclude=requests,
+        )
+
+        standards = standards + searched
+
+        # Published context, kept apart from `standards` on purpose. The
+        # nine peer-reviewed comparators answer "what does the literature
+        # report for this class" -- useful beside a prediction, and not
+        # authority for a containment step. Feeding a methods section to
+        # the action generator would let it ground an instruction in a
+        # paper's experimental setup, so these never enter `standards`
+        # and never reach the verifier's evidence set. They are cited.
+        literature = []
+
+        lookup = getattr(si, "literature_for", None)
+
+        if callable(lookup):
+            try:
+                literature = lookup(
+                    si.terms_of(
+                        predicted_class,
+                        context["summary"],
+                    ),
+                    limit=LITERATURE_SECTIONS,
+                )
+            except Exception:                        # noqa: BLE001
+                literature = []
+
         missing_standards = si.missing_for(
             context["controls"],
             requests
         )
 
-        for passage in standards:
+        for passage in standards + literature:
 
             formatted = si.citation(passage["doc_id"])
 
@@ -374,6 +426,7 @@ def retrieve(predicted_class: str,
         "controls": context["controls"],
         "passages": passages,
         "standards": standards,
+        "literature": literature,
         "sources": sources,
         "missing_standards": missing_standards,
         "citations": (
@@ -1013,6 +1066,133 @@ _BENIGN_ACTIONS = [
 ]
 
 
+# Confidence bands. The panel's guidance changes at the point where a
+# prediction stops being safe to act on alone, not at every third decimal
+# place, and a band is what the cache can share across flows. Each band is
+# represented by one value, which is what reaches both the prompt and the
+# key -- the flow's own exact confidence is still displayed beside it,
+# from the finding, not from here.
+CONFIDENCE_BANDS = (
+    (0.60, 0.50),      # below 0.60 -> treated as 0.50, "uncertain"
+    (0.85, 0.75),      # 0.60-0.85  -> treated as 0.75, "moderate"
+    (1.01, 0.95),      # above 0.85 -> treated as 0.95, "confident"
+)
+
+
+def _confidence_band(
+    confidence: Optional[float]
+) -> Optional[float]:
+    """Collapse a confidence to its band's representative value."""
+    if confidence is None:
+        return None
+
+    try:
+        value = float(confidence)
+    except (TypeError, ValueError):
+        return None
+
+    for ceiling, representative in CONFIDENCE_BANDS:
+        if value < ceiling:
+            return representative
+
+    return CONFIDENCE_BANDS[-1][1]
+
+
+def plan_recommendations(
+    findings: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Group findings by the answer they will share.
+
+    A capture of two hundred flows is not two hundred different
+    questions. The recommendation depends on the class, the confidence
+    band and the alternative classes that band brings with it, so every
+    flow that agrees on those three gets the same answer. This returns
+    one entry per distinct answer, largest group first, so the caller
+    knows before it starts how much work there is -- which is what makes
+    a progress indicator possible instead of a long silence.
+    """
+    groups: Dict[Any, Dict[str, Any]] = {}
+
+    for finding in findings:
+
+        predicted = finding.get("predicted_class")
+
+        if not predicted:
+            continue
+
+        band = _confidence_band(finding.get("confidence"))
+
+        measured = model_facts.describe(
+            predicted,
+            finding.get("probabilities"),
+            band,
+        )
+
+        key = (
+            predicted,
+            band,
+            tuple(a["class"] for a in measured["alternatives"]),
+        )
+
+        entry = groups.get(key)
+
+        if entry is None:
+            groups[key] = {
+                "predicted_class": predicted,
+                "confidence": band,
+                "probabilities": finding.get("probabilities"),
+                "shap_features": finding.get("top_features"),
+                "flows": 1,
+            }
+        else:
+            entry["flows"] += 1
+
+    return sorted(
+        groups.values(),
+        key=lambda entry: -entry["flows"],
+    )
+
+
+def warm_recommendations(
+    findings: List[Dict[str, Any]],
+    progress=None
+) -> int:
+    """Generate each distinct recommendation once, before the flow loop.
+
+    Without this the first flow of every class pays the full generation
+    cost inside the loop, invisibly: the analysis simply appears to hang,
+    and nothing can say how long is left. Doing it here makes the cost
+    countable and reportable, and the flow loop afterwards is pure cache
+    hits.
+
+    Returns the number generated. Safe to call twice -- the second call
+    finds everything cached.
+    """
+    plan = plan_recommendations(findings)
+
+    for position, entry in enumerate(plan, start=1):
+
+        if progress is not None:
+            progress(position, len(plan), entry)
+        else:
+            print(
+                f"[FORENXAI] Recommendation {position}/{len(plan)}: "
+                f"{entry['predicted_class']} "
+                f"({entry['flows']} flow"
+                f"{'' if entry['flows'] == 1 else 's'})",
+                flush=True
+            )
+
+        get_recommendation(
+            entry["predicted_class"],
+            entry["shap_features"],
+            entry["confidence"],
+            entry["probabilities"],
+        )
+
+    return len(plan)
+
+
 def get_recommendation(predicted_class: str,
                        shap_features=None,
                        confidence: Optional[float] = None,
@@ -1029,22 +1209,38 @@ def get_recommendation(predicted_class: str,
             "No predicted class was supplied to the recommendation stage."
         )
 
-    # Keyed by class AND by the SHAP features supplied, so two flows of
-    # the same class with different drivers do not share a cached answer.
-    # Bucketed, not exact: two flows of one class at 0.81 and 0.83
-    # confidence should share an answer, but one at 0.55 should not. The
-    # alternatives are part of the key because they change which documents
-    # were retrieved.
+    # Quantise the confidence BEFORE anything reads it, so the prompt and
+    # the cache key cannot disagree. A cached answer written for "0.62"
+    # must not be served to a flow the prompt would have told "0.75".
+    confidence = _confidence_band(confidence)
+
     _measured = model_facts.describe(
         predicted_class, probabilities, confidence
     )
 
+    # WHY THE SHAP FEATURES ARE NOT IN THIS KEY
+    #
+    # They used to be, as an exact five-tuple, together with confidence
+    # rounded to two decimals. Every flow then had its own key and the
+    # cache never hit: 200 flows across five classes produced 200 distinct
+    # keys, so the panel generated 200 times. At the measured 136 s per
+    # generation that is over seven hours for one capture.
+    #
+    # The five-tuple was not earning that. Generating for the same class
+    # with two entirely disjoint SHAP feature sets returns byte-identical
+    # actions -- measured, not assumed. The actions are grounded in the
+    # retrieved documents and filtered by the verifier, and neither of
+    # those depends on which features happened to rank highest for one
+    # flow. SHAP still reaches the prompt for emphasis; it simply is not
+    # part of what makes an answer different.
+    #
+    # What IS left in the key is what genuinely changes the retrieval:
+    # the class, the confidence band, and the alternative classes the
+    # band brings with it. Same capture, same five classes: at most
+    # fifteen generations instead of two hundred, and usually five.
     cache_key = (
         predicted_class,
-        tuple(
-            f.get("feature") for f in (shap_features or [])[:5]
-        ),
-        None if confidence is None else round(float(confidence), 1),
+        confidence,
         tuple(a["class"] for a in _measured["alternatives"]),
     )
 

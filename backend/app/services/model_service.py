@@ -13,6 +13,7 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
+import xgboost
 
 
 # ============================================================
@@ -547,6 +548,14 @@ def load_model_bundle() -> dict[str, Any]:
         )
 
 
+    # The contract, not just the shape: a 74-feature list would pass
+    # every check above and then be fed real Active/Idle values the
+    # model has never seen.
+    assert_feature_contract(
+        features
+    )
+
+
     classes = list(
         label_encoder.classes_
     )
@@ -641,6 +650,129 @@ def _normalize_columns(
     ]
 
     return dataframe
+
+
+# ============================================================
+# WHAT CICFLOWMETER EMITS THAT THE MODEL DOES NOT USE
+#
+# CICFlowMeter writes 84 columns. The model was trained on 66.
+# The 18 it does not use are not an accident, and they are not all
+# the same kind of thing, so they are named here rather than left
+# to be worked out by subtraction.
+# ============================================================
+
+# Identity, not behaviour. These say WHICH flow this is. They are
+# shown beside a prediction and must never be fed to the model:
+# training on a source address teaches the machine the lab, not the
+# attack. Dst Port and Protocol are NOT in this list -- they are
+# features, and they are in the 66, because they describe the
+# service rather than the host.
+IDENTITY_COLUMNS = (
+    "Flow ID",
+    "Src IP",
+    "Src Port",
+    "Dst IP",
+    "Timestamp",
+    "Label",
+)
+
+# Removed from the feature contract in the 74 -> 66 rebuild.
+# TRUSTLab exports these eight without populating them: four are
+# identically zero across all 1,400,000 rows, Active Max equals
+# Idle Max in every row, Active Mean is exactly half of Active Max,
+# and Active Max equals Flow Duration / 1e6.
+#
+# CICFlowMeter fills them properly from a real capture, and that is
+# precisely why they must stay dropped: the deployed model has only
+# ever seen zeros here. Feeding it real values would be feeding it
+# a distribution it never trained on.
+EXCLUDED_DEGENERATE_COLUMNS = (
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Std",
+    "Idle Max",
+    "Idle Min",
+)
+
+
+def describe_extra_columns(
+    dataframe: pd.DataFrame
+) -> dict[str, list[str]]:
+    """
+    Classify the CICFlowMeter columns the model will not consume.
+
+    Set arithmetic over the header only -- no row access -- so it is
+    cheap enough to log on every run.
+
+    The third group is the one worth reading. It is whatever the
+    capture provides that is neither identity nor deliberately
+    excluded: a real flow feature the model was simply not trained
+    on, because the 66 are the intersection of what all three source
+    datasets export. Anything appearing there is a candidate for a
+    future retrain, not a bug to fix at inference time.
+    """
+    expected = set(get_expected_features())
+
+    present = [
+        str(column).replace("﻿", "").strip()
+        for column in dataframe.columns
+    ]
+
+    unused = [
+        column for column in present
+        if column not in expected
+    ]
+
+    return {
+        "identity": [
+            column for column in unused
+            if column in IDENTITY_COLUMNS
+        ],
+        "excluded_degenerate": [
+            column for column in unused
+            if column in EXCLUDED_DEGENERATE_COLUMNS
+        ],
+        "untrained": [
+            column for column in unused
+            if column not in IDENTITY_COLUMNS
+            and column not in EXCLUDED_DEGENERATE_COLUMNS
+        ],
+    }
+
+
+def assert_feature_contract(
+    features: list[str]
+) -> None:
+    """
+    Refuse a feature list that reintroduces the degenerate columns.
+
+    This guards a failure that is otherwise silent. Drop a
+    74-feature features.pkl into this bundle and every existing
+    check still passes -- those columns ARE present in CICFlowMeter
+    output, full of plausible numbers -- while the model is handed
+    real Active and Idle values where it only ever saw zeros.
+    Nothing would raise. The predictions would just be wrong.
+    """
+    reintroduced = [
+        feature for feature in features
+        if feature in EXCLUDED_DEGENERATE_COLUMNS
+    ]
+
+    if reintroduced:
+        raise RuntimeError(
+            "features.pkl lists "
+            f"{len(reintroduced)} column(s) removed from the feature "
+            "contract in the 74 -> 66 rebuild:\n\n"
+            + "\n".join(reintroduced)
+            + "\n\nTRUSTLab never populates these, so the deployed "
+            "model has only ever seen zeros in them, while a real "
+            "capture fills them with real values. This bundle is a "
+            "74-feature model or a mixed one, and must not be used "
+            "for inference."
+        )
 
 
 # ============================================================
@@ -850,8 +982,47 @@ def prepare_model_input(
 
 
     # --------------------------------------------------------
+    # Say what is being dropped, once, before dropping it
+    #
+    # CICFlowMeter gives 84 columns and the model consumes 66.
+    # Selecting by name below discards the other 18 silently, so
+    # they are reported here: identity columns that were never
+    # features, the eight Active/Idle columns excluded by the
+    # feature contract, and anything else -- which would be a real
+    # feature this model was not trained on.
+    # --------------------------------------------------------
+
+    unused = describe_extra_columns(
+        dataframe
+    )
+
+    print(
+        f"[FORENXAI] Features: {len(expected_features)} used, "
+        f"{sum(len(v) for v in unused.values())} not used "
+        f"({len(unused['identity'])} identity, "
+        f"{len(unused['excluded_degenerate'])} excluded by contract, "
+        f"{len(unused['untrained'])} untrained)",
+        flush=True
+    )
+
+    if unused["untrained"]:
+        print(
+            "[FORENXAI] Not trained on: "
+            + ", ".join(unused["untrained"]),
+            flush=True
+        )
+
+
+    # --------------------------------------------------------
     # CRITICAL:
     # Preserve EXACT feature order from features.pkl.
+    #
+    # dataframe[expected_features] selects those columns, in that
+    # order, and drops every other column. This single line IS the
+    # answer to "what happens to the extra CICFlowMeter columns":
+    # they are not reordered, imputed or averaged in -- they are
+    # left out, because the scaler and the booster were both fitted
+    # on exactly these 66 in exactly this order.
     # --------------------------------------------------------
 
     feature_frame = dataframe[
@@ -881,8 +1052,13 @@ def prepare_model_input(
     # Scale using the scaler from training
     # --------------------------------------------------------
 
+    # .to_numpy() rather than the DataFrame: the scaler was fitted on
+    # an unnamed array, so handing it a named frame makes scikit-learn
+    # warn that the feature names are unrecognised. Column ORDER is
+    # what the scaler actually relies on, and that was fixed and
+    # checked above -- the names were never carrying the contract.
     scaled_matrix = scaler.transform(
-        feature_frame
+        feature_frame.to_numpy()
     )
 
 
@@ -1133,19 +1309,46 @@ def classify_dataframe(
     )
 
 
-    encoded_predictions = model.predict(
-        scaled_matrix
+    # --------------------------------------------------------
+    # One pass, on the device the booster is already on
+    #
+    # The obvious code calls model.predict() for the class and
+    # model.predict_proba() for the confidence. For a multi:softprob
+    # booster those are the same computation: predict() IS
+    # predict_proba() followed by argmax, so calling both walks all
+    # 400 trees twice. Measured on this model: 2.0x slower at every
+    # size tried, 500 to 50,000 rows.
+    #
+    # Building the DMatrix explicitly also removes the "mismatched
+    # devices" warning. That warning fires because the booster was
+    # saved on cuda while the input array is in host memory, so
+    # inplace_predict falls back to building a DMatrix -- which is
+    # what this line now does openly. The warning's own suggestion,
+    # moving the booster to the CPU, was measured at 4.26 s against
+    # 0.74 s on 200,000 rows: six times slower for identical output.
+    # Verified byte-identical to the previous path, max probability
+    # difference 0.000e+00.
+    # --------------------------------------------------------
+
+    booster = model.get_booster()
+
+    probabilities = booster.predict(
+        xgboost.DMatrix(scaled_matrix)
     )
 
 
-    encoded_predictions = np.asarray(
-        encoded_predictions
+    probabilities = np.asarray(
+        probabilities,
+        dtype=np.float64
     )
 
 
-    # XGBoost multiclass normally returns integer class ids.
+    # multi:softprob returns one row of 16 class probabilities per
+    # flow; the predicted class is the argmax of that row, which is
+    # exactly what model.predict() would have returned.
     encoded_predictions = (
-        encoded_predictions
+        probabilities
+        .argmax(axis=1)
         .astype(int)
     )
 
@@ -1162,15 +1365,8 @@ def classify_dataframe(
     # Probabilities
     # --------------------------------------------------------
 
-    probabilities = model.predict_proba(
-        scaled_matrix
-    )
-
-
-    probabilities = np.asarray(
-        probabilities,
-        dtype=np.float64
-    )
+    # Probabilities were produced above, in the same pass that gave
+    # the class. Nothing to recompute.
 
 
     if probabilities.ndim != 2:

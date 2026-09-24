@@ -12,7 +12,10 @@ from app.services.flow_service import build_flows
 from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
-from app.services.recommendation_service import get_recommendation
+from app.services.recommendation_service import (
+    get_recommendation,
+    warm_recommendations,
+)
 
 from app.services.narration_service import (
     generate_flow_narration
@@ -431,6 +434,25 @@ def start_analysis(
                 "ML findings are not "
                 "in the expected list format."
             )
+
+
+        # Generate each distinct recommendation ONCE, before the loop.
+        #
+        # Every flow that shares a class, a confidence band and the same
+        # alternative classes shares an answer, so a capture of two
+        # hundred flows is a handful of questions, not two hundred.
+        # Doing them here makes the work countable and reportable -- the
+        # loop below then costs nothing, instead of the first flow of
+        # each class silently blocking for two minutes inside it.
+        generated = warm_recommendations(
+            ml_findings
+        )
+
+        print(
+            f"[FORENXAI] {generated} distinct recommendation(s) "
+            f"for {len(ml_findings)} flow(s)",
+            flush=True
+        )
 
 
         for finding in ml_findings:

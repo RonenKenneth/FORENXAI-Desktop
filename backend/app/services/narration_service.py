@@ -4,19 +4,41 @@
 #
 # Purpose:
 #   Convert XGBoost + TreeSHAP results into a grounded,
-#   human-readable explanation using the local Qwen model.
+#   human-readable explanation.
 #
 # Important:
 #   - XGBoost performs classification.
 #   - TreeSHAP calculates feature contributions.
-#   - Qwen only explains those existing results.
-#   - Qwen is NOT allowed to change the classification.
+#   - The explanation only describes those existing results.
+#   - Nothing here is allowed to change the classification.
+#
+# WHERE THE WORDS COME FROM
+#   This service used to build its own prompt and call Qwen a
+#   second time, once per flow, at temperature 0.1. That made
+#   the panel an examiner reads the one part of the pipeline
+#   that was neither cited nor reproducible: the same flow
+#   could be described two ways on two runs, and none of the
+#   wording could be traced to a document.
+#
+#   It now renders what the recommendation stage already
+#   produced for the class. That stage retrieves by dictionary
+#   lookup through rag/config/knowledge_map.py, reads the
+#   playbooks and detection profiles under rag/knowledge/, and
+#   cites them through rag/_sources/manifest.json, dropping any
+#   sentence it cannot trace back to the passage it came from.
+#   Its answer is cached per class, so narration costs no
+#   generation at all: the text was written once, for the
+#   class, and verified before it was stored.
+#
+#   What stays per flow is the only thing that is per flow --
+#   the TreeSHAP drivers and the confidence. Those are
+#   formatted here, from the numbers, with no model involved.
 # ============================================================
 
 from typing import Any
 
-from app.services.llm_provider import (
-    get_llm,
+from app.services.recommendation_service import (
+    get_recommendation,
 )
 
 
@@ -26,11 +48,11 @@ from app.services.llm_provider import (
 
 MAX_FEATURES = 5
 
-MAX_TOKENS = 220
-
-TEMPERATURE = 0.1
-
-TOP_P = 0.9
+# How many of the recommendation's actions the explanation
+# shows. The recommendation stage returns up to six; listing
+# all of them turns the explanation into the recommendations
+# panel a second time.
+MAX_ACTIONS_SHOWN = 3
 
 
 # ============================================================
@@ -339,157 +361,6 @@ def _build_fallback_explanation(
 
 
 # ============================================================
-# BUILD QWEN PROMPT
-# ============================================================
-
-def _build_prompt(
-    finding: dict,
-    shap_explanation: dict,
-    normalized_features: list
-) -> str:
-    """
-    Build a strictly grounded prompt.
-
-    Qwen receives only model outputs that were already
-    calculated by FORENXAI.
-    """
-
-    flow_index = finding.get(
-        "flow_index",
-        shap_explanation.get(
-            "flow_index",
-            -1
-        )
-    )
-
-
-    predicted_class = (
-        _get_predicted_class(
-            finding
-        )
-    )
-
-
-    confidence = (
-        _get_confidence(
-            finding
-        )
-    )
-
-
-    if confidence is None:
-
-        confidence_text = (
-            "Not provided"
-        )
-
-    else:
-
-        confidence_text = (
-            _format_value(
-                confidence
-            )
-        )
-
-
-    feature_lines = []
-
-
-    for feature in (
-        normalized_features[
-            :MAX_FEATURES
-        ]
-    ):
-
-        feature_lines.append(
-
-            "- "
-            f"{feature['feature']}: "
-            f"value="
-            f"{_format_value(feature['feature_value'])}, "
-            f"SHAP="
-            f"{feature['shap_value']:+.6f}, "
-            f"direction="
-            f"{feature['direction']}"
-        )
-
-
-    if feature_lines:
-
-        feature_text = "\n".join(
-            feature_lines
-        )
-
-    else:
-
-        feature_text = (
-            "No TreeSHAP feature "
-            "contributions were available."
-        )
-
-
-    prompt = f"""
-You are the explanation component of a network forensic
-application named FORENXAI.
-
-You are describing an EXISTING machine-learning result.
-
-STRICT RULES:
-
-1. XGBoost performed the classification.
-2. TreeSHAP calculated the feature contributions.
-3. You did NOT classify the traffic.
-4. Never change the predicted class.
-5. Use ONLY the evidence supplied below.
-6. Do not infer packet contents.
-7. Do not infer IP addresses.
-8. Do not infer ports or protocols.
-9. Do not infer attacker intent.
-10. Do not describe a feature as malicious or benign.
-11. Do not explain what a feature generally means unless that
-    meaning is explicitly provided in the evidence.
-12. Do not claim that a value is high, low, unusual, suspicious,
-    normal, or abnormal unless such a comparison is explicitly
-    supplied.
-13. Positive SHAP values support the model's predicted class.
-14. Negative SHAP values oppose the model's predicted class.
-15. Mention the actual feature value and SHAP contribution.
-16. Do not provide remediation advice.
-17. Write one concise paragraph only.
-18. Do not introduce cybersecurity facts that are absent from
-    the evidence.
-
-FORENXAI EVIDENCE
-
-Flow index:
-{flow_index}
-
-XGBoost predicted class:
-{predicted_class}
-
-Model confidence:
-{confidence_text}
-
-TreeSHAP contributions:
-{feature_text}
-
-Write a factual explanation of the model decision using only
-the evidence above.
-
-A correct style is:
-
-"The XGBoost classifier predicted [class]. Feature A, with a
-value of X and SHAP contribution of +Y, supported the
-prediction. Feature B, with a SHAP contribution of -Z,
-opposed the prediction."
-
-Do not add an interpretation beyond those supplied facts.
-""".strip()
-
-    return prompt
-
-
-# ============================================================
 # GENERATE NARRATION
 # ============================================================
 
@@ -549,90 +420,36 @@ def generate_flow_narration(
     )
 
 
-    fallback_text = (
-        _build_fallback_explanation(
-            predicted_class,
-            normalized_features
-        )
-    )
 
-
-    prompt = (
-        _build_prompt(
-            finding,
-            shap_explanation,
-            normalized_features
-        )
-    )
-
-
+    # The recommendation stage owns retrieval, verification and
+    # citation. Ask it for this class and render what comes back. Its
+    # answer is cached per class, so the first flow of a class pays for
+    # it and every later flow of that class is free.
     try:
 
-        llm = get_llm()
-
-
-        result = llm(
-            prompt,
-            max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
-            top_p=TOP_P,
-            echo=False
-        )
-
-
-        generated_text = (
-            result[
-                "choices"
-            ][0][
-                "text"
-            ]
-            .strip()
-        )
-
-
-        if not generated_text:
-
-            raise RuntimeError(
-                "Qwen returned an empty response."
-            )
-
-
-        return {
-
-            "available":
-                True,
-
-            "provider":
-                "llama-cpp-python",
-
-            "model":
-                "qwen2.5-3b-q4.gguf",
-
-            "predicted_class":
+        recommendation = (
+            get_recommendation(
                 predicted_class,
+                normalized_features,
+                _get_confidence(
+                    finding
+                ),
+                finding.get(
+                    "probabilities"
+                ),
+            )
+        )
 
-            "text":
-                generated_text,
+    except Exception as error:                      # noqa: BLE001
 
-            "fallback_used":
-                False,
-
-            "features_used":
-                normalized_features[
-                    :MAX_FEATURES
-                ],
-        }
-
-
-    except Exception as error:
-
+        # Retrieval failed: a missing knowledge map, or a class the map
+        # does not know. The panel still explains the TreeSHAP result,
+        # and says plainly that it did so without the documents.
         print(
-            "[FORENXAI LLM WARNING] "
-            f"{type(error).__name__}: "
-            f"{error}",
+            "[FORENXAI NARRATION WARNING] "
+            f"{type(error).__name__}: {error}",
             flush=True
         )
-
 
         return {
 
@@ -643,13 +460,16 @@ def generate_flow_narration(
                 "deterministic_fallback",
 
             "model":
-                "qwen2.5-3b-q4.gguf",
+                "treeshap",
 
             "predicted_class":
                 predicted_class,
 
             "text":
-                fallback_text,
+                _build_fallback_explanation(
+                    predicted_class,
+                    normalized_features
+                ),
 
             "fallback_used":
                 True,
@@ -665,3 +485,185 @@ def generate_flow_narration(
                     f"{error}"
                 ),
         }
+
+
+    return {
+
+        "available":
+            True,
+
+        "provider":
+            "deterministic_rag",
+
+        # Which stage wrote the wording of the actions: the model when
+        # every sentence traced back to a passage, "extraction" when
+        # they did not and the passages were quoted instead.
+        "model":
+            recommendation.get(
+                "generator",
+                "extraction"
+            ),
+
+        "predicted_class":
+            predicted_class,
+
+        "text":
+            _compose(
+                predicted_class,
+                _get_confidence(
+                    finding
+                ),
+                normalized_features,
+                recommendation
+            ),
+
+        "fallback_used":
+            False,
+
+        "features_used":
+            normalized_features[
+                :MAX_FEATURES
+            ],
+
+        # Provenance, for the report and for anyone who asks on whose
+        # authority an action is being suggested. The panel is free to
+        # ignore these; a reader is not.
+        "references":
+            recommendation.get(
+                "references",
+                []
+            ),
+
+        "standards_grounded":
+            recommendation.get(
+                "standards_grounded",
+                False
+            ),
+
+        "verified":
+            recommendation.get(
+                "verified",
+                False
+            ),
+    }
+
+
+# ============================================================
+# COMPOSE THE EXPLANATION
+# ============================================================
+
+def _compose(
+    predicted_class: str,
+    confidence: Any,
+    normalized_features: list,
+    recommendation: dict
+) -> str:
+    """Place the retrieved guidance beside this flow's own drivers.
+
+    Deterministic by construction. Every line is either read from the
+    recommendation, which was already verified against the passage it
+    came from, or formatted from a TreeSHAP number. Two runs of one
+    case produce the same paragraph, and two flows of one class differ
+    only where their SHAP values differ -- which is the only way they
+    do differ.
+    """
+    opening = _build_fallback_explanation(
+        predicted_class,
+        normalized_features
+    )
+
+    if confidence is not None:
+
+        try:
+            opening = (
+                f"{opening.rstrip()} "
+                f"Confidence {float(confidence):.1%}."
+            )
+
+        except (TypeError, ValueError):
+            # A confidence that will not parse is left out rather than
+            # printed raw. It is not worth failing an explanation over.
+            pass
+
+
+    lines = [opening]
+
+
+    summary = str(
+        recommendation.get(
+            "summary"
+        )
+        or ""
+    ).strip()
+
+
+    if summary:
+        lines.append(summary)
+
+
+    # actions_cited carries the in-text marker, actions does not, so the
+    # cited form is preferred: it lets a reader follow one claim to one
+    # page instead of to a bibliography.
+    actions = (
+        recommendation.get(
+            "actions_cited"
+        )
+        or recommendation.get(
+            "actions"
+        )
+        or []
+    )
+
+
+    if actions:
+
+        lines.append(
+            "Indicated response:"
+        )
+
+        lines.extend(
+            f"- {action}"
+            for action
+            in actions[:MAX_ACTIONS_SHOWN]
+        )
+
+
+    references = (
+        recommendation.get(
+            "references"
+        )
+        or []
+    )
+
+
+    if references:
+
+        lines.append(
+            "Sources:"
+        )
+
+        lines.extend(
+            (
+                f"[{reference.get('number')}] "
+                f"{reference.get('acm', '')}"
+            ).rstrip()
+            for reference
+            in references
+        )
+
+
+    # Said out loud rather than left to be inferred from an absence.
+    # The detection profiles describe how a class looks in this
+    # dataset, which is ours to assert; what to do about it is not.
+    if not recommendation.get(
+        "standards_grounded"
+    ):
+        lines.append(
+            "These actions rest on the project's own detection "
+            "profiles rather than on a published standard."
+        )
+
+
+    return "\n".join(
+        lines
+    )

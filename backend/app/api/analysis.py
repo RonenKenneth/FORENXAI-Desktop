@@ -1520,8 +1520,8 @@ def get_flow_narration(
     # ========================================================
 
     print(
-        f"[FORENXAI] Generating Qwen narration "
-        f"for {case_id} / Flow {flow_index}...",
+        f"[FORENXAI] Composing explanation from the retrieved "
+        f"documents for {case_id} / Flow {flow_index}...",
         flush=True
     )
 

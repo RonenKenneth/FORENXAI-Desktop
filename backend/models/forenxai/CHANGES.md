@@ -550,6 +550,65 @@ prediction path.
 
 ---
 
+### 3.16 The explanation panel now renders the retrieved documents
+
+**The problem.** `backendpp\services
+arration_service.py` built its own
+prompt and called Qwen a second time, once per selected flow, at
+`TEMPERATURE = 0.1`. That made the panel an examiner actually reads the one
+stage in the pipeline that was neither cited nor reproducible: the same flow
+could be described two different ways on two runs, and none of the wording
+could be traced to a document. Meanwhile the recommendation stage next to it
+retrieved deterministically, verified every sentence against its source
+passage and numbered its references.
+
+**The fix.** Narration no longer generates anything. `generate_flow_narration`
+calls `get_recommendation` for the predicted class and composes the answer from
+what comes back:
+
+| Part of the explanation | Where it comes from |
+|---|---|
+| Which class, which drivers | TreeSHAP values on this flow, formatted |
+| Confidence | the finding, formatted to one decimal |
+| What the class is | `summary`, from `rag\knowledge\detection\` |
+| What to do | `actions_cited`, each verified against its passage |
+| On whose authority | `references`, cited through `rag\_sources\manifest.json` |
+
+Retrieval is still the dictionary lookup in `rag\config\knowledge_map.py`,
+which raises on an unknown class rather than substituting a similar one.
+`_build_prompt` and the `get_llm` import are gone, and the file is 151 lines
+shorter.
+
+**Why this is also the cheap option.** The recommendation is cached per class,
+so the first flow of a class pays for it and every later flow of that class is
+free. Selecting flows in the panel used to cost one generation each; it now
+costs none. Two flows of one class differ only where their SHAP values differ,
+which is the only way they do differ.
+
+**The response shape did not change.** `available`, `provider`, `model`,
+`predicted_class`, `text`, `fallback_used`, `features_used` and `error` are all
+still there, so `NarrationResult` in
+`frontend\FORENXAI.Desktop\Services\BackendApiService.cs` needs no edit.
+Three keys were added for the report -- `references`, `standards_grounded` and
+`verified` -- and unknown keys are ignored by the client's deserialiser.
+`provider` now reads `deterministic_rag`, and `model` names which stage wrote
+the action wording: the GGUF file when every generated sentence traced back to
+a passage, `extraction` when they did not and the passages were quoted instead.
+
+**When retrieval fails** -- a missing knowledge map, or a class the map does not
+know -- the panel still explains the TreeSHAP result and says plainly that it
+did so without the documents. `fallback_used` is `True` and `error` carries the
+reason.
+
+**Check it:**
+
+```
+backend\.venv\Scripts\python.exe test_narration_rag.py
+```
+
+Five checks. One of them greps the module for `get_llm` and `_build_prompt` and
+fails if either returns, so a second model call cannot quietly come back.
+
 ## 4. How to check it still works
 
 ```

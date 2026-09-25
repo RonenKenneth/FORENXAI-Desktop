@@ -572,28 +572,6 @@
                         </Grid>
 
 
-                        <!-- SHAP explanation -->
-
-                        <Border Grid.Row="1"
-                                Background="#0F172A"
-                                BorderBrush="#334155"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="14"
-                                Margin="0,0,0,15">
-
-                            <TextBlock x:Name="ExplanationText"
-                                       Text="Select a threat flow to view its SHAP explanation."
-                                       Foreground="#CBD5E1"
-                                       TextWrapping="Wrap"
-                                       FontSize="13"
-                                       LineHeight="20"/>
-
-                        </Border>
-
-
-
-
                         <!-- Local Qwen narration -->
 
                         <Border Grid.Row="2"
@@ -615,12 +593,13 @@
 
                                     <StackPanel Grid.Column="0">
 
-                                        <TextBlock Text="GENAI EXPLANATION"
+                                        <TextBlock Text="AI-GENERATED SUMMARY"
                                                    Foreground="White"
                                                    FontSize="16"
                                                    FontWeight="Bold"/>
 
-                                        <TextBlock Text="Grounded narration generated locally from XGBoost and TreeSHAP evidence"
+                                        <TextBlock Text="Written by the local Qwen model from this flow's prediction, SHAP values and rule result only. It adds no findings of its own; every sentence is checked against those facts."
+                                                   TextWrapping="Wrap"
                                                    Foreground="#94A3B8"
                                                    FontSize="12"
                                                    Margin="0,4,0,0"/>

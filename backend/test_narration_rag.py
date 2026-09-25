@@ -1,155 +1,138 @@
 # ============================================================
 # FORENXAI
-# Narration comes from the deterministic RAG, not from a prompt
+# The AI-generated summary restates facts; it never adds any
 #
 # Run:  backend\.venv\Scripts\python.exe test_narration_rag.py
 #
 # What this protects:
-#   The explanation panel must render what the recommendation
-#   stage retrieved and verified, and must never generate
-#   wording of its own. These checks fail if someone puts a
-#   second model call back into narration_service, or if the
-#   composed text stops being reproducible.
+#   Qwen may write the sentences of the summary panel, but only
+#   as a rewording of facts the pipeline already established:
+#   the prediction, its SHAP drivers and the rule result. These
+#   checks fail if a sentence can bring in a number, a class, a
+#   feature or a judgement that is not in the facts, merge two
+#   facts into a wrong one, or if a fact can go missing.
 #
-# Deliberately cheap: _compose is a pure function, so nothing
-# here loads the 1.8 GB Qwen weights. The generation path
-# belongs to recommendation_service and is covered by
-# test_recommendations_all_classes.py.
+# Cheap: Qwen is replaced by fixed answers, so the 1.8 GB model
+# is never loaded.
 # ============================================================
 
-from app.services import narration_service
-from app.services.narration_service import (
-    _compose,
-    generate_flow_narration,
-)
+import json
+
+from app.services import narration_service as ns
 
 
-FEATURES = [
-    {
-        "feature": "Flow_IAT_Mean",
-        "feature_value": 12.5,
-        "shap_value": 1.42,
-        "direction": "supports",
-    },
-    {
-        "feature": "Fwd_Packet_Length_Max",
-        "feature_value": 1460,
-        "shap_value": 0.88,
-        "direction": "supports",
-    },
-    {
-        "feature": "Total_Fwd_Packets",
-        "feature_value": 3,
-        "shap_value": -0.31,
-        "direction": "opposes",
-    },
-]
-
-
-RECOMMENDATION = {
-    "summary": "Sustained request volume from one source.",
-    "actions": [
-        "Rate-limit the source address at the boundary",
-        "Preserve the flow records for the affected window",
-    ],
-    "actions_cited": [
-        "Rate-limit the source address at the boundary [1, SC-5].",
-        "Preserve the flow records for the affected window [2, Sec. 3.1, p. 26].",
-    ],
-    "references": [
-        {"number": 1, "doc_id": "NIST.SP.800-53r5", "acm": "NIST. 2020. SP 800-53r5."},
-        {"number": 2, "doc_id": "NIST.SP.800-86", "acm": "Kent et al. 2006. SP 800-86."},
-    ],
-    "standards_grounded": True,
-    "verified": True,
-    "generator": "qwen2.5-3b-q4.gguf",
+FINDING = {
+    "predicted_class": "DoS",
+    "confidence": 0.393,
+    "probabilities": {"DoS": 0.393, "Slowloris": 0.391, "PortScan": 0.094},
+    "rule_findings": None,
 }
+SHAP = {"contributors": [
+    {"feature": "Fwd Packet Length Max", "raw_value": 0.0, "shap_value": 0.932},
+    {"feature": "Fwd Packet Length Mean", "raw_value": 0.0, "shap_value": 0.406},
+    {"feature": "Dst Port", "raw_value": 256, "shap_value": -0.335},
+]}
 
 
-def test_no_model_call_in_narration():
-    """The module must not hold a handle to the LLM any more."""
-    source = open(
-        narration_service.__file__,
-        encoding="utf-8"
-    ).read()
-
-    assert "get_llm" not in source, (
-        "narration_service calls the LLM again; the explanation "
-        "must come from the recommendation stage"
-    )
-
-    assert "_build_prompt" not in source, (
-        "narration_service still builds its own prompt"
-    )
-
-    assert not hasattr(narration_service, "TEMPERATURE"), (
-        "a sampling temperature in narration_service means "
-        "something there is still generating"
-    )
-
-    print("[PASS] no model call left in narration_service")
+def run(sentences):
+    """Summary for FINDING with Qwen replaced by a fixed JSON answer."""
+    real = ns._generate
+    ns._generate = lambda prompt, count: (
+        None if sentences is None else json.dumps({"sentences": sentences}))
+    ns._cache.clear()
+    try:
+        return ns.generate_flow_narration(FINDING, SHAP)
+    finally:
+        ns._generate = real
 
 
-def test_compose_is_deterministic():
-    first = _compose("DDoS", 0.93, FEATURES, RECOMMENDATION)
-    second = _compose("DDoS", 0.93, FEATURES, RECOMMENDATION)
-
-    assert first == second, "the same inputs produced two paragraphs"
-    assert len(first) > 80, "the explanation is suspiciously short"
-
-    print("[PASS] compose is deterministic")
+def facts():
+    return ns._facts(FINDING, [ns._normalize_feature(f) for f in SHAP["contributors"]])
 
 
-def test_compose_carries_the_provenance():
-    text = _compose("DDoS", 0.93, FEATURES, RECOMMENDATION)
-
-    assert "DDoS" in text
-    assert "Confidence 93.0%" in text, "confidence is missing"
-    assert "Flow_IAT_Mean" in text, "the top SHAP driver is missing"
-    assert RECOMMENDATION["summary"] in text, "the retrieved summary is missing"
-    assert "[1, SC-5]" in text, "the in-text citation was dropped"
-    assert "SP 800-86" in text, "the reference list was dropped"
-
-    # An answer built only from the internal corpus has to say so.
-    ungrounded = dict(RECOMMENDATION, standards_grounded=False)
-    note = "own detection profiles"
-
-    assert note in _compose("DDoS", 0.9, FEATURES, ungrounded)
-    assert note not in text
-
-    print("[PASS] compose carries summary, drivers, citations, references")
+def test_facts_are_deterministic_and_complete():
+    a, b = facts(), facts()
+    assert a == b
+    text = " ".join(a)
+    for needed in ("DoS", "39.3%", "Slowloris at 39.1%", "Fwd Packet Length Max",
+                   "+0.932", "away from DoS", "not evaluated"):
+        assert needed in text, needed
+    print("[PASS] facts are deterministic and carry prediction, SHAP and rules")
 
 
-def test_compose_survives_a_bad_confidence():
-    text = _compose("DDoS", "not-a-number", FEATURES, RECOMMENDATION)
+def test_faithful_rewording_is_kept():
+    f = facts()
+    reworded = [
+        "The XGBoost classifier assigned this flow to the DoS class with 39.3% confidence.",
+        "The Fwd Packet Length Max was 0, and its SHAP value of +0.932 pushed the decision toward DoS.",
+    ]
+    result = run(reworded)
+    assert result["provider"] == "qwen_verified", result
+    assert result["sentences_kept"] == 2
+    for sentence in reworded:
+        assert sentence in result["text"]
+    # the facts Qwen did not reword are still there, as recorded
+    assert result["facts_shown_verbatim"] == len(f) - 2
+    assert "Rule-based detection was not evaluated" in result["text"]
+    print("[PASS] faithful sentences kept; every other fact still shown")
 
-    assert "Confidence" not in text, "an unparsable confidence was printed"
-    assert "DDoS" in text, "the explanation was lost with the confidence"
 
-    print("[PASS] an unparsable confidence is left out, not raised")
+def test_additions_are_dropped():
+    cases = {
+        "a number not in the facts":
+            "The XGBoost classifier assigned this flow to the DoS class with 97.0% confidence.",
+        "combines figures from different facts":
+            "The flow was DoS at 39.3% confidence and its F1 score is 0.686.",
+        "mixes in wording from another fact":
+            "The XGBoost classifier assigned this flow to the DoS class with 39.3% confidence on held-out test data.",
+        "speculative or prescriptive wording":
+            "The attacker assigned this flow to the DoS class.",
+        "names DDoS, which is not in the facts":
+            "The XGBoost classifier assigned this flow to the DDoS class.",
+    }
+    good = "The next most probable classes were Slowloris at 39.1% and PortScan at 9.4%."
+    result = run(list(cases.values()) + [good, "Rule-based detection was not evaluated for this flow."])
+    reasons = [d["reason"] for d in result["dropped_sentences"]]
+    for reason in cases:
+        assert any(r.startswith(reason) for r in reasons), (reason, reasons)
+    for sentence in cases.values():
+        assert sentence not in result["text"], sentence
+    print("[PASS] invented numbers, merged facts, speculation and unlisted names are dropped")
 
 
-def test_unknown_class_falls_back_without_raising():
-    """Retrieval raises KeyError for a class the map does not know."""
-    result = generate_flow_narration(
-        {"predicted_class": "NotAClass", "confidence": 0.5},
-        {"top_features": FEATURES},
-    )
+def test_feature_names_inside_longer_names_are_not_false_alarms():
+    sentence = "Fwd Packet Length Max was 0, and its SHAP value of +0.932 pushed the decision toward DoS."
+    reason, _ = ns._check(sentence, facts(), {"DoS", "Fwd Packet Length Max"},
+                          {"Packet Length Max", "Fwd Packet Length Max", "DoS", "DDoS"})
+    assert reason is None, reason
+    print("[PASS] 'Packet Length Max' inside 'Fwd Packet Length Max' is not flagged")
 
+
+def test_no_model_means_facts_as_recorded():
+    result = run(None)
     assert result["fallback_used"] is True
-    assert result["available"] is False
-    assert result["provider"] == "deterministic_fallback"
-    assert "NotAClass" in result["text"]
-    assert result["error"], "the failure was swallowed without a reason"
+    assert result["provider"] == "deterministic_facts"
+    assert result["text"] == " ".join(facts())
+    print("[PASS] without Qwen the facts are shown as recorded")
 
-    print("[PASS] an unknown class falls back and says why")
+
+def test_unknown_class_does_not_raise():
+    real = ns._generate
+    ns._generate = lambda prompt, count: None
+    ns._cache.clear()
+    try:
+        result = ns.generate_flow_narration({"predicted_class": "NotAClass", "confidence": 0.5}, SHAP)
+    finally:
+        ns._generate = real
+    assert "NotAClass" in result["text"]
+    print("[PASS] an unknown class still produces its facts")
 
 
 if __name__ == "__main__":
-    test_no_model_call_in_narration()
-    test_compose_is_deterministic()
-    test_compose_carries_the_provenance()
-    test_compose_survives_a_bad_confidence()
-    test_unknown_class_falls_back_without_raising()
-
+    test_facts_are_deterministic_and_complete()
+    test_faithful_rewording_is_kept()
+    test_additions_are_dropped()
+    test_feature_names_inside_longer_names_are_not_false_alarms()
+    test_no_model_means_facts_as_recorded()
+    test_unknown_class_does_not_raise()
     print("\nALL CHECKS PASSED")

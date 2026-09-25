@@ -226,8 +226,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                "Select a threat flow to view its SHAP explanation.";
 
             ClearRecommendationPanel();
             ClearReviewPanel();
@@ -268,8 +266,6 @@ public partial class XaiView : UserControl
         SelectedConfidenceText.Text =
             "--";
 
-        ExplanationText.Text =
-            "Select a threat flow to view its SHAP explanation.";
 
         ClearRecommendationPanel();
         ClearReviewPanel();
@@ -429,9 +425,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                $"Flow {flowIndex} could not be found " +
-                "in the detected threat list.";
 
             ClearRecommendationPanel();
             ClearReviewPanel();
@@ -503,8 +496,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                "No SHAP analysis is available for this case.";
 
             return;
         }
@@ -531,8 +522,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                "No SHAP explanation was found for this flow.";
 
             return;
         }
@@ -547,10 +536,6 @@ public partial class XaiView : UserControl
             $"{explanation.Confidence:P2}";
 
 
-        ExplanationText.Text =
-            BuildExplanationText(
-                explanation
-            );
 
 
         if (
@@ -630,7 +615,7 @@ public partial class XaiView : UserControl
             "Generating...";
 
         GenAiExplanationText.Text =
-            "Generating a grounded explanation with the local Qwen model...";
+            "Writing a summary with the local Qwen model from this flow's facts...";
 
 
         try
@@ -687,14 +672,14 @@ public partial class XaiView : UserControl
             )
             {
                 GenAiStatusText.Text =
-                    "Deterministic fallback";
+                    "Facts shown as recorded";
             }
             else if (
                 response.Narration.Available
             )
             {
                 GenAiStatusText.Text =
-                    "Qwen local";
+                    "Qwen · facts verified";
             }
             else
             {
@@ -1535,78 +1520,6 @@ public partial class XaiView : UserControl
     // =========================================================
     // HUMAN-READABLE SHAP SUMMARY
     // =========================================================
-
-    private static string BuildExplanationText(
-        ShapExplanation explanation)
-    {
-        if (
-            explanation.Contributors
-            == null
-            ||
-            explanation.Contributors.Count
-            == 0
-        )
-        {
-            return
-                "The model classified this flow as " +
-                $"{explanation.PredictedClass} with " +
-                $"{explanation.Confidence:P2} confidence, " +
-                "but no SHAP contributors were available.";
-        }
-
-
-        ShapContributor? strongest =
-            explanation
-                .Contributors
-                .OrderByDescending(
-                    item =>
-                        Math.Abs(
-                            item.ShapValue
-                        )
-                )
-                .FirstOrDefault();
-
-
-        if (
-            strongest == null
-        )
-        {
-            return
-                $"The model classified this flow as " +
-                $"{explanation.PredictedClass} with " +
-                $"{explanation.Confidence:P2} confidence.";
-        }
-
-
-        string directionText =
-            strongest.Direction switch
-            {
-                "supports_prediction" =>
-                    "supported",
-
-                "opposes_prediction" =>
-                    "opposed",
-
-                "neutral" =>
-                    "had a neutral effect on",
-
-                _ =>
-                    "influenced"
-            };
-
-
-        return
-            $"The model classified this network flow as " +
-            $"{explanation.PredictedClass} with " +
-            $"{explanation.Confidence:P2} confidence. " +
-            $"The strongest SHAP contributor was " +
-            $"\"{strongest.Feature}\". " +
-            $"Its observed value {directionText} " +
-            $"the predicted class. " +
-            $"The table below lists the most influential " +
-            $"features for this prediction.";
-    }
-
 
     // =========================================================
     // CARD SUPPORT

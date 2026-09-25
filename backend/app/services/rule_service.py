@@ -1,38 +1,392 @@
 """
 rule_service.py
 ---------------
-Extension point for the rule-based detector (Tier 1 flow rules, Tier 2
-Suricata / ARP). It runs beside XGBoost, never after it, and its output is
-read by the recommendation stage next to the model prediction and SHAP.
+Tier 1 rule-based detection: behavioural rules over CICFlowMeter flow records.
 
-The engine itself is not built yet. Until it is, evaluate() returns None and
-every recommendation reports the rule layer as "not evaluated" rather than
-as "no rule fired" -- the two mean different things to an analyst.
+It runs beside XGBoost on the same CSV, never after it, and never reads the
+model's output. Its hits are read by the recommendation stage and shown in the
+interface next to the prediction and SHAP, with whether the two agree.
 
-CONTRACT FOR THE ENGINE
-evaluate() returns {flow_index: [hit, ...]} for the flows it examined. A flow
-it examined with no hit maps to []. Each hit is a dict:
+WHAT A TIER 1 RULE IS
+A count over flows, compared with a threshold. Most attacks in scope are
+visible only across many flows -- one probe is not a scan, one login is not a
+brute-force attempt -- so most rules group flows by source, destination and
+service inside a time window (window_seconds, default 60 s) and count:
 
-    {
-        "rule_id":   "T1-PORTSCAN-01",          # stable identifier
-        "class":     "PortScan",                # one of the sixteen classes
-        "tier":      1,                         # 1 flow CSV, 2 pcap
-        "evidence":  "25 distinct ports from 10.0.0.5 to 10.0.0.20 in 60 s",
-        "measured":  25,                        # value the rule compared
-        "threshold": 20,                        # value it was compared with
-        "severity":  "medium",                  # low / medium / high
-    }
+  T1-PORTSCAN-01    distinct destination ports, one source -> one host
+  T1-DDOS-01        several sources, each flooding one destination service
+  T1-DOS-01         flows from one source to one destination service
+  T1-SLOWLORIS-01   long, near-idle web connections held open at once
+  T1-BRUTEFORCE-01  near-identical attempts on an authentication port
+  T1-C2-01          regularly spaced contacts to one service (whole capture)
+  T1-EXFIL-01       one flow sending far more than it receives
 
-`evidence` is shown to the analyst and given to Qwen as a citable source, so
-write it as a factual sentence about the traffic, with numbers.
+Every threshold is in app/rules/rules.json, with a sensitivity setting
+(low / medium / high) that scales the count thresholds. Payload attacks
+(WebBased, API, Exploitation, BufferOverflow, Evasion) and MITM are Tier 2 --
+they need the packet contents or ARP, which flow records do not carry.
+
+WHAT A HIT IS
+    {"rule_id": "T1-PORTSCAN-01", "class": "PortScan", "tier": 1,
+     "evidence": "25 distinct destination ports from 10.0.0.5 to 10.0.0.20 "
+                 "within 60 s (threshold 20); median 1 forward packets per flow.",
+     "measured": 25, "threshold": 20, "severity": "medium"}
+
+`evidence` is a factual sentence with numbers. It is shown to the analyst and
+given to Qwen as a citable source, and the verifier checks that any number an
+action quotes from it is really in it.
+
+Both CICFlowMeter naming schemes are accepted: the Java tool the application
+runs ("Total Fwd Packet", string timestamps) and the one TRUSTLab was exported
+with ("Tot Fwd Pkts", epoch timestamps), so the same rules can be validated on
+the labelled dataset (validate_rules.py).
 """
 from __future__ import annotations
 
+import json
+import math
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import numpy as np
+import pandas as pd
+
+RULES_FILE = Path(__file__).resolve().parent.parent / "rules" / "rules.json"
+
+# canonical name -> accepted column names
+ALIASES = {
+    "src_ip": ["Src IP"],
+    "dst_ip": ["Dst IP"],
+    "dst_port": ["Dst Port"],
+    "ts": ["Timestamp"],
+    "duration": ["Flow Duration"],
+    "fwd_pkts": ["Total Fwd Packet", "Total Fwd Packets", "Tot Fwd Pkts"],
+    "fwd_bytes": ["Total Length of Fwd Packet", "Total Length of Fwd Packets", "TotLen Fwd Pkts"],
+    "bwd_bytes": ["Total Length of Bwd Packet", "Total Length of Bwd Packets", "TotLen Bwd Pkts"],
+    "fwd_len_mean": ["Fwd Packet Length Mean", "Fwd Pkt Len Mean"],
+    "down_up": ["Down/Up Ratio"],
+}
+
+# Thresholds the sensitivity factor scales. Ratios, durations and
+# regularity limits are properties of the attack, not of how many alerts an
+# analyst wants, so they are left alone.
+SCALED = {"min_distinct_ports", "min_flooding_sources", "per_source_min_flows", "min_flows",
+          "min_concurrent_flows", "min_attempts", "min_fwd_bytes"}
+
+
+# ------------------------------------------------------------------
+# configuration
+# ------------------------------------------------------------------
+
+def load_config(path: Optional[Path] = None,
+                sensitivity: Optional[str] = None) -> Dict[str, Any]:
+    """rules.json with the sensitivity factor applied to count thresholds."""
+    config = json.loads(Path(path or RULES_FILE).read_text(encoding="utf-8"))
+    level = sensitivity or config.get("sensitivity", "medium")
+    factor = config["sensitivity_factors"][level]
+    for rule in config["rules"].values():
+        for key in list(rule):
+            if key in SCALED:
+                value = rule[key] * factor
+                rule[key] = int(math.ceil(value)) if isinstance(rule[key], int) else value
+    config["sensitivity"] = level
+    return config
+
+
+# ------------------------------------------------------------------
+# input
+# ------------------------------------------------------------------
+
+def _timestamps(series: pd.Series) -> pd.Series:
+    """Epoch seconds (TRUSTLab) or CICFlowMeter's 'dd/MM/yyyy hh:mm:ss a'."""
+    numeric = pd.to_numeric(series, errors="coerce")
+    if numeric.notna().mean() > 0.9:
+        return pd.to_datetime(numeric, unit="s", errors="coerce")
+    text = series.astype(str).str.strip()
+    parsed = pd.to_datetime(text, format="%d/%m/%Y %I:%M:%S %p", errors="coerce")
+    if parsed.notna().mean() < 0.9:
+        parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
+    return parsed
+
+
+def normalise(frame: pd.DataFrame) -> pd.DataFrame:
+    """The columns the rules use, under canonical names, in the input's row order."""
+    frame = frame.rename(columns=lambda c: str(c).strip())
+    out = pd.DataFrame(index=frame.index)
+    missing = []
+    for name, options in ALIASES.items():
+        column = next((c for c in options if c in frame.columns), None)
+        if column is None:
+            missing.append(f"{name} ({' / '.join(options)})")
+            continue
+        out[name] = frame[column]
+    if missing:
+        raise KeyError("flow records lack: " + ", ".join(missing))
+    for name in ("dst_port", "duration", "fwd_pkts", "fwd_bytes", "bwd_bytes",
+                 "fwd_len_mean", "down_up"):
+        out[name] = pd.to_numeric(out[name], errors="coerce").replace([np.inf, -np.inf], np.nan)
+    out["src_ip"] = out["src_ip"].astype(str).str.strip()
+    out["dst_ip"] = out["dst_ip"].astype(str).str.strip()
+    out["ts"] = _timestamps(out["ts"])
+    return out
+
+
+def _seconds(series: pd.Series) -> np.ndarray:
+    """Seconds since the epoch, whatever resolution pandas stores datetimes in."""
+    return (series - pd.Timestamp(0)).dt.total_seconds().to_numpy()
+
+
+def _fmt(value) -> str:
+    value = float(value)
+    return f"{int(value):,}" if value == int(value) else f"{value:,.2f}"
+
+
+# ------------------------------------------------------------------
+# rules -- each returns {row position: hit}
+# ------------------------------------------------------------------
+
+def _hit(rule_id, rule, evidence, measured, threshold):
+    return {"rule_id": rule_id, "class": rule["class"], "tier": 1,
+            "evidence": evidence, "measured": measured, "threshold": threshold,
+            "severity": rule.get("severity", "medium")}
+
+
+def _grouped(df, keys, aggregations):
+    """Per-group statistics and each row's group number (-1 = no group)."""
+    g = df.groupby(keys, sort=False, dropna=True)
+    stats = g.agg(**aggregations).reset_index()
+    codes = g.ngroup().to_numpy()
+    return stats, codes
+
+
+def _assign(codes, group_hits):
+    """{row position: hit} for every row whose group has a hit."""
+    if not group_hits:
+        return {}
+    rows = np.flatnonzero(np.isin(codes, np.fromiter(group_hits, int)))
+    return {int(i): group_hits[int(codes[i])] for i in rows}
+
+
+def _portscan(df, rule, rid, window):
+    stats, codes = _grouped(df, ["src_ip", "dst_ip", "win"],
+                            {"ports": ("dst_port", "nunique"), "med_pkts": ("fwd_pkts", "median")})
+    q = stats[(stats["ports"] >= rule["min_distinct_ports"])
+              & (stats["med_pkts"] <= rule["max_median_fwd_packets"])]
+    return _assign(codes, {int(k): _hit(
+        rid, rule,
+        f"{int(r.ports)} distinct destination ports from {r.src_ip} to {r.dst_ip} within "
+        f"{window} s (threshold {rule['min_distinct_ports']}); median "
+        f"{_fmt(r.med_pkts)} forward packets per flow.",
+        int(r.ports), rule["min_distinct_ports"]) for k, r in q.iterrows()})
+
+
+def _ddos(df, rule, rid, window):
+    """Several sources, each flooding the same service in the same window.
+
+    Counting distinct sources alone flags any busy server -- a popular web
+    site has hundreds of clients a minute. What separates a distributed flood
+    is that each contributing source is itself flooding.
+    """
+    per_source = df.groupby(["src_ip", "dst_ip", "dst_port", "win"], sort=False)["src_ip"].transform("size")
+    flooding = per_source >= rule["per_source_min_flows"]
+    if not flooding.any():
+        return {}
+    sub = df[flooding.to_numpy()]
+    stats, codes = _grouped(sub, ["dst_ip", "dst_port", "win"],
+                            {"sources": ("src_ip", "nunique"), "flows": ("src_ip", "size")})
+    q = stats[stats["sources"] >= rule["min_flooding_sources"]]
+    local = _assign(codes, {int(k): _hit(
+        rid, rule,
+        f"{int(r.sources)} sources each sent at least {rule['per_source_min_flows']} flows to "
+        f"{r.dst_ip} port {int(r.dst_port)} within {window} s, {int(r.flows):,} flows in total "
+        f"(threshold {rule['min_flooding_sources']} sources).",
+        int(r.sources), rule["min_flooding_sources"]) for k, r in q.iterrows()})
+    positions = np.flatnonzero(flooding.to_numpy())
+    return {int(positions[j]): hit for j, hit in local.items()}
+
+
+def _dos(df, rule, rid, window):
+    eligible = ~df["dst_port"].isin(rule.get("exclude_ports", [])).to_numpy()
+    if not eligible.any():
+        return {}
+    sub = df[eligible]
+    stats, codes = _grouped(sub, ["src_ip", "dst_ip", "dst_port", "win"],
+                            {"flows": ("src_ip", "size")})
+    q = stats[stats["flows"] >= rule["min_flows"]]
+    local = _assign(codes, {int(k): _hit(
+        rid, rule,
+        f"{int(r.flows):,} flows from {r.src_ip} to {r.dst_ip} port {int(r.dst_port)} within "
+        f"{window} s (threshold {rule['min_flows']}).",
+        int(r.flows), rule["min_flows"]) for k, r in q.iterrows()})
+    positions = np.flatnonzero(eligible)
+    return {int(positions[j]): hit for j, hit in local.items()}
+
+
+def _max_concurrency(starts: np.ndarray, ends: np.ndarray) -> int:
+    """Largest number of intervals open at once (touching ends do not overlap)."""
+    times = np.concatenate([starts, ends])
+    deltas = np.concatenate([np.ones(len(starts)), -np.ones(len(ends))])
+    order = np.lexsort((deltas, times))           # at equal times, closes first
+    return int(np.cumsum(deltas[order]).max()) if len(times) else 0
+
+
+def _slowloris(df, rule, rid, window):
+    candidate = (df["dst_port"].isin(rule["web_ports"])
+                 & (df["duration"] >= rule["min_duration_seconds"] * 1e6)
+                 & (df["fwd_len_mean"] <= rule["max_fwd_packet_mean_bytes"])
+                 & df["ts"].notna())
+    hits = {}
+    if not candidate.any():
+        return hits
+    sub = df[candidate]
+    start = _seconds(sub["ts"])
+    end = start + sub["duration"].to_numpy() / 1e6
+    positions = np.flatnonzero(candidate.to_numpy())
+    groups: Dict[Any, List[int]] = {}
+    for j, key in enumerate(zip(sub["src_ip"], sub["dst_ip"], sub["dst_port"])):
+        groups.setdefault(key, []).append(j)
+    for (src, dst, port), members in groups.items():
+        if len(members) < rule["min_concurrent_flows"]:
+            continue
+        idx = np.array(members)
+        peak = _max_concurrency(start[idx], end[idx])
+        if peak < rule["min_concurrent_flows"]:
+            continue
+        for j in members:
+            hits[int(positions[j])] = _hit(
+                rid, rule,
+                f"{peak} connections from {src} to {dst} port {int(port)} open at the same time, "
+                f"each lasting at least {rule['min_duration_seconds']} s with forward packets averaging "
+                f"at most {rule['max_fwd_packet_mean_bytes']} bytes (threshold {rule['min_concurrent_flows']}).",
+                peak, rule["min_concurrent_flows"])
+    return hits
+
+
+def _bruteforce(df, rule, rid, window):
+    on_auth = df["dst_port"].isin(rule["auth_ports"]).to_numpy()
+    if not on_auth.any():
+        return {}
+    sub = df[on_auth]
+    stats, codes = _grouped(sub, ["src_ip", "dst_ip", "dst_port", "win"],
+                            {"attempts": ("src_ip", "size"), "size_mean": ("fwd_bytes", "mean"),
+                             "size_std": ("fwd_bytes", "std")})
+    stats["size_cv"] = (stats["size_std"].fillna(0.0) / stats["size_mean"].where(stats["size_mean"] > 0)).fillna(0.0)
+    q = stats[(stats["attempts"] >= rule["min_attempts"]) & (stats["size_cv"] <= rule["max_size_cv"])]
+    local = _assign(codes, {int(k): _hit(
+        rid, rule,
+        f"{int(r.attempts)} connection attempts from {r.src_ip} to {r.dst_ip} port {int(r.dst_port)} "
+        f"within {window} s with near-identical sizes (variation {r.size_cv:.2f}, limit "
+        f"{rule['max_size_cv']}; threshold {rule['min_attempts']} attempts).",
+        int(r.attempts), rule["min_attempts"]) for k, r in q.iterrows()})
+    positions = np.flatnonzero(on_auth)
+    return {int(positions[j]): hit for j, hit in local.items()}
+
+
+def _c2(df, rule, rid, window):
+    timed = df[df["ts"].notna()]
+    hits = {}
+    if timed.empty:
+        return hits
+    sizes = timed.groupby(["src_ip", "dst_ip", "dst_port"], sort=False)["src_ip"].transform("size")
+    timed = timed[sizes >= rule["min_flows"]]
+    for (src, dst, port), group in timed.groupby(["src_ip", "dst_ip", "dst_port"], sort=False):
+        times = np.sort(_seconds(group["ts"]))
+        gaps = np.diff(times)
+        mean_gap = float(gaps.mean())
+        if mean_gap < rule["min_mean_interval_seconds"]:
+            continue
+        cv = float(gaps.std() / mean_gap)
+        mean_bytes = float((group["fwd_bytes"] + group["bwd_bytes"]).mean())
+        if cv > rule["max_interval_cv"] or mean_bytes > rule["max_mean_bytes"]:
+            continue
+        for position in group.index:                      # df has a RangeIndex
+            hits[int(position)] = _hit(
+                rid, rule,
+                f"{len(group)} flows from {src} to {dst} port {int(port)} at regular intervals of "
+                f"about {mean_gap:,.1f} s (interval variation {cv:.2f}, limit {rule['max_interval_cv']}), "
+                f"averaging {_fmt(round(mean_bytes))} bytes per flow.",
+                len(group), rule["min_flows"])
+    return hits
+
+
+def _exfil(df, rule, rid, window):
+    mask = (df["fwd_bytes"] >= rule["min_fwd_bytes"]) & (df["down_up"] <= rule["max_down_up_ratio"])
+    hits = {}
+    for i in np.flatnonzero(mask.fillna(False).to_numpy()):
+        r = df.iloc[i]
+        hits[int(i)] = _hit(rid, rule,
+                       f"{_fmt(r.fwd_bytes)} bytes sent from {r.src_ip} to {r.dst_ip} port "
+                       f"{int(r.dst_port)} with a download/upload ratio of {r.down_up:.2f} "
+                       f"(thresholds {_fmt(rule['min_fwd_bytes'])} bytes and ratio "
+                       f"{rule['max_down_up_ratio']}).",
+                       float(r.fwd_bytes), rule["min_fwd_bytes"])
+    return hits
+
+
+RULE_FUNCTIONS = {
+    "PortScan": _portscan, "DDoS": _ddos, "DoS": _dos, "Slowloris": _slowloris,
+    "Bruteforce": _bruteforce, "C2Beaconing": _c2, "Exfiltration": _exfil,
+}
+
+
+# ------------------------------------------------------------------
+# public
+# ------------------------------------------------------------------
+
+def evaluate_frame(frame: pd.DataFrame,
+                   config: Optional[Dict[str, Any]] = None) -> List[List[Dict[str, Any]]]:
+    """Hits for every row of a flow table, in row order (empty list = none)."""
+    config = config or load_config()
+    df = normalise(frame).reset_index(drop=True)
+    window = int(config["window_seconds"])
+    df["win"] = df["ts"].dt.floor(f"{window}s")
+
+    per_row: List[List[Dict[str, Any]]] = [[] for _ in range(len(df))]
+    for rule_id, rule in config["rules"].items():
+        if not rule.get("enabled", True):
+            continue
+        for position, hit in RULE_FUNCTIONS[rule["class"]](df, rule, rule_id, window).items():
+            per_row[position].append(hit)
+
+    order = {c: i for i, c in enumerate(config.get("priority", []))}
+    for hits in per_row:
+        hits.sort(key=lambda h: order.get(h["class"], len(order)))
+    return per_row
 
 
 def evaluate(flow_csv: str,
              findings: List[Dict[str, Any]]
              ) -> Optional[Dict[int, List[Dict[str, Any]]]]:
-    """Rule hits per flow, or None when no rule engine is configured."""
-    return None
+    """Rule hits per flow_index for the analysed capture.
+
+    Returns None when the rules could not be evaluated (unreadable CSV,
+    missing columns, or a row count that does not match the findings), so the
+    recommendation says "not evaluated" rather than "no rule fired".
+    """
+    try:
+        frame = pd.read_csv(flow_csv, low_memory=False)
+        config = load_config()
+        per_row = evaluate_frame(frame, config)
+    except Exception as error:                              # noqa: BLE001
+        print(f"[FORENXAI] Rule layer not evaluated ({type(error).__name__}: {error})", flush=True)
+        return None
+
+    if len(per_row) != len(findings):
+        print(f"[FORENXAI] Rule layer not evaluated: {len(per_row)} flow records but "
+              f"{len(findings)} classified flows.", flush=True)
+        return None
+
+    result = {}
+    for finding, hits in zip(findings, per_row):
+        index = finding.get("flow_index")
+        if index is not None:
+            result[int(index)] = hits
+
+    fired: Dict[str, int] = {}
+    for hits in per_row:
+        for hit in hits:
+            fired[hit["rule_id"]] = fired.get(hit["rule_id"], 0) + 1
+    print(f"[FORENXAI] Rule layer ({config['version']}, sensitivity {config['sensitivity']}): "
+          f"{sum(1 for h in per_row if h)} of {len(per_row)} flows flagged"
+          + (f" -- {fired}" if fired else ""), flush=True)
+    return result

@@ -1,0 +1,183 @@
+{
+  "version": "tier1-1.1",
+  "description": "Tier 1 rule-based detection on CICFlowMeter flow records. Every threshold is here; change it here, not in code. Count thresholds are multiplied by the sensitivity factor (high sensitivity = lower thresholds = more alerts).",
+  "window_seconds": 60,
+  "sensitivity": "medium",
+  "sensitivity_factors": {
+    "low": 1.5,
+    "medium": 1.0,
+    "high": 0.7
+  },
+  "priority": [
+    "DDoS",
+    "DoS",
+    "Slowloris",
+    "PortScan",
+    "Bruteforce",
+    "C2Beaconing",
+    "Exfiltration"
+  ],
+  "rules": {
+    "T1-PORTSCAN-01": {
+      "class": "PortScan",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source probes many destination ports of one host inside a window, each probe carrying almost no data.",
+      "min_distinct_ports": 50,
+      "max_median_fwd_packets": 3
+    },
+    "T1-DDOS-01": {
+      "class": "DDoS",
+      "enabled": false,
+      "severity": "high",
+      "description": "Several sources each flood the same destination service inside a window.",
+      "min_flooding_sources": 3,
+      "per_source_min_flows": 100,
+      "disabled_reason": "No tested setting keeps benign false alarms at or below 1%: the best flags 6.71% of benign flows on held-out data (recall 0.8162, precision 0.5356). Enable only on a network whose busy services are known; the DoS rule still flags each flooding source individually."
+    },
+    "T1-DOS-01": {
+      "class": "DoS",
+      "enabled": true,
+      "severity": "high",
+      "description": "One source opens a sustained, high number of flows to one destination service inside a window. Name-service ports are excluded: many small queries to a resolver are normal, and DNS abuse is its own class.",
+      "min_flows": 800,
+      "exclude_ports": [
+        53,
+        67,
+        68,
+        123,
+        137,
+        138,
+        5353
+      ]
+    },
+    "T1-SLOWLORIS-01": {
+      "class": "Slowloris",
+      "enabled": true,
+      "severity": "high",
+      "description": "One source holds many long, near-idle connections open to a web service at the same time.",
+      "web_ports": [
+        80,
+        443,
+        8000,
+        8080,
+        8443
+      ],
+      "min_duration_seconds": 30,
+      "max_fwd_packet_mean_bytes": 60,
+      "min_concurrent_flows": 20
+    },
+    "T1-BRUTEFORCE-01": {
+      "class": "Bruteforce",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source makes many connection attempts of similar size to an authentication service inside a window.",
+      "auth_ports": [
+        21,
+        22,
+        23,
+        25,
+        110,
+        143,
+        389,
+        445,
+        587,
+        993,
+        995,
+        1433,
+        3306,
+        3389,
+        5432,
+        5900
+      ],
+      "min_attempts": 20,
+      "max_size_cv": 1.0
+    },
+    "T1-C2-01": {
+      "class": "C2Beaconing",
+      "enabled": true,
+      "severity": "high",
+      "description": "One source contacts the same destination service at regular intervals across the capture.",
+      "min_flows": 6,
+      "max_interval_cv": 0.2,
+      "min_mean_interval_seconds": 2,
+      "max_mean_bytes": 10000
+    },
+    "T1-EXFIL-01": {
+      "class": "Exfiltration",
+      "enabled": true,
+      "severity": "high",
+      "description": "A flow sends far more data out than it receives.",
+      "min_fwd_bytes": 10000000,
+      "max_down_up_ratio": 0.1
+    }
+  },
+  "tuning": {
+    "method": "Thresholds chosen on flows in even-numbered minutes of TII-SSRC-23 and CSE-CIC-IDS2018 (02-20-2018), tested on flows in odd-numbered minutes.",
+    "selection": "best F1 on the rule's own class with benign false alarms <= 1%",
+    "tuned_rules": [
+      "T1-BRUTEFORCE-01",
+      "T1-DDOS-01",
+      "T1-DOS-01",
+      "T1-PORTSCAN-01"
+    ],
+    "untuned_rules": [
+      "T1-C2-01",
+      "T1-EXFIL-01",
+      "T1-SLOWLORIS-01"
+    ],
+    "untuned_reason": "no labelled attack flows with real addresses and timestamps for these classes",
+    "test_results": {
+      "T1-PORTSCAN-01": {
+        "recall": 0.9997,
+        "precision": 0.9636,
+        "f1": 0.9813,
+        "benign_fa": 0.0002,
+        "attack_flows_flagged": 668835
+      },
+      "T1-DDOS-01": {
+        "recall": 0.8162,
+        "precision": 0.5356,
+        "f1": 0.6468,
+        "benign_fa": 0.0671,
+        "attack_flows_flagged": 285329
+      },
+      "T1-DOS-01": {
+        "recall": 0.9939,
+        "precision": 0.9268,
+        "f1": 0.9592,
+        "benign_fa": 0.0,
+        "attack_flows_flagged": 3931651
+      },
+      "T1-SLOWLORIS-01": {
+        "recall": null,
+        "precision": 0.0,
+        "f1": 0.0,
+        "benign_fa": 0.0001,
+        "attack_flows_flagged": 40563
+      },
+      "T1-BRUTEFORCE-01": {
+        "recall": 0.4633,
+        "precision": 0.2009,
+        "f1": 0.2803,
+        "benign_fa": 0.0055,
+        "attack_flows_flagged": 6591
+      },
+      "T1-C2-01": {
+        "recall": null,
+        "precision": 0.0,
+        "f1": 0.0,
+        "benign_fa": 0.0075,
+        "attack_flows_flagged": 737
+      },
+      "T1-EXFIL-01": {
+        "recall": null,
+        "precision": 0.0,
+        "f1": 0.0,
+        "benign_fa": 0.0,
+        "attack_flows_flagged": 0
+      }
+    },
+    "report": "rules_tuning.json"
+  }
+}

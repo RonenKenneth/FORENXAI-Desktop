@@ -1,0 +1,636 @@
+{
+  "max_benign_fa": 0.01,
+  "flows": {
+    "0": {
+      "Benign": 3686916,
+      "Bruteforce": 23525,
+      "DoS": 3824641,
+      "PortScan": 393036,
+      "DDoS": 308893,
+      "Mirai scan/bruteforce": 4717
+    },
+    "1": {
+      "Benign": 3686942,
+      "Bruteforce": 11647,
+      "DoS": 3666288,
+      "PortScan": 645327,
+      "DDoS": 349569,
+      "Mirai scan/bruteforce": 4014
+    }
+  },
+  "seconds": 797.0,
+  "rules": {
+    "T1-PORTSCAN-01": {
+      "class": "PortScan",
+      "tunable": true,
+      "chosen": {
+        "setting": {
+          "min_distinct_ports": 50
+        },
+        "tune": {
+          "recall": 0.9990662432957795,
+          "precision": 0.9448198035620617,
+          "f1": 0.9711861178920606,
+          "benign_fa": 8.625094794673922e-05,
+          "attack_flows_flagged": 415284
+        },
+        "test": {
+          "recall": 0.9997257204487028,
+          "precision": 0.9636051063677248,
+          "f1": 0.9813331467459258,
+          "benign_fa": 0.0001849771436599762,
+          "attack_flows_flagged": 668835
+        }
+      },
+      "candidates": [
+        {
+          "setting": {
+            "min_distinct_ports": 20
+          },
+          "tune": {
+            "recall": 0.9994046346899521,
+            "precision": 0.8971093038074422,
+            "f1": 0.9454981351299633,
+            "benign_fa": 0.005919852798382171,
+            "attack_flows_flagged": 416027
+          },
+          "test": {
+            "recall": 0.9997257204487028,
+            "precision": 0.9329137884412104,
+            "f1": 0.9651649001024781,
+            "benign_fa": 0.006026132225567964,
+            "attack_flows_flagged": 669325
+          }
+        },
+        {
+          "setting": {
+            "min_distinct_ports": 10
+          },
+          "tune": {
+            "recall": 0.9994046346899521,
+            "precision": 0.8635857975156646,
+            "f1": 0.9265443703516748,
+            "benign_fa": 0.010426329213901266,
+            "attack_flows_flagged": 416409
+          },
+          "test": {
+            "recall": 0.9997257204487028,
+            "precision": 0.9118676360840363,
+            "f1": 0.9537776706772686,
+            "benign_fa": 0.010321833107220022,
+            "attack_flows_flagged": 669448
+          }
+        },
+        {
+          "setting": {
+            "min_distinct_ports": 15
+          },
+          "tune": {
+            "recall": 0.9994046346899521,
+            "precision": 0.8814077320246918,
+            "f1": 0.9367047856833701,
+            "benign_fa": 0.007959497856745313,
+            "attack_flows_flagged": 416307
+          },
+          "test": {
+            "recall": 0.9997257204487028,
+            "precision": 0.9234713303770036,
+            "f1": 0.9600867895242425,
+            "benign_fa": 0.007938828438310123,
+            "attack_flows_flagged": 669344
+          }
+        },
+        {
+          "setting": {
+            "min_distinct_ports": 30
+          },
+          "tune": {
+            "recall": 0.999297774249687,
+            "precision": 0.925598176894924,
+            "f1": 0.9610370861559129,
+            "benign_fa": 0.0023954980259924554,
+            "attack_flows_flagged": 415499
+          },
+          "test": {
+            "recall": 0.9997257204487028,
+            "precision": 0.9506316915541646,
+            "f1": 0.9745608131838751,
+            "benign_fa": 0.002588323873822805,
+            "attack_flows_flagged": 669111
+          }
+        },
+        {
+          "setting": {
+            "min_distinct_ports": 50
+          },
+          "tune": {
+            "recall": 0.9990662432957795,
+            "precision": 0.9448198035620617,
+            "f1": 0.9711861178920606,
+            "benign_fa": 8.625094794673922e-05,
+            "attack_flows_flagged": 415284
+          },
+          "test": {
+            "recall": 0.9997257204487028,
+            "precision": 0.9636051063677248,
+            "f1": 0.9813331467459258,
+            "benign_fa": 0.0001849771436599762,
+            "attack_flows_flagged": 668835
+          }
+        }
+      ]
+    },
+    "T1-DDOS-01": {
+      "class": "DDoS",
+      "tunable": true,
+      "chosen": {
+        "setting": {
+          "min_flooding_sources": 3,
+          "per_source_min_flows": 100
+        },
+        "tune": {
+          "recall": 0.9386259967043604,
+          "precision": 0.5146102196103349,
+          "f1": 0.6647598303336008,
+          "benign_fa": 0.07417364539902727,
+          "attack_flows_flagged": 289935
+        },
+        "test": {
+          "recall": 0.8162308442682275,
+          "precision": 0.535604807751871,
+          "f1": 0.646790404990638,
+          "benign_fa": 0.06710005202143131,
+          "attack_flows_flagged": 285329
+        }
+      },
+      "candidates": [
+        {
+          "setting": {
+            "min_flooding_sources": 3,
+            "per_source_min_flows": 50
+          },
+          "tune": {
+            "recall": 0.9386259967043604,
+            "precision": 0.2791366006055734,
+            "f1": 0.4303053329751598,
+            "benign_fa": 0.20308301029912262,
+            "attack_flows_flagged": 289935
+          },
+          "test": {
+            "recall": 0.8162308442682275,
+            "precision": 0.27917814706388844,
+            "f1": 0.41605248173484854,
+            "benign_fa": 0.19981410068289657,
+            "attack_flows_flagged": 285329
+          }
+        },
+        {
+          "setting": {
+            "min_flooding_sources": 2,
+            "per_source_min_flows": 50
+          },
+          "tune": {
+            "recall": 0.9670856898667176,
+            "precision": 0.267733924142981,
+            "f1": 0.41936756396307867,
+            "benign_fa": 0.2211552961879251,
+            "attack_flows_flagged": 300376
+          },
+          "test": {
+            "recall": 0.9622020259233514,
+            "precision": 0.2913517666594195,
+            "f1": 0.4472712089338287,
+            "benign_fa": 0.22148707519673486,
+            "attack_flows_flagged": 337857
+          }
+        },
+        {
+          "setting": {
+            "min_flooding_sources": 3,
+            "per_source_min_flows": 20
+          },
+          "tune": {
+            "recall": 0.9386259967043604,
+            "precision": 0.2177872957974154,
+            "f1": 0.35354283613456905,
+            "benign_fa": 0.2824422905214005,
+            "attack_flows_flagged": 289935
+          },
+          "test": {
+            "recall": 0.8162308442682275,
+            "precision": 0.21560739111346536,
+            "f1": 0.34111045093015774,
+            "benign_fa": 0.28154606174981867,
+            "attack_flows_flagged": 285329
+          }
+        },
+        {
+          "setting": {
+            "min_flooding_sources": 3,
+            "per_source_min_flows": 100
+          },
+          "tune": {
+            "recall": 0.9386259967043604,
+            "precision": 0.5146102196103349,
+            "f1": 0.6647598303336008,
+            "benign_fa": 0.07417364539902727,
+            "attack_flows_flagged": 289935
+          },
+          "test": {
+            "recall": 0.8162308442682275,
+            "precision": 0.535604807751871,
+            "f1": 0.646790404990638,
+            "benign_fa": 0.06710005202143131,
+            "attack_flows_flagged": 285329
+          }
+        },
+        {
+          "setting": {
+            "min_flooding_sources": 5,
+            "per_source_min_flows": 50
+          },
+          "tune": {
+            "recall": 0.9386259967043604,
+            "precision": 0.3471535409218155,
+            "f1": 0.5068479141591737,
+            "benign_fa": 0.1478859295953583,
+            "attack_flows_flagged": 289935
+          },
+          "test": {
+            "recall": 0.8162308442682275,
+            "precision": 0.3480003902867388,
+            "f1": 0.48795916814239504,
+            "benign_fa": 0.1449930592887005,
+            "attack_flows_flagged": 285329
+          }
+        }
+      ]
+    },
+    "T1-DOS-01": {
+      "class": "DoS",
+      "tunable": true,
+      "chosen": {
+        "setting": {
+          "min_flows": 800
+        },
+        "tune": {
+          "recall": 0.994579360520373,
+          "precision": 0.9301498007368019,
+          "f1": 0.9612862034061025,
+          "benign_fa": 0.0,
+          "attack_flows_flagged": 4089566
+        },
+        "test": {
+          "recall": 0.9939317369502887,
+          "precision": 0.9268472710319405,
+          "f1": 0.9592180195181879,
+          "benign_fa": 0.0,
+          "attack_flows_flagged": 3931651
+        }
+      },
+      "candidates": [
+        {
+          "setting": {
+            "min_flows": 100
+          },
+          "tune": {
+            "recall": 0.996931999630815,
+            "precision": 0.9274562196176491,
+            "f1": 0.9609399749438807,
+            "benign_fa": 0.0004700405433701229,
+            "attack_flows_flagged": 4109412
+          },
+          "test": {
+            "recall": 0.9968082158302893,
+            "precision": 0.9256161046573769,
+            "f1": 0.9598939505647206,
+            "benign_fa": 0.000644165273009448,
+            "attack_flows_flagged": 3945899
+          }
+        },
+        {
+          "setting": {
+            "min_flows": 50
+          },
+          "tune": {
+            "recall": 0.9970088695906361,
+            "precision": 0.9245652250869113,
+            "f1": 0.9594214789634719,
+            "benign_fa": 0.002233302847149216,
+            "attack_flows_flagged": 4116084
+          },
+          "test": {
+            "recall": 0.9968785867340482,
+            "precision": 0.9227546880084992,
+            "f1": 0.9583855431006734,
+            "benign_fa": 0.0021974850702831776,
+            "attack_flows_flagged": 3952695
+          }
+        },
+        {
+          "setting": {
+            "min_flows": 200
+          },
+          "tune": {
+            "recall": 0.9966132769062508,
+            "precision": 0.9279142470839636,
+            "f1": 0.9610376021611501,
+            "benign_fa": 0.0003208643755377123,
+            "attack_flows_flagged": 4106619
+          },
+          "test": {
+            "recall": 0.9965133671986489,
+            "precision": 0.9260177817475264,
+            "f1": 0.9599731044991108,
+            "benign_fa": 0.0004114520922759295,
+            "attack_flows_flagged": 3943877
+          }
+        },
+        {
+          "setting": {
+            "min_flows": 400
+          },
+          "tune": {
+            "recall": 0.9948664462886844,
+            "precision": 0.9287742521306237,
+            "f1": 0.9606849557517656,
+            "benign_fa": 0.0,
+            "attack_flows_flagged": 4096805
+          },
+          "test": {
+            "recall": 0.994308139458766,
+            "precision": 0.9266978733399529,
+            "f1": 0.9593132266552562,
+            "benign_fa": 0.0,
+            "attack_flows_flagged": 3933774
+          }
+        },
+        {
+          "setting": {
+            "min_flows": 800
+          },
+          "tune": {
+            "recall": 0.994579360520373,
+            "precision": 0.9301498007368019,
+            "f1": 0.9612862034061025,
+            "benign_fa": 0.0,
+            "attack_flows_flagged": 4089566
+          },
+          "test": {
+            "recall": 0.9939317369502887,
+            "precision": 0.9268472710319405,
+            "f1": 0.9592180195181879,
+            "benign_fa": 0.0,
+            "attack_flows_flagged": 3931651
+          }
+        }
+      ]
+    },
+    "T1-SLOWLORIS-01": {
+      "class": "Slowloris",
+      "tunable": false,
+      "chosen": {
+        "setting": {},
+        "tune": {
+          "recall": null,
+          "precision": 0.0,
+          "f1": 0.0,
+          "benign_fa": 0.00016111026125900345,
+          "attack_flows_flagged": 44057
+        },
+        "test": {
+          "recall": null,
+          "precision": 0.0,
+          "f1": 0.0,
+          "benign_fa": 0.00011418677049978003,
+          "attack_flows_flagged": 40563
+        }
+      },
+      "candidates": [
+        {
+          "setting": {},
+          "tune": {
+            "recall": null,
+            "precision": 0.0,
+            "f1": 0.0,
+            "benign_fa": 0.00016111026125900345,
+            "attack_flows_flagged": 44057
+          },
+          "test": {
+            "recall": null,
+            "precision": 0.0,
+            "f1": 0.0,
+            "benign_fa": 0.00011418677049978003,
+            "attack_flows_flagged": 40563
+          }
+        }
+      ]
+    },
+    "T1-BRUTEFORCE-01": {
+      "class": "Bruteforce",
+      "tunable": true,
+      "chosen": {
+        "setting": {
+          "min_attempts": 20,
+          "max_size_cv": 1.0
+        },
+        "tune": {
+          "recall": 0.22401700318809778,
+          "precision": 0.19878540982988194,
+          "f1": 0.21064833320009593,
+          "benign_fa": 0.005392854081839673,
+          "attack_flows_flagged": 6628
+        },
+        "test": {
+          "recall": 0.4632952691680261,
+          "precision": 0.20093840768600582,
+          "f1": 0.2803044076777227,
+          "benign_fa": 0.005495882495574924,
+          "attack_flows_flagged": 6591
+        }
+      },
+      "candidates": [
+        {
+          "setting": {
+            "min_attempts": 10,
+            "max_size_cv": 0.3
+          },
+          "tune": {
+            "recall": 0.028862911795961742,
+            "precision": 0.020258980785296574,
+            "f1": 0.023807436756017597,
+            "benign_fa": 0.008903104925634325,
+            "attack_flows_flagged": 691
+          },
+          "test": {
+            "recall": 0.040783034257748776,
+            "precision": 0.01420412069017075,
+            "f1": 0.021069907735982968,
+            "benign_fa": 0.008934775757253573,
+            "attack_flows_flagged": 499
+          }
+        },
+        {
+          "setting": {
+            "min_attempts": 5,
+            "max_size_cv": 1.0
+          },
+          "tune": {
+            "recall": 0.224442082890542,
+            "precision": 0.08989835356613829,
+            "f1": 0.12837657127574217,
+            "benign_fa": 0.01411315039453028,
+            "attack_flows_flagged": 6699
+          },
+          "test": {
+            "recall": 0.4641538593629261,
+            "precision": 0.08933322316780963,
+            "f1": 0.14982955017876443,
+            "benign_fa": 0.014578748458749825,
+            "attack_flows_flagged": 6764
+          }
+        },
+        {
+          "setting": {
+            "min_attempts": 10,
+            "max_size_cv": 0.6
+          },
+          "tune": {
+            "recall": 0.057130712008501595,
+            "precision": 0.035508586525759576,
+            "f1": 0.043796334012219953,
+            "benign_fa": 0.009898245579774532,
+            "attack_flows_flagged": 1356
+          },
+          "test": {
+            "recall": 0.09092470163990728,
+            "precision": 0.027984778817187254,
+            "f1": 0.04279738931883854,
+            "benign_fa": 0.00997005106128602,
+            "attack_flows_flagged": 1083
+          }
+        },
+        {
+          "setting": {
+            "min_attempts": 10,
+            "max_size_cv": 1.0
+          },
+          "tune": {
+            "recall": 0.224442082890542,
+            "precision": 0.11444673241573643,
+            "f1": 0.1515934539190353,
+            "benign_fa": 0.010709492703386787,
+            "attack_flows_flagged": 6650
+          },
+          "test": {
+            "recall": 0.4641538593629261,
+            "precision": 0.11638320775026911,
+            "f1": 0.1861025526275023,
+            "benign_fa": 0.010801634525305795,
+            "attack_flows_flagged": 6625
+          }
+        },
+        {
+          "setting": {
+            "min_attempts": 20,
+            "max_size_cv": 1.0
+          },
+          "tune": {
+            "recall": 0.22401700318809778,
+            "precision": 0.19878540982988194,
+            "f1": 0.21064833320009593,
+            "benign_fa": 0.005392854081839673,
+            "attack_flows_flagged": 6628
+          },
+          "test": {
+            "recall": 0.4632952691680261,
+            "precision": 0.20093840768600582,
+            "f1": 0.2803044076777227,
+            "benign_fa": 0.005495882495574924,
+            "attack_flows_flagged": 6591
+          }
+        }
+      ]
+    },
+    "T1-C2-01": {
+      "class": "C2Beaconing",
+      "tunable": false,
+      "chosen": {
+        "setting": {},
+        "tune": {
+          "recall": null,
+          "precision": 0.0,
+          "f1": 0.0,
+          "benign_fa": 0.00776258531520653,
+          "attack_flows_flagged": 366
+        },
+        "test": {
+          "recall": null,
+          "precision": 0.0,
+          "f1": 0.0,
+          "benign_fa": 0.007503237100014049,
+          "attack_flows_flagged": 737
+        }
+      },
+      "candidates": [
+        {
+          "setting": {},
+          "tune": {
+            "recall": null,
+            "precision": 0.0,
+            "f1": 0.0,
+            "benign_fa": 0.00776258531520653,
+            "attack_flows_flagged": 366
+          },
+          "test": {
+            "recall": null,
+            "precision": 0.0,
+            "f1": 0.0,
+            "benign_fa": 0.007503237100014049,
+            "attack_flows_flagged": 737
+          }
+        }
+      ]
+    },
+    "T1-EXFIL-01": {
+      "class": "Exfiltration",
+      "tunable": false,
+      "chosen": {
+        "setting": {},
+        "tune": {
+          "recall": null,
+          "precision": 0.0,
+          "f1": 0.0,
+          "benign_fa": 7.323193693591067e-06,
+          "attack_flows_flagged": 0
+        },
+        "test": {
+          "recall": null,
+          "precision": 0.0,
+          "f1": 0.0,
+          "benign_fa": 6.509459600937579e-06,
+          "attack_flows_flagged": 0
+        }
+      },
+      "candidates": [
+        {
+          "setting": {},
+          "tune": {
+            "recall": null,
+            "precision": 0.0,
+            "f1": 0.0,
+            "benign_fa": 7.323193693591067e-06,
+            "attack_flows_flagged": 0
+          },
+          "test": {
+            "recall": null,
+            "precision": 0.0,
+            "f1": 0.0,
+            "benign_fa": 6.509459600937579e-06,
+            "attack_flows_flagged": 0
+          }
+        }
+      ]
+    }
+  }
+}

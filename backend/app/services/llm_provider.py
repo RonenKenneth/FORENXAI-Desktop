@@ -58,6 +58,13 @@ def _thread_count() -> int:
 _llm = None
 _llm_lock = Lock()
 
+# One generation at a time. A llama.cpp context is not re-entrant: two
+# threads generating on it at once -- two analyses reaching the
+# recommendation stage together -- corrupt its state and abort the whole
+# backend (GGML_ASSERT / segmentation fault, reproduced). Callers hold this
+# around every call to the model; a second request waits its turn.
+generation_lock = Lock()
+
 
 def get_llm() -> Llama:
     global _llm

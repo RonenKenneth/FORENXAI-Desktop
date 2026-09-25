@@ -1101,7 +1101,7 @@ def _generate(prompt: str,
               source_refs: Optional[List[str]] = None) -> Optional[str]:
     """Run Qwen greedily. Returns None when it is unavailable."""
     try:
-        from app.services.llm_provider import get_llm
+        from app.services.llm_provider import generation_lock, get_llm
 
         llm = get_llm()
 
@@ -1117,15 +1117,16 @@ def _generate(prompt: str,
             except Exception:                           # noqa: BLE001
                 grammar = None
 
-        result = llm(
-            prompt,
-            max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
-            top_p=TOP_P,
-            top_k=TOP_K,
-            echo=False,
-            grammar=grammar,
-        )
+        with generation_lock:
+            result = llm(
+                prompt,
+                max_tokens=MAX_TOKENS,
+                temperature=TEMPERATURE,
+                top_p=TOP_P,
+                top_k=TOP_K,
+                echo=False,
+                grammar=grammar,
+            )
 
         return result["choices"][0]["text"].strip()
 

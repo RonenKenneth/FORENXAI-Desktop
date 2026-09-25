@@ -143,6 +143,24 @@
       ],
       "max_packets": 8,
       "min_failed_handshakes": 10
+    },
+    "T1-BOF-01": {
+      "class": "BufferOverflow",
+      "enabled": false,
+      "severity": "high",
+      "description": "A flow's largest forward packet exceeds the largest benign packet seen to that destination port (p99.9 of TRUSTLab benign training flows; ports with fewer than 1,000 benign flows use the overall benign maximum).",
+      "baseline_bytes": {
+        "3306": 74.0,
+        "53": 113.0,
+        "110": 275.0,
+        "21": 277.0,
+        "443": 279.9,
+        "143": 280.6,
+        "80": 389.0,
+        "22": 1602.0
+      },
+      "default_limit_bytes": 7306.0,
+      "disabled_reason": "Measured on the TRUSTLab test split (baseline fitted on the training split only): 0 of 16,000 BufferOverflow flows exceed their port's baseline at p99, p99.9 or the maximum, while 5,424 Exfiltration and 427 PortScan flows do. Packet size does not separate overflow payloads in this data; the Tier 2 NOP-sled check and Suricata's ET SHELLCODE rules cover the class instead."
     }
   },
   "tuning": {
@@ -252,8 +270,11 @@
       "class": "WebBased",
       "enabled": true,
       "severity": "high",
-      "description": "An unencrypted HTTP request line or body (URL-decoded) matches an injection pattern: SQL injection, XSS, path traversal, command injection. A fallback for when Suricata is not installed; Suricata's ET WEB_SERVER rules are the primary source.",
-      "min_matches": 1
+      "description": "An unencrypted HTTP request line or body (URL-decoded) matches an injection pattern: SQL injection, XSS, path traversal, command injection. Also fires when one client collects many 4xx replies for many different paths from one server inside a window (a scanner or fuzzer sweeping the site). The pattern check is a fallback for when Suricata is not installed; Suricata's ET WEB_SERVER rules are the primary source.",
+      "min_matches": 1,
+      "min_error_replies": 20,
+      "min_distinct_paths": 10,
+      "error_note": "The design's starting value was 3 error replies; ordinary browsing produces a few 404s (favicon, robots.txt), so a sweep is required instead: at least 20 4xx replies covering at least 10 distinct paths in one window."
     },
     "T2-API-01": {
       "class": "API",

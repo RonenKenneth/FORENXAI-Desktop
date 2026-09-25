@@ -80,6 +80,9 @@ FAILED_LOGIN = [                      # (server port, reply prefix, description)
 # Written by update_suricata_rules.py; used when rules.json names no rules_file.
 DEFAULT_RULES_FILE = Path(__file__).resolve().parents[3] / "tools" / "suricata" / "et-open.rules"
 
+MAX_OPEN_REQUESTS = 100_000
+MAX_TAILS = 200_000
+
 TLS_VERSIONS = {0x0002: "SSL 2.0", 0x0300: "SSL 3.0", 0x0301: "TLS 1.0"}
 
 
@@ -129,6 +132,9 @@ class PacketInspector:
         self.tls_weak: Dict[tuple, Tuple[float, str, str, str]] = {}
         self.bof: Dict[tuple, Tuple[float, str, int, str, str]] = {}
         self.errors = 0
+        self.requests: Dict[tuple, List[Any]] = {}                      # open plain-HTTP requests
+        self.paths: Dict[tuple, set] = defaultdict(set)                  # (client, server, window) -> paths
+        self.tails: Dict[tuple, bytes] = {}                              # last bytes per direction (BOF)
 
     def _on(self, rule_id):
         return self.rules.get(rule_id, {}).get("enabled", False)
@@ -207,9 +213,9 @@ class PacketInspector:
             return
         if key in self.encrypted_keys:
             return
-        self._http(payload, key, src, dst, t)
+        self._http(payload, key, src, dst, sport, dport, t)
         self._failed_login(payload, key, src, dst, sport, t)
-        self._bof(payload, key, src, dst, t)
+        self._bof(payload, key, (src, sport, dst, dport), src, dst, t)
 
     # per-check helpers -------------------------------------------------
     def _evasion_ip(self, ip, key, t):
@@ -254,36 +260,60 @@ class PacketInspector:
             self.tls_weak[key] = (t, TLS_VERSIONS.get(version, f"0x{version:04x}"), src, dst)
         return True
 
-    def _http(self, payload, key, src, dst, t):
+    def _http(self, payload, key, src, dst, sport, dport, t):
+        """HTTP requests and replies. A request is buffered until its reply
+        (or max_payload_bytes), so a pattern split across TCP segments is
+        still seen; segments are appended in arrival order."""
         window = int(t // self.window)
+        directed = (src, sport, dst, dport)
         if payload.startswith(HTTP_METHODS):
-            head, _, body = payload.partition(b"\r\n\r\n")
+            head = payload.partition(b"\r\n\r\n")[0]
             request_line = head.split(b"\r\n", 1)[0].decode("latin-1", "replace")
             parts = request_line.split(" ")
             path = parts[1] if len(parts) > 1 else ""
+            self.paths[(src, dst, window)].add(path.split("?", 1)[0])
             if self._on("T2-API-01"):
                 markers = self.rules["T2-API-01"]["api_path_markers"]
                 if any(m in path.lower() for m in markers) or b"application/json" in head.lower():
                     self.api_flows.add(key)
                     self.groups["api_calls"][(src, dst, window)].append((key, t, path))
-            if self._on("T2-WEB-01"):
-                text = request_line + " " + body.decode("latin-1", "replace")
-                decoded = unquote_plus(unquote_plus(text)).lower()
-                for technique, pattern in WEB_PATTERNS:
-                    match = pattern.search(decoded)
-                    if match:
-                        self.web.append((key, t, src, dst, technique, match.group(0)[:60]))
-                        break
+            if len(self.requests) > MAX_OPEN_REQUESTS:
+                self.requests.clear()        # ponytail: drop buffers on floods; per-flow LRU if that loses real hits
+            self.requests[directed] = [bytearray(payload[: self.max_payload]), False]
+            self._match_request(directed, key, src, dst, t)
+        elif directed in self.requests:
+            buffer = self.requests[directed][0]
+            buffer += payload[: self.max_payload - len(buffer)]
+            self._match_request(directed, key, src, dst, t)
+            if len(buffer) >= self.max_payload:
+                del self.requests[directed]
         elif payload.startswith(b"HTTP/1.") and len(payload) >= 12:
+            self.requests.pop((dst, dport, src, sport), None)
             try:
                 status = int(payload[9:12])
             except ValueError:
                 return
             client = dst                                      # a response goes back to the client
+            if 400 <= status < 500:
+                self.groups["http_4xx"][(client, src, window)].append((key, t, status))
             if status in (401, 403, 429) and key in self.api_flows and self._on("T2-API-01"):
                 self.groups["api_fail"][(client, src, window)].append((key, t, status))
             elif status == 401 and self._on("T2-BRUTEFORCE-01"):
                 self.groups["login_fail"][(client, src, window)].append((key, t, "HTTP 401"))
+
+    def _match_request(self, directed, key, src, dst, t):
+        state = self.requests.get(directed)
+        if not self._on("T2-WEB-01") or state is None or state[1]:
+            return
+        head, _, body = bytes(state[0]).partition(b"\r\n\r\n")
+        text = head.split(b"\r\n", 1)[0].decode("latin-1", "replace") + " " + body.decode("latin-1", "replace")
+        decoded = unquote_plus(unquote_plus(text)).lower()
+        for technique, pattern in WEB_PATTERNS:
+            match = pattern.search(decoded)
+            if match:
+                state[1] = True                               # one match per request
+                self.web.append((key, t, src, dst, technique, match.group(0)[:60]))
+                return
 
     def _failed_login(self, payload, key, src, dst, sport, t):
         if not self._on("T2-BRUTEFORCE-01"):
@@ -293,10 +323,17 @@ class PacketInspector:
                 self.groups["login_fail"][(dst, src, int(t // self.window))].append((key, t, text))
                 return
 
-    def _bof(self, payload, key, src, dst, t):
+    def _bof(self, payload, key, directed, src, dst, t):
+        """NOP / filler runs, including one split across two segments: the
+        last bytes of the previous segment are searched with this one."""
         if not self._on("T2-BOF-01") or key in self.bof:
             return
         rule = self.rules["T2-BOF-01"]
+        keep = max(rule["min_nop_run"], rule["min_filler_run"]) - 1
+        if len(self.tails) > MAX_TAILS:
+            self.tails.clear()               # ponytail: bounded memory on huge captures; LRU if split runs get missed
+        payload = self.tails.get(directed, b"") + payload
+        self.tails[directed] = payload[-keep:]
         if b"\x90" * rule["min_nop_run"] in payload:
             self.bof[key] = (t, "NOP (0x90)", rule["min_nop_run"], src, dst)
             return
@@ -402,6 +439,19 @@ class PacketInspector:
         grouped("login_fail", "T2-BRUTEFORCE-01", "min_failed_logins", lambda g, e, r:
                 f"{len(e)} failed-login replies ({', '.join(sorted({x[2] for x in e}))}) from {g[1]} "
                 f"to {g[0]} within {w} s (threshold {r['min_failed_logins']}).")
+        if self._on("T2-WEB-01"):
+            rule = R["T2-WEB-01"]
+            for (client, server, window), events in self.groups["http_4xx"].items():
+                paths = len(self.paths.get((client, server, window), ()))
+                if len(events) >= rule["min_error_replies"] and paths >= rule["min_distinct_paths"]:
+                    hit = _hit("T2-WEB-01", rule,
+                               f"{len(events)} HTTP 4xx replies from {server} to {client} covering {paths} "
+                               f"distinct paths within {w} s (thresholds {rule['min_error_replies']} replies "
+                               f"and {rule['min_distinct_paths']} paths).",
+                               len(events), rule["min_error_replies"])
+                    hit["_flows"] = [(e[0], e[1]) for e in events]
+                    out.append(hit)
+
         grouped("dns", "T2-DNS-01", "min_queries", lambda g, e, r:
                 f"{len(e)} DNS queries from {g[0]} within {w} s with names longer than "
                 f"{r['min_name_length']} characters or label entropy above {r['min_label_entropy']}, "

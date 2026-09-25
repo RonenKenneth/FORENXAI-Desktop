@@ -70,6 +70,30 @@ class InvestigatorReviewRequest(BaseModel):
 # SHA-256
 # ============================================================
 
+def summarise_rule_hits(findings, tier):
+    """Flows flagged per class and per rule for one tier (a flow counts
+    once per class, even when several rules of that class fired)."""
+    by_class, by_rule, by_source = Counter(), Counter(), Counter()
+    flagged = 0
+    for finding in findings:
+        hits = [
+            h for h in (finding.get("rule_findings") or [])
+            if h.get("tier") == tier and h.get("rule_id") != "ALLOWLIST"
+        ]
+        if not hits:
+            continue
+        flagged += 1
+        by_class.update({h.get("class", "?") for h in hits})
+        by_rule.update({h.get("rule_id", "?") for h in hits})
+        by_source.update({h.get("source", "flow") for h in hits})
+    return {
+        "flows_flagged": flagged,
+        "by_class": dict(by_class.most_common()),
+        "by_rule": dict(by_rule.most_common()),
+        "by_source": dict(by_source),
+    }
+
+
 def calculate_sha256(
     file_path: Path
 ) -> str:
@@ -475,6 +499,7 @@ def start_analysis(
             str(cicflowmeter_csv),
             ml_result.get("findings", [])
         )
+        tier1_evaluated = rule_hits is not None
 
         # Tier 2: the scapy checks gathered while reading the pcap, plus
         # Suricata when it is installed, matched to the same flows.
@@ -705,7 +730,15 @@ def start_analysis(
                     rule_config.get("sensitivity"),
 
                 "tier1_evaluated":
-                    rule_hits is not None,
+                    tier1_evaluated,
+
+                # Chart data for the Dashboard: flows flagged per
+                # class and per rule, for each tier.
+                "tier1_chart":
+                    summarise_rule_hits(ml_findings, 1),
+
+                "tier2_chart":
+                    summarise_rule_hits(ml_findings, 2),
 
                 "tier2":
                     tier2_summary,

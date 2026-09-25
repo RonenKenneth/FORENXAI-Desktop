@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 using FORENXAI.Desktop.Models;
 using FORENXAI.Desktop.Services;
@@ -24,6 +26,10 @@ public partial class DashboardView : UserControl
     private readonly ObservableCollection<ThreatRow> threats;
     private readonly ObservableCollection<ShapRow> shapRows;
 
+    private readonly ObservableCollection<BarRow> tier1Bars = new();
+    private readonly ObservableCollection<BarRow> tier2Bars = new();
+    private readonly ObservableCollection<BarRow> verdictLegend = new();
+
 
     // =========================================================
     // DEFAULT CONSTRUCTOR
@@ -40,6 +46,10 @@ public partial class DashboardView : UserControl
 
         ThreatDataGrid.ItemsSource = threats;
         ShapDataGrid.ItemsSource = shapRows;
+
+        Tier1Bars.ItemsSource = tier1Bars;
+        Tier2Bars.ItemsSource = tier2Bars;
+        VerdictLegend.ItemsSource = verdictLegend;
 
         OpenXaiButton.IsEnabled = false;
 
@@ -124,6 +134,7 @@ public partial class DashboardView : UserControl
 
 
             LoadSummary();
+            LoadRulePanel();
             LoadThreats();
 
 
@@ -189,6 +200,179 @@ public partial class DashboardView : UserControl
     }
 
 
+
+    // =========================================================
+    // RULE-BASED DETECTION PANEL
+    //
+    // Bar charts of flows flagged per class for Tier 1 (flow
+    // rules) and Tier 2 (packet rules + Suricata), and a stacked
+    // bar of who decided each flow's final verdict.
+    // =========================================================
+
+    private static readonly Dictionary<string, string> ClassColours = new()
+    {
+        ["PortScan"] = "#F59E0B", ["DDoS"] = "#EF4444", ["DoS"] = "#F97316",
+        ["Slowloris"] = "#FB923C", ["Bruteforce"] = "#EAB308", ["C2Beaconing"] = "#A855F7",
+        ["Exfiltration"] = "#EC4899", ["DNS"] = "#06B6D4", ["TLSSSL"] = "#14B8A6",
+        ["MITM"] = "#8B5CF6", ["WebBased"] = "#3B82F6", ["API"] = "#6366F1",
+        ["Exploitation"] = "#DC2626", ["BufferOverflow"] = "#BE123C", ["Evasion"] = "#84CC16",
+        ["Benign"] = "#22C55E",
+    };
+
+    private static readonly (string Key, string Label, string Colour, string Meaning)[] VerdictSources =
+    {
+        ("agree", "agree", "#22C55E", "Model and rules name the same class"),
+        ("rule", "rule", "#F59E0B", "A trusted rule decided (or stood in for an abstaining model)"),
+        ("ml", "model", "#3B82F6", "No rule fired; the model decided"),
+        ("conflict", "conflict", "#EF4444", "Rules and model disagree; model class shown, analyst review"),
+        ("abstain", "uncertain", "#64748B", "Model below its confidence threshold or out of distribution, and no rule fired"),
+    };
+
+    private static Brush ToBrush(string colour) =>
+        (Brush)new BrushConverter().ConvertFromString(colour)!;
+
+    private static RuleHit? TopRuleHit(MlFinding finding) =>
+        finding.RuleFindings?.FirstOrDefault(
+            hit => hit.RuleId != "ALLOWLIST");
+
+    private void ClearRulePanel()
+    {
+        tier1Bars.Clear();
+        tier2Bars.Clear();
+        verdictLegend.Clear();
+        VerdictBar.Children.Clear();
+        VerdictBar.ColumnDefinitions.Clear();
+        Tier1SummaryText.Text = "--";
+        Tier2SummaryText.Text = "--";
+        Tier2StatusText.Text = string.Empty;
+        VerdictSummaryText.Text = "--";
+        RulesVersionText.Text = string.Empty;
+    }
+
+    private static void FillBars(
+        ObservableCollection<BarRow> rows,
+        RuleChart? chart,
+        int totalFlows)
+    {
+        rows.Clear();
+
+        if (chart == null)
+        {
+            return;
+        }
+
+        int max = Math.Max(1, chart.ByClass.Values.DefaultIfEmpty(0).Max());
+
+        foreach (var (name, count) in chart.ByClass.OrderByDescending(pair => pair.Value))
+        {
+            rows.Add(new BarRow
+            {
+                Label = name,
+                Count = count,
+                Max = max,
+                Brush = ToBrush(ClassColours.GetValueOrDefault(name, "#94A3B8")),
+                Tooltip = $"{name}: {count:N0} of {totalFlows:N0} flows "
+                          + $"({(totalFlows > 0 ? (double)count / totalFlows : 0):P1})",
+            });
+        }
+    }
+
+    private void LoadRulePanel()
+    {
+        ClearRulePanel();
+
+        RuleAnalysis? rules = currentAnalysis?.RuleAnalysis;
+        int total = currentAnalysis?.MlAnalysis?.Findings?.Count ?? 0;
+
+        if (rules == null)
+        {
+            Tier1SummaryText.Text =
+                "Not in this case: it was analysed before the rule layer existed.";
+            return;
+        }
+
+        RulesVersionText.Text =
+            $"rules {rules.RulesVersion} · sensitivity {rules.Sensitivity}";
+
+        // Tier 1
+        if (!rules.Tier1Evaluated)
+        {
+            Tier1SummaryText.Text = "Not evaluated for this capture.";
+        }
+        else
+        {
+            int flagged = rules.Tier1Chart?.FlowsFlagged ?? 0;
+            Tier1SummaryText.Text = flagged == 0
+                ? $"No flow rule fired on {total:N0} flows."
+                : $"{flagged:N0} of {total:N0} flows flagged";
+            FillBars(tier1Bars, rules.Tier1Chart, total);
+        }
+
+        // Tier 2
+        Tier2Summary? tier2 = rules.Tier2;
+        if (tier2 == null || !string.IsNullOrEmpty(tier2.Error))
+        {
+            Tier2SummaryText.Text =
+                "Not evaluated" + (tier2?.Error != null ? $": {tier2.Error}" : ".");
+        }
+        else
+        {
+            int flagged = rules.Tier2Chart?.FlowsFlagged ?? 0;
+            int captureLevel = tier2.CaptureLevelHits?.Count ?? 0;
+            Tier2SummaryText.Text = (flagged == 0
+                    ? $"No packet rule fired on {total:N0} flows."
+                    : $"{flagged:N0} of {total:N0} flows flagged")
+                + (captureLevel > 0 ? $"; {captureLevel} capture-level hit(s)" : string.Empty);
+            FillBars(tier2Bars, rules.Tier2Chart, total);
+
+            string suricata = tier2.Suricata == null
+                ? "Suricata: unknown"
+                : tier2.Suricata.Ran
+                    ? $"Suricata ran: {tier2.Suricata.Alerts:N0} alerts, "
+                      + $"{tier2.Suricata.Mapped:N0} mapped to classes"
+                      + (tier2.Suricata.Ignored > 0 ? $", {tier2.Suricata.Ignored:N0} ignored (checksum offload)" : string.Empty)
+                    : $"Suricata not run: {tier2.Suricata.Reason}";
+            string coverage = tier2.InspectableShare == null
+                ? string.Empty
+                : $"\nPayload inspectable: {tier2.InspectableShare:P1} of flows"
+                  + $" ({tier2.EncryptedFlows ?? 0:N0} encrypted: content rules not applied)";
+            Tier2StatusText.Text = suricata + coverage;
+        }
+
+        // Hybrid verdict source
+        int decided = rules.VerdictSources.Values.Sum();
+        VerdictSummaryText.Text = decided == 0
+            ? "No verdicts in this case."
+            : $"{decided:N0} flows";
+
+        foreach (var (key, label, colour, meaning) in VerdictSources)
+        {
+            int count = rules.VerdictSources.GetValueOrDefault(key);
+            if (count == 0)
+            {
+                continue;
+            }
+
+            VerdictBar.ColumnDefinitions.Add(
+                new ColumnDefinition { Width = new GridLength(count, GridUnitType.Star) });
+            var segment = new Border
+            {
+                Background = ToBrush(colour),
+                ToolTip = $"{label}: {count:N0} flows ({(double)count / decided:P1}). {meaning}.",
+            };
+            Grid.SetColumn(segment, VerdictBar.ColumnDefinitions.Count - 1);
+            VerdictBar.Children.Add(segment);
+
+            verdictLegend.Add(new BarRow
+            {
+                Label = label,
+                Count = count,
+                Brush = ToBrush(colour),
+                Tooltip = meaning,
+            });
+        }
+    }
+
     // =========================================================
     // LOAD THREATS
     // =========================================================
@@ -218,7 +402,9 @@ public partial class DashboardView : UserControl
             in currentAnalysis.MlAnalysis.Findings
         )
         {
-            if (!finding.IsThreat)
+            RuleHit? topHit = TopRuleHit(finding);
+
+            if (!finding.IsThreat && topHit == null)
             {
                 continue;
             }
@@ -244,15 +430,30 @@ public partial class DashboardView : UserControl
                         finding.PredictedClass,
 
                     Confidence =
-                        finding.Confidence
+                        finding.Confidence,
+
+                    RuleDisplay =
+                        topHit == null
+                            ? (finding.RuleFindings == null ? "not run" : "--")
+                            : $"{topHit.ClassName} (T{topHit.Tier})",
+
+                    VerdictDisplay =
+                        string.IsNullOrEmpty(finding.VerdictSource)
+                            ? "--"
+                            : $"{finding.Verdict} · {finding.VerdictSource}"
                 }
             );
         }
 
 
+        int byModel = threats.Count(
+            row => row.PredictedClass != "Benign");
+
         ThreatCountText.Text =
-            $"{threats.Count} threat flow" +
-            (threats.Count == 1 ? "" : "s");
+            $"{threats.Count} flagged flow" +
+            (threats.Count == 1 ? "" : "s") +
+            $" ({byModel} by the model, " +
+            $"{threats.Count - byModel} by rules only)";
 
 
         // Automatically select the first threat
@@ -549,6 +750,8 @@ public partial class DashboardView : UserControl
     {
         currentAnalysis = null;
 
+        ClearRulePanel();
+
         threats.Clear();
         shapRows.Clear();
 
@@ -796,6 +999,36 @@ public partial class DashboardView : UserControl
 
         public string ConfidenceDisplay =>
             $"{Confidence:P2}";
+
+
+        public string RuleDisplay { get; set; }
+            = "--";
+
+
+        public string VerdictDisplay { get; set; }
+            = "--";
+    }
+
+
+    // =========================================================
+    // RULE CHART ROW (one bar, or one legend entry)
+    // =========================================================
+
+    private sealed class BarRow
+    {
+        public string Label { get; set; } = string.Empty;
+
+        public int Count { get; set; }
+
+        public int Max { get; set; } = 1;
+
+        public Brush Brush { get; set; } = Brushes.Gray;
+
+        public string Tooltip { get; set; } = string.Empty;
+
+        public string CountDisplay => Count.ToString("N0");
+
+        public string LegendDisplay => $"{Label} {Count:N0}";
     }
 
 

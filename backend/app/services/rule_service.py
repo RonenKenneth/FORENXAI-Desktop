@@ -22,6 +22,8 @@ service inside a time window (window_seconds, default 60 s) and count:
   T1-EXFIL-01       one flow sending far more than it receives
   T1-DNS-01         many DNS flows from one host whose replies dwarf the queries
   T1-TLS-01         repeated short TLS connections torn down with RST
+  T1-BOF-01         a forward packet larger than benign traffic to that port
+                    ever sends (off by default: see rules.json)
 
 An allowlist (known resolvers, update servers, backup jobs) marks matching
 flows Benign and suppresses every other rule on them.
@@ -79,6 +81,7 @@ OPTIONAL_ALIASES = {
     "proto": ["Protocol"],
     "rst": ["RST Flag Count", "RST Flag Cnt"],
     "bwd_pkts": ["Total Bwd packets", "Total Bwd Packets", "Tot Bwd Pkts"],
+    "fwd_len_max": ["Fwd Packet Length Max", "Fwd Pkt Len Max"],
 }
 
 # Thresholds the sensitivity factor scales. Ratios, durations and
@@ -140,7 +143,7 @@ def normalise(frame: pd.DataFrame) -> pd.DataFrame:
         column = next((c for c in options if c in frame.columns), None)
         out[name] = frame[column] if column else np.nan
     for name in ("dst_port", "duration", "fwd_pkts", "fwd_bytes", "bwd_bytes",
-                 "fwd_len_mean", "down_up", "src_port", "proto", "rst", "bwd_pkts"):
+                 "fwd_len_mean", "down_up", "src_port", "proto", "rst", "bwd_pkts", "fwd_len_max"):
         out[name] = pd.to_numeric(out[name], errors="coerce").replace([np.inf, -np.inf], np.nan)
     out["src_ip"] = out["src_ip"].astype(str).str.strip()
     out["dst_ip"] = out["dst_ip"].astype(str).str.strip()
@@ -399,10 +402,27 @@ def _tls(df, rule, rid, window):
     return {int(positions[j]): hit for j, hit in local.items()}
 
 
+def _oversized(df, rule, rid, window):
+    """A forward packet larger than the benign baseline for its port."""
+    if df["fwd_len_max"].isna().all():
+        return {}
+    baseline = {int(k): float(v) for k, v in rule.get("baseline_bytes", {}).items()}
+    limit = df["dst_port"].map(baseline).fillna(float(rule["default_limit_bytes"]))
+    over = (df["fwd_len_max"] > limit).fillna(False).to_numpy()
+    hits = {}
+    for i in np.flatnonzero(over):
+        r = df.iloc[i]
+        hits[int(i)] = _hit(rid, rule,
+                            f"A forward packet of {_fmt(r.fwd_len_max)} bytes from {r.src_ip} to {r.dst_ip} port "
+                            f"{_fmt(r.dst_port)}, above the benign baseline of {_fmt(limit.iloc[i])} bytes for that port.",
+                            float(r.fwd_len_max), float(limit.iloc[i]))
+    return hits
+
+
 RULE_FUNCTIONS = {
     "PortScan": _portscan, "DDoS": _ddos, "DoS": _dos, "Slowloris": _slowloris,
     "Bruteforce": _bruteforce, "C2Beaconing": _c2, "Exfiltration": _exfil,
-    "DNS": _dns, "TLSSSL": _tls,
+    "DNS": _dns, "TLSSSL": _tls, "BufferOverflow": _oversized,
 }
 
 

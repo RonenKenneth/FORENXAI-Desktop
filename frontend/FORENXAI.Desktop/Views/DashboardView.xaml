@@ -9,6 +9,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -269,10 +270,148 @@
 
 
         <!-- ===================================================== -->
+        <!-- RULE-BASED DETECTION (Tier 1 + Tier 2 + hybrid verdict) -->
+        <!-- ===================================================== -->
+
+        <Border Grid.Row="3"
+                Background="#151F2F"
+                CornerRadius="10"
+                Padding="16,14"
+                Margin="0,0,0,18">
+
+            <Border.Resources>
+                <ControlTemplate x:Key="RuleBarTemplate" TargetType="ProgressBar">
+                    <Grid>
+                        <Border x:Name="PART_Track" Background="#1E293B" CornerRadius="3"/>
+                        <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                CornerRadius="3" HorizontalAlignment="Left"/>
+                    </Grid>
+                </ControlTemplate>
+            </Border.Resources>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="RULE-BASED DETECTION" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="Flows flagged by each rule class. Tier 1 reads the flow records; Tier 2 reads the packets (scapy checks and Suricata). The verdict bar shows who decided each flow's final class."
+                                   Foreground="#94A3B8" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <TextBlock x:Name="RulesVersionText" Text="" Foreground="#64748B" FontSize="11"
+                               HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="0.9*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- TIER 1 -->
+                    <Border Grid.Column="0" Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="TIER 1 · FLOW RULES" Foreground="#FDE68A" FontSize="12" FontWeight="Bold"/>
+                            <TextBlock x:Name="Tier1SummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
+                            <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="Tier1Bars">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,6" ToolTip="{Binding Tooltip}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="58"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Label}" Foreground="#CBD5E1" FontSize="12"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <ProgressBar Grid.Column="1" Height="14" Minimum="0"
+                                         Maximum="{Binding Max}" Value="{Binding Count}"
+                                         Foreground="{Binding Brush}" Template="{StaticResource RuleBarTemplate}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding CountDisplay}" Foreground="White"
+                                       FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- TIER 2 -->
+                    <Border Grid.Column="1" Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="TIER 2 · PACKET RULES" Foreground="#A5B4FC" FontSize="12" FontWeight="Bold"/>
+                            <TextBlock x:Name="Tier2SummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
+                            <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="Tier2Bars">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,6" ToolTip="{Binding Tooltip}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="58"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Label}" Foreground="#CBD5E1" FontSize="12"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <ProgressBar Grid.Column="1" Height="14" Minimum="0"
+                                         Maximum="{Binding Max}" Value="{Binding Count}"
+                                         Foreground="{Binding Brush}" Template="{StaticResource RuleBarTemplate}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding CountDisplay}" Foreground="White"
+                                       FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock x:Name="Tier2StatusText" Text="" Foreground="#94A3B8" FontSize="11"
+                                       TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- HYBRID VERDICT -->
+                    <Border Grid.Column="2" Background="#0F172A" CornerRadius="8" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="HYBRID VERDICT SOURCE" Foreground="#BBF7D0" FontSize="12" FontWeight="Bold"/>
+                            <TextBlock x:Name="VerdictSummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
+                            <Border CornerRadius="4" ClipToBounds="True" Height="18" Background="#1E293B">
+                                <Grid x:Name="VerdictBar"/>
+                            </Border>
+                            <ItemsControl x:Name="VerdictLegend" Margin="0,8,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4" ToolTip="{Binding Tooltip}">
+                                            <Border Width="10" Height="10" CornerRadius="2" Background="{Binding Brush}"
+                                                    VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBlock Text="{Binding LegendDisplay}" Foreground="#CBD5E1" FontSize="11"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+
+
+        <!-- ===================================================== -->
         <!-- MAIN DASHBOARD -->
         <!-- ===================================================== -->
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1.15*"/>
@@ -422,13 +561,21 @@
                                                 Binding="{Binding Destination}"
                                                 Width="*"/>
 
-                            <DataGridTextColumn Header="Class"
+                            <DataGridTextColumn Header="Model"
                                                 Binding="{Binding PredictedClass}"
-                                                Width="110"/>
+                                                Width="100"/>
 
                             <DataGridTextColumn Header="Confidence"
                                                 Binding="{Binding ConfidenceDisplay}"
-                                                Width="100"/>
+                                                Width="90"/>
+
+                            <DataGridTextColumn Header="Rule"
+                                                Binding="{Binding RuleDisplay}"
+                                                Width="120"/>
+
+                            <DataGridTextColumn Header="Verdict"
+                                                Binding="{Binding VerdictDisplay}"
+                                                Width="130"/>
 
                         </DataGrid.Columns>
 

@@ -34,6 +34,94 @@ public class AnalysisDocument
 
     [JsonPropertyName("shap_analysis")]
     public ShapAnalysis? ShapAnalysis { get; set; }
+
+    /// <summary>Rule-based detection summary (Tier 1 flow rules, Tier 2
+    /// packet rules, hybrid verdicts). Absent in older cases.</summary>
+    [JsonPropertyName("rule_analysis")]
+    public RuleAnalysis? RuleAnalysis { get; set; }
+}
+
+
+// ============================================================
+// RULE-BASED DETECTION SUMMARY
+// ============================================================
+
+public class RuleAnalysis
+{
+    [JsonPropertyName("rules_version")]
+    public string? RulesVersion { get; set; }
+
+    [JsonPropertyName("sensitivity")]
+    public string? Sensitivity { get; set; }
+
+    [JsonPropertyName("tier1_evaluated")]
+    public bool Tier1Evaluated { get; set; }
+
+    [JsonPropertyName("tier1_chart")]
+    public RuleChart? Tier1Chart { get; set; }
+
+    [JsonPropertyName("tier2_chart")]
+    public RuleChart? Tier2Chart { get; set; }
+
+    [JsonPropertyName("tier2")]
+    public Tier2Summary? Tier2 { get; set; }
+
+    [JsonPropertyName("verdict_sources")]
+    public Dictionary<string, int> VerdictSources { get; set; } = new();
+}
+
+public class RuleChart
+{
+    [JsonPropertyName("flows_flagged")]
+    public int FlowsFlagged { get; set; }
+
+    [JsonPropertyName("by_class")]
+    public Dictionary<string, int> ByClass { get; set; } = new();
+
+    [JsonPropertyName("by_rule")]
+    public Dictionary<string, int> ByRule { get; set; } = new();
+
+    [JsonPropertyName("by_source")]
+    public Dictionary<string, int> BySource { get; set; } = new();
+}
+
+public class Tier2Summary
+{
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+
+    [JsonPropertyName("packets_inspected")]
+    public long? PacketsInspected { get; set; }
+
+    [JsonPropertyName("encrypted_flows")]
+    public int? EncryptedFlows { get; set; }
+
+    [JsonPropertyName("inspectable_share")]
+    public double? InspectableShare { get; set; }
+
+    [JsonPropertyName("suricata")]
+    public SuricataStatus? Suricata { get; set; }
+
+    [JsonPropertyName("capture_level_hits")]
+    public List<RuleHit>? CaptureLevelHits { get; set; }
+}
+
+public class SuricataStatus
+{
+    [JsonPropertyName("ran")]
+    public bool Ran { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("alerts")]
+    public int Alerts { get; set; }
+
+    [JsonPropertyName("mapped")]
+    public int Mapped { get; set; }
+
+    [JsonPropertyName("ignored")]
+    public int Ignored { get; set; }
 }
 
 

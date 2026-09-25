@@ -296,6 +296,73 @@ def _convert_pcapng_to_pcap(
 # PREPARE CICFLOWMETER INPUT
 # ============================================================
 
+# ============================================================
+# CAPTURE FORMAT AND LINK LAYER
+# ============================================================
+#
+# The format is read from the file's first bytes, not its name: a pcapng
+# saved as ".pcap" is still converted. CICFlowMeter's reader finds IP only
+# behind Ethernet (optionally VLAN-tagged) or in raw-IP captures; Linux
+# "cooked" (SLL / SLL2), BSD loopback, 802.11 and other link layers give no
+# flows at all. Such captures are rewritten into an Ethernet working copy:
+# the IP packets and their timestamps are kept, the link header is replaced.
+
+PCAPNG_MAGIC = b"\x0a\x0d\x0d\x0a"
+PCAP_MAGICS = {
+    b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4",      # microsecond
+    b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\x3c\x4d",      # nanosecond
+}
+CICFLOWMETER_LINK_TYPES = {1, 12, 14, 101}               # Ethernet, raw IP
+
+
+def _capture_format(path: Path) -> str:
+    with open(path, "rb") as stream:
+        magic = stream.read(4)
+    if magic == PCAPNG_MAGIC:
+        return "pcapng"
+    if magic in PCAP_MAGICS:
+        return "pcap"
+    raise RuntimeError(
+        "The evidence file is not a pcap or pcapng capture "
+        f"(first bytes {magic.hex()})."
+    )
+
+
+def _link_types(path: Path, probe: int = 2000) -> set[int]:
+    """Link types of the capture (every interface seen in the first
+    `probe` packets of a pcapng)."""
+    from scapy.utils import PcapReader
+
+    with PcapReader(str(path)) as reader:
+        for count, _ in enumerate(reader):
+            if count >= probe:
+                break
+        if isinstance(reader, PcapNgReader):
+            return {int(interface[0]) for interface in reader.interfaces}
+        return {int(reader.linktype)}
+
+
+def _rewrite_to_ethernet(source: Path, destination: Path) -> int:
+    """IP / IPv6 packets of any link layer, re-framed as Ethernet."""
+    from scapy.layers.inet import IP
+    from scapy.layers.inet6 import IPv6
+    from scapy.layers.l2 import Ether
+    from scapy.utils import PcapReader, PcapWriter
+
+    written = 0
+    with PcapReader(str(source)) as reader, \
+            PcapWriter(str(destination), linktype=1, sync=False) as writer:
+        for packet in reader:
+            layer = IP if IP in packet else IPv6 if IPv6 in packet else None
+            if layer is None:
+                continue
+            framed = Ether() / packet[layer]
+            framed.time = packet.time
+            writer.write(framed)
+            written += 1
+    return written
+
+
 def _prepare_input_file(
     evidence_file: Path,
     input_directory: Path
@@ -344,6 +411,42 @@ def _prepare_input_file(
     input_directory.mkdir(
         parents=True,
         exist_ok=True
+    )
+
+    capture_format = _capture_format(
+        evidence_file
+    )
+
+    link_types = _link_types(
+        evidence_file
+    )
+
+    if not link_types <= CICFLOWMETER_LINK_TYPES:
+        staged_file = (
+            input_directory
+            / (evidence_file.stem + "_ethernet.pcap")
+        )
+        print(
+            f"[FORENXAI] Link type(s) {sorted(link_types)} are not "
+            "readable by CICFlowMeter; writing an Ethernet "
+            "working copy...",
+            flush=True
+        )
+        written = _rewrite_to_ethernet(
+            evidence_file,
+            staged_file
+        )
+        print(
+            f"[FORENXAI] {written} IP packets re-framed: "
+            f"{staged_file}",
+            flush=True
+        )
+        return staged_file
+
+    extension = (
+        ".pcapng"
+        if capture_format == "pcapng"
+        else ".pcap"
     )
 
 

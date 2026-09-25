@@ -18,9 +18,10 @@ from pathlib import Path
 import pandas as pd
 from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import IP, TCP, UDP
-from scapy.layers.l2 import ARP, Ether
+from scapy.layers.inet6 import IPv6
+from scapy.layers.l2 import ARP, CookedLinux, Dot1Q, Ether, Loopback
 from scapy.packet import Raw
-from scapy.utils import wrpcap
+from scapy.utils import PcapNgWriter, wrpcap
 
 from app.services import packet_rule_service as ps
 from app.services import rule_service as rs
@@ -135,6 +136,84 @@ def main():
     check("BufferOverflow: 80-byte NOP sled fires", len(fired(inspect([nop])[1], "T2-BOF-01")) == 1)
     check("BufferOverflow: 32 NOP bytes do not",
           not fired(inspect([tcp(b"\x90" * 32, T0, dport=21)])[1], "T2-BOF-01"))
+
+    print("\n1b. split segments, error sweeps, oversized packets")
+    load = sqli[Raw].load
+    cut = load.index(b"SELECT") + 3                            # the pattern is split mid-word
+    first = tcp(load[:cut], T0)
+    second = tcp(load[cut:], T0 + 0.01)
+    check("WebBased: a pattern split across two TCP segments is found",
+          len(fired(inspect([first, second])[1], "T2-WEB-01")) == 1)
+    check("WebBased: the first segment alone is not enough", not fired(inspect([first])[1], "T2-WEB-01"))
+    check("WebBased: one request matching twice counts once",
+          fired(inspect([first, second, tcp(b"", T0 + 0.02)])[1], "T2-WEB-01")[0]["measured"] == 1)
+    sweep = []
+    for i in range(20):
+        sweep.append(tcp(f"GET /page{i % 12} HTTP/1.1\r\n\r\n".encode(), T0 + i * 0.1, sport=46000 + i))
+        sweep.append(tcp(b"HTTP/1.1 404 Not Found\r\n\r\n", T0 + i * 0.1 + 0.05, sport=80, dport=46000 + i,
+                         src=S, dst=A))
+    hit = fired(inspect(sweep)[1], "T2-WEB-01")
+    check("WebBased: 20 x 404 over 12 paths fires (error sweep)", hit and "12 distinct paths" in hit[0]["evidence"])
+    same = []
+    for i in range(20):
+        same.append(tcp(b"GET /favicon.ico HTTP/1.1\r\n\r\n", T0 + i * 0.1, sport=47000 + i))
+        same.append(tcp(b"HTTP/1.1 404 Not Found\r\n\r\n", T0 + i * 0.1 + 0.05, sport=80, dport=47000 + i,
+                        src=S, dst=A))
+    check("WebBased: 20 x 404 for one path does not", not fired(inspect(same)[1], "T2-WEB-01"))
+    nop_load = nop[Raw].load
+    halves = [tcp(nop_load[:40], T0, dport=21), tcp(nop_load[40:], T0 + 0.01, dport=21)]
+    check("BufferOverflow: a run split across two segments is found",
+          len(fired(inspect(halves)[1], "T2-BOF-01")) == 1)
+    oversized = rs.load_config()
+    oversized["rules"]["T1-BOF-01"]["enabled"] = True
+    frame = pd.DataFrame({
+        "Src IP": [A, A], "Dst IP": [S, S], "Dst Port": [80, 80], "Timestamp": ["26/09/2026 02:00:00 PM"] * 2,
+        "Flow Duration": [1e3, 1e3], "Total Fwd Packet": [1, 1], "Total Length of Fwd Packet": [2000, 300],
+        "Total Length of Bwd Packet": [0, 0], "Fwd Packet Length Mean": [2000, 300], "Down/Up Ratio": [0, 0],
+        "Fwd Packet Length Max": [2000, 300]})
+    per = rs.evaluate_frame(frame, oversized)
+    check("T1 oversized: 2000-byte packet to port 80 (baseline 389) fires, 300 does not",
+          [h["rule_id"] for h in per[0]] == ["T1-BOF-01"] and per[1] == [])
+    check("T1 oversized: off in the shipped rules.json, with the measured reason",
+          not rs.load_config()["rules"]["T1-BOF-01"]["enabled"]
+          and "0 of 16,000" in rs.load_config()["rules"]["T1-BOF-01"]["disabled_reason"])
+
+    print("\n1c. any link layer, pcap or pcapng")
+    web_ip = sqli[IP]
+    arp_pair = [a[ARP] for a in arp]
+    variants = {
+        "Ethernet + VLAN tag": [Ether() / Dot1Q(vlan=10) / a for a in arp_pair] + [Ether() / Dot1Q(vlan=10) / web_ip],
+        "Linux cooked (SLL)": [CookedLinux(proto=0x0806) / a for a in arp_pair] + [CookedLinux(proto=0x0800) / web_ip],
+        "BSD loopback (NULL)": [Loopback(type=2) / web_ip],
+        "raw IP": [web_ip],
+        "IPv6": [Ether() / IPv6(src="fd00::5", dst="fd00::20") / web_ip[TCP]],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, packets in variants.items():
+            for j, p in enumerate(packets):
+                p.time = T0 + j
+            for suffix in ("pcap", "pcapng"):
+                path = Path(tmp) / f"v.{suffix}"
+                if suffix == "pcap":
+                    wrpcap(str(path), packets)
+                else:
+                    with PcapNgWriter(str(path)) as writer:
+                        for p in packets:
+                            writer.write(p)
+                inspector = ps.PacketInspector()
+                extract_packets(path, on_packet=inspector.add)
+                found = {h["rule_id"] for h in inspector.hits()}
+                want = {"T2-WEB-01"} | ({"T2-MITM-01"} if len(packets) > 2 else set())
+                check(f"{name} ({suffix}): {sorted(want)} found, no malformed packets",
+                      found == want and inspector.errors == 0)
+    v6 = pd.DataFrame({"Src IP": ["fd00::5"], "Src Port": [40000], "Dst IP": ["fd00::20"], "Dst Port": [80],
+                       "Protocol": [6], "Timestamp": ["garbled"], "Flow Duration": [1e6],
+                       "Total Fwd Packet": [1], "Total Length of Fwd Packet": [100],
+                       "Total Length of Bwd Packet": [0], "Fwd Packet Length Mean": [100], "Down/Up Ratio": [0]})
+    inspector, hits = inspect([pkt(Ether() / IPv6(src="fd00::5", dst="fd00::20") / web_ip[TCP], T0)])
+    rows6, _, _ = ps.attach(v6, hits, inspector.first_time, set(), [])
+    check("IPv6 hit attaches to its CSV row even with unparseable timestamps",
+          [h["rule_id"] for h in rows6[0]] == ["T2-WEB-01"])
 
     print("\n2. extract_packets feeds the inspector in its single pass")
     with tempfile.TemporaryDirectory() as tmp:

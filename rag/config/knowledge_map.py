@@ -181,6 +181,39 @@ KNOWLEDGE_MAP = {
 # what the model knows. When the runner-up is one of these and its
 # probability clears `margin`, both playbooks are retrieved and the report
 # says the pair is indistinguishable.
+# Class-specific guidance in the archive, by exact section identifier.
+#
+# The playbooks' sections 4.2 to 4.5 are NIST's generic incident-response
+# lifecycle and read the same for every class, so without these a
+# recommendation for TLS abuse and one for a port scan draw on the same
+# text and differ only in their two or three controls. Each entry here is a
+# publication section that addresses the class itself: how to prevent the
+# web attack, how to configure TLS, how fragment attacks are filtered. Where
+# a section has a "How to prevent" part, that part is what is used.
+#
+# An empty list is deliberate: the archive holds nothing class-specific
+# beyond the NIST SP 800-53 controls above (DoS family, DNS, BufferOverflow,
+# Exploitation). Add a publication to _sources/ and list it here to change
+# that; do not map a class to a section that does not address it.
+FOCUS_SECTIONS = {
+    "API": [("OWASP.Top10.2025", "A01"), ("OWASP.Top10.2025", "A05")],
+    "Benign": [],
+    "Bruteforce": [("OWASP.Top10.2025", "A07")],
+    "BufferOverflow": [],
+    "C2Beaconing": [("RFC9424", "3.2.4"), ("RFC9424", "3.2.6")],
+    "DDoS": [],
+    "DNS": [],
+    "DoS": [],
+    "Evasion": [("RFC1858", "4"), ("RFC3128", "3")],
+    "Exfiltration": [("NIST.SP.800-86", "6.4")],
+    "Exploitation": [],
+    "MITM": [("NIST.SP.800-52r2", "4.5"), ("NIST.SP.800-52r2", "3.2")],
+    "PortScan": [("NIST.SP.800-86", "6.4")],
+    "Slowloris": [],
+    "TLSSSL": [("NIST.SP.800-52r2", "3.1"), ("OWASP.Top10.2025", "A04")],
+    "WebBased": [("OWASP.Top10.2025", "A05"), ("OWASP.Top10.2025", "A01")],
+}
+
 AMBIGUOUS_PAIRS = [
     {
         "classes": ("Slowloris", "DoS"),

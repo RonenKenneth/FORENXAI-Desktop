@@ -102,6 +102,43 @@ Cache: `(knowledge_version, class, terms, top_k) -> passages`. Entries of any
 other version are dropped on the next write. The full recommendation cache
 (class, confidence band, alternatives) is unchanged.
 
+## How a class gets its recommendation
+
+1. **Class** -- XGBoost names one of 16 classes; nothing else chooses it.
+2. **Routing** (`knowledge_map.py`, per class):
+   - `controls`: the NIST SP 800-53 controls for that attack (e.g. SC-5 for
+     the DoS family, AC-7/IA-5 for Bruteforce, SC-20/SC-21 for DNS);
+   - `FOCUS_SECTIONS`: publication sections that address the class itself,
+     by exact identifier -- OWASP Top 10 A01/A04/A05/A07 "How to prevent",
+     SP 800-52r2 TLS sections, RFC 1858/3128 fragment filtering, RFC 9424 IoC
+     deployment, SP 800-86 6.4 network traffic analysis;
+   - the detection profile and response playbook files.
+3. **Fixed sources** resolved once at index build: controls, focus sections,
+   SP 800-61r3 3.2, SP 800-86 3.1.
+4. **Runtime retrieval**: 0-2 supporting passages from the archive.
+5. **Prompt**: controls, focus sections and the profile are marked
+   `(class-specific)`; the playbook contributes only its containment (4.3)
+   and evidence-handling (4.5) lines, because its detection (4.2) and
+   recovery (4.4) lines are NIST's generic lifecycle, identical for every
+   class. Qwen must base at least two actions on class-specific sources.
+6. **Verification** keeps only actions whose cited source supports them, and
+   drops actions that merely copy a source heading.
+7. **Guarantee**: every attack class displays at least two class-specific
+   actions (`MIN_CLASS_SPECIFIC`). If Qwen did not produce them, sentences are
+   quoted verbatim from the class's own guidance and controls
+   (`quotable` in the index: OWASP prevention bullets, "shall/should/block"
+   sentences, each control's first requirement), displacing generic lifecycle
+   lines but never the case's SHAP or rule evidence.
+
+Coverage by class (focus sections in brackets; the rest rely on controls):
+API [OWASP A01, A05], Bruteforce [OWASP A07], C2Beaconing [RFC 9424 3.2.4,
+3.2.6], Evasion [RFC 1858 4, RFC 3128 3], Exfiltration [SP 800-86 6.4], MITM
+[SP 800-52r2 4.5, 3.2], PortScan [SP 800-86 6.4], TLSSSL [SP 800-52r2 3.1,
+OWASP A04], WebBased [OWASP A05, A01]; BufferOverflow, DDoS, DNS, DoS,
+Exploitation and Slowloris have no class-specific publication in the archive
+beyond their controls. Adding one to `_sources/` and `FOCUS_SECTIONS` is all
+it takes; the index rebuilds itself.
+
 ## What the recommendation reads
 
 The analysis runs in this order: CICFlowMeter, XGBoost, TreeSHAP, the rule
@@ -110,7 +147,7 @@ summarised by `_recommendation_inputs()` and returned as `inputs`:
 
 | Input | Source | In the prompt as |
 |---|---|---|
-| Model | predicted class, confidence band, class test F1 | `[S?] Model prediction` |
+| Model | predicted class, confidence band, class test F1 | a NOTE line (context, not citable) |
 | SHAP | top 3 drivers (aggregated over the flows that share the answer) | `[S?] SHAP drivers` |
 | Rule-based | hits from `app/services/rule_service.py` | `[S?] Rule <id> (<class>)`, one per hit (max 3) |
 
@@ -211,6 +248,6 @@ the exact prompt the service built.
 ## Tests
 
 ```
-python backend/test_rag_pipeline.py          # 146 checks, no language model
+python backend/test_rag_pipeline.py          # 196 checks, no language model
 python backend/test_rag_pipeline.py --live   # plus one real generation
 ```

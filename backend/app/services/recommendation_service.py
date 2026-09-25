@@ -78,6 +78,14 @@ MAX_ACTIONS = 5
 # Fewer verified actions than this are topped up with quoted playbook lines.
 MIN_ACTIONS = 3
 
+# Every attack class shows at least this many actions drawn from sources that
+# address the class itself (its controls, its guidance sections, its profile).
+MIN_CLASS_SPECIFIC = 2
+
+# Share of significant words two actions citing the same source must share
+# to count as one.
+NEAR_DUPLICATE = 0.5
+
 # Enough for five ~30-word actions in JSON; a cut-off answer is salvaged.
 MAX_TOKENS = 360
 
@@ -457,6 +465,7 @@ def retrieve(predicted_class: str,
     # Then runtime retrieval for the supporting passages.
     standards = (
         [dict(p) for p in bundle["control_passages"]]
+        + [dict(p) for p in bundle.get("focus_passages", [])]
         + [dict(p) for p in index["baselines"]]
         + retrieve_supporting_passages(predicted_class)
     )
@@ -847,8 +856,6 @@ def _recommendation_inputs(predicted_class: str,
         + (f"; the class's test F1 is {f1:.3f}" if f1 is not None else "")
         + "."
     )
-    evidence.append({"source_id": "CASE:model", "label": "Model prediction",
-                     "text": model_text})
 
     drivers = []
     for c in (shap_features or [])[:SHAP_FEATURES_SHOWN]:
@@ -904,6 +911,7 @@ def _recommendation_inputs(predicted_class: str,
                  "agreement": agreement, "agreement_note": note}
 
     return {
+        "model_note": model_text,
         "model": {"predicted_class": predicted_class, "confidence_band": confidence,
                   "class_f1": f1},
         "shap": drivers,
@@ -934,6 +942,11 @@ def _recommendation_inputs(predicted_class: str,
 # sets was measured to give identical actions, so they cost tokens and
 # changed nothing. The glossary, caveats and scope notes are not sent either;
 # they are shown with the recommendation, not used to write it.
+
+# Sources that address the predicted class itself, rather than incident
+# response in general.
+CLASS_SPECIFIC_KINDS = ("control", "focus", "profile")
+
 
 def _short(text: str, budget: int) -> str:
     text = " ".join(str(text).split())
@@ -979,11 +992,12 @@ def build_generation_context(predicted_class: str,
             400, "evidence")
 
     for passage in retrieved.get("standards", []):
-        kind = "control" if passage.get("kind") == "control" else "section"
+        kind = passage.get("kind") if passage.get("kind") in ("control", "focus") else "section"
         if passage.get("score") is not None:
             kind = "retrieved"
         budget = {
             "control": rag_budget.CONTROL_CHARS,
+            "focus": rag_budget.FOCUS_CHARS,
             "section": rag_budget.BASELINE_CHARS,
             "retrieved": rag_budget.PASSAGE_CHARS,
         }[kind]
@@ -996,7 +1010,13 @@ def build_generation_context(predicted_class: str,
             kind,
         )
 
+    # The playbook's detection (4.2) and recovery (4.4) lines are NIST's
+    # generic lifecycle and identical for every class; sending them made
+    # every recommendation read alike. Containment and evidence handling
+    # stay, because every finding needs both.
     for line in bundle["playbook_lines"]:
+        if line["section"] not in ("4.3", "4.5"):
+            continue
         add(line["source_id"], line["doc_id"], line["label"], line["text"],
             rag_budget.PLAYBOOK_LINE_CHARS, "playbook")
 
@@ -1030,10 +1050,17 @@ def build_generation_context(predicted_class: str,
     agreement = (inputs or {}).get("rules", {}).get("agreement_note")
     if agreement:
         notes.append(agreement)
+    if (inputs or {}).get("model_note"):
+        notes.insert(0, inputs["model_note"])
+
+    def heading(entry):
+        label = entry["label"] if entry["kind"] != "profile" else "Detection profile"
+        if entry["kind"] in CLASS_SPECIFIC_KINDS:
+            label += " (class-specific)"
+        return label
 
     listing = "\n".join(
-        f"[{ref}] {entry['label'] if entry['kind'] != 'profile' else 'Detection profile'}: "
-        f"{entry['text']}"
+        f"[{ref}] {heading(entry)}: {entry['text']}"
         for ref, entry in sources.items()
     )
 
@@ -1050,8 +1077,10 @@ SOURCES (the only material you may use):
 TASK: Write 3 to {MAX_ACTIONS} response actions for this {predicted_class} finding.
 Each action is one imperative sentence (at most 30 words) that an analyst can
 carry out, reuses the wording of ONE source above, and gives that source's
-bracketed id as source_id. Prefer the playbook and control sources; where the
-model, SHAP or rule evidence names what to examine, one action may cite it. Reply with
+bracketed id as source_id. At least two actions must come from sources marked
+(class-specific), because they address {predicted_class} itself; use the other
+sources for containment and evidence handling. Where the model, SHAP or rule
+evidence names what to examine, one action may cite it. Reply with
 a JSON object whose "actions" list holds objects with "text" and "source_id".
 """
 
@@ -1184,6 +1213,31 @@ def _parse_structured(generated: Optional[str]) -> Tuple[List[Any], str]:
 _QUOTE_ORDER = ("4.3", "4.5", "4.4", "4.2")
 
 
+def _quoted_class_actions(predicted_class: str, used, needed: int
+                          ) -> List[Dict[str, Any]]:
+    """Sentences from the class's own guidance and controls, verbatim."""
+    quoted = []
+    for unit in _class_bundle(predicted_class).get("quotable", []):
+        if len(quoted) >= needed:
+            break
+        if unit["source_id"] in used:
+            continue
+        used.add(unit["source_id"])
+        quoted.append({
+            "text": unit["text"],
+            "evidence": {
+                "source": unit["label"],
+                "doc_id": unit["doc_id"],
+                "match": "quoted",
+                "span": "",
+                "coverage": 1.0,
+                "source_id": unit["source_id"],
+                "kind": unit["kind"],
+            },
+        })
+    return quoted
+
+
 def _quoted_playbook_actions(predicted_class: str, used, needed: int
                              ) -> List[Dict[str, Any]]:
     """Playbook lines quoted verbatim, each under its own source_id."""
@@ -1275,8 +1329,8 @@ def verify_actions(actions: List[Any],
     """
     verified: List[Dict[str, Any]] = []
     dropped: List[Dict[str, Any]] = []
+    seen_terms: List[Tuple[str, set]] = []
     corrected = 0
-    seen_text = set()
 
     for position, action in enumerate(actions, start=1):
 
@@ -1323,6 +1377,16 @@ def verify_actions(actions: List[Any],
             continue
 
         source = sources[ref]
+
+        # A copied source heading ("NIST SP 800-53r5 IA-5 ... (class-specific):
+        # ...") passes the wording check but tells the analyst nothing to do.
+        if "class-specific" in text.lower() or \
+                text.lower().startswith(("nist sp", "nist.sp", "model prediction",
+                                         "rule ", "shap drivers", "detection profile")):
+            drop("restates a source heading, not an action", text)
+            dropped[-1]["source_id"] = source["source_id"]
+            continue
+
         evidence = _supports(text, source)
         corrected_from = None
 
@@ -1345,12 +1409,21 @@ def verify_actions(actions: List[Any],
             ref, evidence = others[0]
             source = sources[ref]
 
-        if text.lower() in seen_text:
+        # The same instruction reworded from the same source ("Implement ...
+        # input validation" / "Use ... input validation") is one action.
+        # Different sources are never merged: NIST's containment and
+        # eradication lines share most words and are two different steps.
+        terms = set(_tokens(text))
+        if any(
+            sid == source["source_id"]
+            and len(terms & other) / max(1, len(terms | other)) >= NEAR_DUPLICATE
+            for sid, other in seen_terms
+        ):
             drop("duplicate action", text)
             dropped[-1]["source_id"] = source["source_id"]
             continue
 
-        seen_text.add(text.lower())
+        seen_terms.append((source["source_id"], terms))
 
         evidence.update({
             "source_id": source["source_id"],
@@ -1380,6 +1453,10 @@ def verify_actions(actions: List[Any],
             "verified": len(verified),
             "dropped": len(dropped),
             "citation_corrected": corrected,
+            "class_specific": sum(
+                1 for v in verified
+                if v["evidence"].get("kind") in CLASS_SPECIFIC_KINDS
+            ),
             "reasons": reasons,
         },
     }
@@ -1905,18 +1982,39 @@ def get_recommendation(predicted_class: str,
     ]
     generator = "qwen2.5-3b-q4.gguf" if actions else "extraction"
 
+    used = {a["evidence"].get("source_id") for a in actions}
+    topped = 0
+
+    # Too few actions about THIS class: quote the class's own guidance and
+    # controls, verbatim, making room by dropping generic lines if needed.
+    specific = sum(
+        1 for a in actions
+        if a["evidence"].get("kind") in CLASS_SPECIFIC_KINDS
+    )
+    if specific < MIN_CLASS_SPECIFIC:
+        quoted = _quoted_class_actions(
+            predicted_class, used, MIN_CLASS_SPECIFIC - specific)
+        while quoted and len(actions) + len(quoted) > MAX_ACTIONS:
+            # Make room from generic lifecycle text only; the analyst's own
+            # case evidence (SHAP, rule hits) is never displaced.
+            generic = [i for i, a in enumerate(actions)
+                       if a["evidence"].get("kind") in ("playbook", "section", "retrieved")]
+            if not generic:
+                break
+            actions.pop(generic[-1])
+        actions.extend(quoted)
+        topped += len(quoted)
+
     if len(actions) < MIN_ACTIONS:
-        # Too few verified actions to present alone. Top up with playbook
-        # lines quoted verbatim under their own source identifier --
-        # quotation, not generation, so nothing unsourced is added.
+        # Still too few to present: containment and evidence-handling lines
+        # from the playbook, quoted verbatim under their own identifier.
         quoted = _quoted_playbook_actions(
-            predicted_class,
-            used={a["evidence"].get("source_id") for a in actions},
-            needed=MIN_ACTIONS - len(actions),
-        )
-        if quoted:
-            actions.extend(quoted)
-            verification["topped_up_with_quotes"] = len(quoted)
+            predicted_class, used=used, needed=MIN_ACTIONS - len(actions))
+        actions.extend(quoted)
+        topped += len(quoted)
+
+    if topped:
+        verification["topped_up_with_quotes"] = topped
 
     if not actions:
         actions = [

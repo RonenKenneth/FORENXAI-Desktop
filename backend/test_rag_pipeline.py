@@ -12,7 +12,6 @@ Exit status is the number of failed checks.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import re
 import shutil
@@ -148,6 +147,29 @@ def main():
     except KeyError:
         check("unknown class raises", True)
 
+    print("\n2b. class-specific coverage, all 15 attack classes")
+    focus_map = getattr(km, "FOCUS_SECTIONS", {})
+    check("every class has a FOCUS_SECTIONS entry", set(focus_map) == set(km.KNOWLEDGE_MAP))
+    for cls in km.KNOWLEDGE_MAP:
+        if cls == "Benign":
+            continue
+        bundle = index["classes"][cls]
+        got = [p["source_id"] for p in bundle["focus_passages"]]
+        wanted = len(focus_map.get(cls, []))
+        check(f"{cls}: focus sections resolved ({len(got)}/{wanted})",
+              si is None or len(got) == wanted)
+        r = rs.retrieve(cls, None, 0.95)
+        _, srcs = rs.build_generation_context(cls, r, None)
+        specific = [s for s in srcs.values() if s["kind"] in rs.CLASS_SPECIFIC_KINDS]
+        check(f"{cls}: at least 3 class-specific sources in the prompt",
+              len(specific) >= 3, f"{len(specific)}")
+        check(f"{cls}: generic detection / recovery lines not sent",
+              not any(s["kind"] == "playbook" and (":DE." in s["source_id"] or ":RC." in s["source_id"])
+                      for s in srcs.values()))
+    web = index["classes"]["WebBased"]["focus_passages"]
+    check("OWASP guidance starts at 'How to prevent'",
+          si is None or web[0]["text"].lower().startswith("how to prevent"))
+
     print("\n3. fixed sources")
     baseline_ids = [b["source_id"] for b in index["baselines"]]
     check("SP 800-61r3 section 3.2 present", "SP800-61r3:3.2" in baseline_ids)
@@ -242,6 +264,14 @@ def main():
           len(kept) == 1 and kept[0]["source_id"] == "SP800-61r3:RS.MI-02 R1"
           and kept[0]["evidence"]["cited_as"] == sources[wrong_ref]["source_id"]
           and moved["verification_summary"]["citation_corrected"] == 1)
+    reworded = [
+        {"text": "Implement positive server-side input validation for all inputs.", "source_id": ref_ok},
+        {"text": "Use positive server-side input validation for all inputs.", "source_id": ref_ok},
+    ]
+    near = rs.verify_actions(reworded, {ref_ok: dict(sources[ref_ok], text=
+        "Implement positive server-side input validation for all inputs. Use positive server-side input validation for all inputs.")})
+    check("a reworded duplicate is dropped", near["verification_summary"]["verified"] == 1
+          and near["dropped_actions"][0]["reason"] == "duplicate action")
     check("summary counts add up",
           result["verification_summary"]["generated"] == 7
           and result["verification_summary"]["verified"] == 1
@@ -259,8 +289,13 @@ def main():
     for field, kind in UI_FIELDS.items():
         check(f"UI field {field} kept as {kind.__name__}",
               isinstance(rec.get(field), kind))
-    check("only verified actions are displayed",
-          len(rec["actions"]) == 3 and "krbtgt" not in " ".join(rec["actions"]))
+    check("only verified or quoted actions are displayed",
+          "krbtgt" not in " ".join(rec["actions"])
+          and all(e.get("match") in ("span", "terms", "evidence", "quoted")
+                  for e in rec["action_evidence"]))
+    check("at least 2 class-specific actions, topped up by quotation",
+          sum(1 for e in rec["action_evidence"] if e.get("kind") in rs.CLASS_SPECIFIC_KINDS) >= 2
+          and len(rec["actions"]) <= rs.MAX_ACTIONS)
     check("dropped action is reported with its reason",
           rec["verification_summary"]["dropped"] == 1
           and rec["dropped_actions"][0]["reason"] == "not supported by the cited source")
@@ -316,8 +351,10 @@ def main():
     inputs = rs._recommendation_inputs("DoS", 0.95, {"class_f1": 0.686}, shap, [hit])
     prompt, sources = rs.build_generation_context("DoS", retrieved, inputs)
     ids = {s["source_id"]: r for r, s in sources.items()}
-    check("model, SHAP and rule evidence are citable sources",
-          {"CASE:model", "CASE:shap", "CASE:rule:T1-DOS-01"} <= set(ids))
+    check("SHAP and rule evidence are citable sources",
+          {"CASE:shap", "CASE:rule:T1-DOS-01"} <= set(ids))
+    check("the model prediction is context, not a citable source",
+          "CASE:model" not in ids and "XGBoost classified this traffic as DoS" in prompt)
     check("SHAP drivers appear in the prompt", "Fwd Packet Length Max" in prompt)
     check("rule agreement appears in the prompt", "independently flagged DoS" in prompt)
     cite_rule = {"text": "Investigate the 143 flows from 10.0.0.5 to 10.0.0.20:80 in 60 s.",
@@ -339,9 +376,13 @@ def main():
     check("recommendation records its inputs",
           rec["inputs"]["rules"]["agreement"] == "agree" and len(rec["inputs"]["shap"]) == 2)
     check("rule-evidence action kept and referenced as case evidence",
-          len(rec["actions"]) == 4
+          any(e.get("kind") == "evidence" for e in rec["action_evidence"])
           and any(r["doc_id"] == "FORENXAI.case" and "Case evidence" in r["acm"]
                   for r in rec["references"]))
+    check("a heading echo is dropped, not displayed",
+          rs.verify_actions([{"text": "NIST SP 800-53r5 SC-5 DENIAL-OF-SERVICE PROTECTION (class-specific): Protect against the effects.",
+                              "source_id": "S1"}], sources)["dropped_actions"][0]["reason"]
+          == "restates a source heading, not an action")
     check("case evidence does not count as a published standard",
           rec["standards_grounded"])
     rs._cache.clear()

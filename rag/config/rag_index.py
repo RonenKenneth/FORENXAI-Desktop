@@ -61,7 +61,7 @@ SHA256SUMS_FILE = SOURCES_DIR / "SHA256SUMS.txt"
 INDEX_FILE = RAG_DIR / ".rag_index.json"
 
 # Bump when the layout of .rag_index.json changes.
-SCHEMA = 1
+SCHEMA = 3
 
 # Character budgets for the compact generation context. They bound what one
 # source can contribute to the Qwen prompt; the full text stays in the corpus.
@@ -70,6 +70,7 @@ PLAYBOOK_LINE_CHARS = 260
 CONTROL_CHARS = 320
 BASELINE_CHARS = 520
 PASSAGE_CHARS = 420
+FOCUS_CHARS = 700
 
 # Same budgets as the previous retrieve(), kept for the fields the interface
 # and the report already display.
@@ -142,7 +143,10 @@ def knowledge_version() -> str:
         if path.is_file():
             h.update(path.relative_to(RAG_DIR).as_posix().encode())
             h.update(path.read_bytes())
-    for path in (CONFIG_DIR / "knowledge_map.py", MANIFEST_FILE, SHA256SUMS_FILE):
+    # The builder itself too: a change to how the index is built makes the
+    # old index stale just as a change to the corpus does.
+    for path in (CONFIG_DIR / "knowledge_map.py", CONFIG_DIR / "rag_index.py",
+                 MANIFEST_FILE, SHA256SUMS_FILE):
         h.update(path.name.encode())
         h.update(_file_digest(path).encode())
     # The archive's own fingerprint, so re-extracting a source rebuilds.
@@ -263,6 +267,103 @@ def _pool(si) -> List[Dict[str, Any]]:
     } for s in si._all_sections()]
 
 
+_PREVENT = re.compile(r"how to prevent", re.I)
+
+
+def _focus_passages(si, requests) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Class-specific sections by exact identifier, from their guidance part.
+
+    Where a section has a "How to prevent" part (the OWASP entries) the
+    passage starts there, because that is the part an action can be written
+    from; the background before it describes the risk, not the response.
+    """
+    if si is None:
+        return [], [f"{d} {n}" for d, n in requests]
+    documents = si.index()["documents"]
+    found, missing = [], []
+    for doc_id, number in requests:
+        section = next((s for s in documents.get(doc_id, {}).get("sections", [])
+                        if str(s["number"]) == str(number)), None)
+        if section is None:
+            missing.append(f"{doc_id} {number}")
+            continue
+        text = section["text"]
+        heading = f"{section['number']} {section['title']}"
+        if text.startswith(heading):
+            text = text[len(heading):].lstrip(" .")
+        at = _PREVENT.search(text)
+        if at:
+            text = text[at.start():]
+        where = f" (p.{section['page']})" if section.get("page") else ""
+        found.append({
+            "kind": "focus",
+            "doc_id": doc_id,
+            "ref": f"{number} {section['title']}",
+            "label": f"{doc_id} section {number} {section['title']}{where}",
+            "text": text[:1500].strip(),
+            "source_id": f"{SHORT_DOC.get(doc_id, doc_id)}:{number}",
+        })
+    return found, missing
+
+
+_SELECTION = re.compile(r"\[Selection[^:]*:\s*([^;\]]+)[^\]]*\]")
+_ASSIGNMENT = re.compile(r"\[Assignment:\s*([^\]]+)\]")
+_MODAL = re.compile(r"\b(shall|should|must|necessary|recommended|block|drop|deny|validate|enforce|use)\b", re.I)
+
+
+def _control_sentence(text: str) -> str:
+    """A control's first requirement, with CPRT placeholders made readable.
+
+    "[Selection (one): Protect against; Limit]" becomes its first option and
+    "[Assignment: organization-defined X]" becomes "organization-defined X";
+    nothing else is changed, so the quote still reads as the catalogue does.
+    """
+    text = _ASSIGNMENT.sub(lambda m: m.group(1).strip(), _SELECTION.sub(lambda m: m.group(1).strip(), text))
+    first = re.split(r";\s+|(?<=\.)\s+", text, maxsplit=1)[0]
+    return first.strip().rstrip(":;,. ") + "."
+
+
+def _guidance_sentences(text: str, limit: int = 3) -> List[str]:
+    """Actionable sentences of a publication section, verbatim.
+
+    Bullets when the section has them (OWASP "How to prevent"), otherwise
+    sentences that state a requirement or a countermeasure.
+    """
+    body = re.sub(r"^how to prevent\.?\s*", "", text.strip(), flags=re.I)
+    if " * " in body or body.startswith("* "):
+        parts = [b.strip() for b in re.split(r"(?:^|\s)\*\s+", body) if b.strip()]
+    else:
+        parts = [t.strip() for t in re.split(r"(?<=[.!?])\s+(?=[A-Z])", body)
+                 if _MODAL.search(t)]
+    out = []
+    for part in parts:
+        part = re.sub(r"\*\*[^*]+\*\*", "", part).strip()
+        sentence = re.split(r"(?<=[.!?])\s+", part)[0].strip()
+        # A lead-in ("... requires the following:") introduces a list; it is
+        # not itself something to do.
+        if sentence.rstrip().endswith(":"):
+            continue
+        if 30 <= len(sentence) <= 260:
+            out.append(sentence.rstrip(". ") + ".")
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _quotable(controls, focus) -> List[Dict[str, Any]]:
+    """Class-specific sentences that can be quoted as actions, in order."""
+    units = []
+    for passage in focus:
+        for sentence in _guidance_sentences(passage["text"]):
+            units.append({"source_id": passage["source_id"], "doc_id": passage["doc_id"],
+                          "label": passage["label"], "text": sentence, "kind": "focus"})
+    for passage in controls:
+        units.append({"source_id": passage["source_id"], "doc_id": passage["doc_id"],
+                      "label": passage["label"], "text": _control_sentence(passage["text"]),
+                      "kind": "control"})
+    return units
+
+
 def _query_terms(si, cls: str, entry: Dict[str, Any]) -> List[str]:
     if si is None:
         return []
@@ -333,6 +434,10 @@ def build_rag_index(force: bool = False) -> Dict[str, Any]:
 
         missing_standards = si.missing_for(entry["controls"], baselines_req) if si else []
 
+        focus, focus_missing = _focus_passages(
+            si, getattr(km, "FOCUS_SECTIONS", {}).get(cls, []))
+        missing_standards = missing_standards + focus_missing
+
         classes[cls] = {
             "summary": entry["summary"],
             "mitre": list(entry.get("mitre") or []),
@@ -344,6 +449,8 @@ def build_rag_index(force: bool = False) -> Dict[str, Any]:
             "profile_summary": _profile_summary(attack_text) if attack_text else "",
             "playbook_lines": _playbook_lines(response_text) if response_text else [],
             "control_passages": controls,
+            "focus_passages": focus,
+            "quotable": _quotable(controls, focus),
             "terms": terms,
             "literature": literature,
             "missing_standards": missing_standards,

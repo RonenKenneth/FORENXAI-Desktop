@@ -453,6 +453,71 @@ def verify_model_bundle() -> None:
 # LOAD MODEL BUNDLE
 # ============================================================
 
+# ============================================================
+# ABSTAIN LAYER (optional bundle files)
+# ============================================================
+#
+# decision_thresholds.json holds a confidence threshold per class and
+# ood_stats.json a Mahalanobis distance limit over the scaled features, both
+# fitted on the training data's validation split. A flow below its class's
+# threshold, or farther from the training data than the limit, is marked
+# abstained: the model's class is still reported, but the hybrid decision
+# does not rely on it. Without the files every flow is kept.
+
+DECISION_FILE = MODEL_DIRECTORY / "decision_thresholds.json"
+OOD_FILE = MODEL_DIRECTORY / "ood_stats.json"
+
+_cached_abstain: dict[str, Any] | None = None
+
+
+def _load_abstain_layer(features: list[str]) -> dict[str, Any] | None:
+    global _cached_abstain
+    if _cached_abstain is not None:
+        return _cached_abstain or None
+    _cached_abstain = {}
+    if not (DECISION_FILE.exists() and OOD_FILE.exists()):
+        print("[FORENXAI] Abstain layer off: decision_thresholds.json / "
+              "ood_stats.json not in the bundle.", flush=True)
+        return None
+    decision = json.loads(DECISION_FILE.read_text(encoding="utf-8"))
+    ood = json.loads(OOD_FILE.read_text(encoding="utf-8"))
+    order = [str(f) for f in ood["feature_order"]]
+    if sorted(order) != sorted(features):
+        print("[FORENXAI] Abstain layer off: ood_stats.json features do not "
+              "match the model's.", flush=True)
+        return None
+    _cached_abstain = {
+        "thresholds": {str(k): float(v) for k, v in decision["per_class_threshold"].items()},
+        "columns": np.array([features.index(f) for f in order]),
+        "mean": np.asarray(ood["mean"], dtype=np.float64),
+        "inv_cov": np.asarray(ood["inv_covariance"], dtype=np.float64),
+        "limit": float(ood["threshold"]),
+    }
+    return _cached_abstain
+
+
+def abstain_decisions(scaled_matrix, probabilities, class_names, features):
+    """Per row: (abstained, reason, squared Mahalanobis distance or None)."""
+    layer = _load_abstain_layer(features)
+    rows = len(probabilities)
+    if layer is None:
+        return [(False, None, None)] * rows
+    centred = np.asarray(scaled_matrix, dtype=np.float64)[:, layer["columns"]] - layer["mean"]
+    distance = np.einsum("ij,jk,ik->i", centred, layer["inv_cov"], centred)
+    best = probabilities.argmax(axis=1)
+    out = []
+    for i in range(rows):
+        name = class_names[best[i]]
+        confidence = float(probabilities[i, best[i]])
+        if not np.isfinite(distance[i]) or distance[i] > layer["limit"]:
+            out.append((True, "out_of_distribution", float(distance[i])))
+        elif confidence < layer["thresholds"].get(name, 0.5):
+            out.append((True, "low_confidence", float(distance[i])))
+        else:
+            out.append((False, None, float(distance[i])))
+    return out
+
+
 def load_model_bundle() -> dict[str, Any]:
     """
     Load and cache the FORENXAI multiclass XGBoost bundle.
@@ -1415,6 +1480,13 @@ def classify_dataframe(
         dict[str, Any]
     ] = []
 
+    abstain = abstain_decisions(
+        scaled_matrix,
+        probabilities,
+        class_names,
+        bundle["features"]
+    )
+
 
     class_counts: dict[
         str,
@@ -1518,6 +1590,17 @@ def classify_dataframe(
 
                 "metadata":
                     metadata,
+
+                # True when the flow is below its class's confidence
+                # threshold or outside the training distribution.
+                "abstained":
+                    abstain[row_index][0],
+
+                "abstain_reason":
+                    abstain[row_index][1],
+
+                "ood_distance":
+                    abstain[row_index][2],
             }
         )
 

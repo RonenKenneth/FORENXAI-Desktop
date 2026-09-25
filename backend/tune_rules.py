@@ -156,7 +156,6 @@ def main():
             "untuned_rules": sorted(set(rule_class) - set(GRID)),
             "report": "rules_tuning.json (tune_rules.py)",
         }
-        cfg["version"] = "tier1-1.1"
         path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
         print(f"\nwrote tuned thresholds to {path}")
 

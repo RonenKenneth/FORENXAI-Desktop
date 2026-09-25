@@ -20,11 +20,17 @@ service inside a time window (window_seconds, default 60 s) and count:
   T1-BRUTEFORCE-01  near-identical attempts on an authentication port
   T1-C2-01          regularly spaced contacts to one service (whole capture)
   T1-EXFIL-01       one flow sending far more than it receives
+  T1-DNS-01         many DNS flows from one host whose replies dwarf the queries
+  T1-TLS-01         repeated short TLS connections torn down with RST
+
+An allowlist (known resolvers, update servers, backup jobs) marks matching
+flows Benign and suppresses every other rule on them.
 
 Every threshold is in app/rules/rules.json, with a sensitivity setting
 (low / medium / high) that scales the count thresholds. Payload attacks
 (WebBased, API, Exploitation, BufferOverflow, Evasion) and MITM are Tier 2 --
-they need the packet contents or ARP, which flow records do not carry.
+they need the packet contents or ARP, which flow records do not carry; see
+packet_rule_service.py.
 
 WHAT A HIT IS
     {"rule_id": "T1-PORTSCAN-01", "class": "PortScan", "tier": 1,
@@ -46,7 +52,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -67,11 +73,19 @@ ALIASES = {
     "down_up": ["Down/Up Ratio"],
 }
 
+# Used when present; the rules that need them are skipped otherwise.
+OPTIONAL_ALIASES = {
+    "src_port": ["Src Port"],
+    "proto": ["Protocol"],
+    "rst": ["RST Flag Count", "RST Flag Cnt"],
+    "bwd_pkts": ["Total Bwd packets", "Total Bwd Packets", "Tot Bwd Pkts"],
+}
+
 # Thresholds the sensitivity factor scales. Ratios, durations and
 # regularity limits are properties of the attack, not of how many alerts an
 # analyst wants, so they are left alone.
 SCALED = {"min_distinct_ports", "min_flooding_sources", "per_source_min_flows", "min_flows",
-          "min_concurrent_flows", "min_attempts", "min_fwd_bytes"}
+          "min_concurrent_flows", "min_attempts", "min_fwd_bytes", "min_failed_handshakes"}
 
 
 # ------------------------------------------------------------------
@@ -122,8 +136,11 @@ def normalise(frame: pd.DataFrame) -> pd.DataFrame:
         out[name] = frame[column]
     if missing:
         raise KeyError("flow records lack: " + ", ".join(missing))
+    for name, options in OPTIONAL_ALIASES.items():
+        column = next((c for c in options if c in frame.columns), None)
+        out[name] = frame[column] if column else np.nan
     for name in ("dst_port", "duration", "fwd_pkts", "fwd_bytes", "bwd_bytes",
-                 "fwd_len_mean", "down_up"):
+                 "fwd_len_mean", "down_up", "src_port", "proto", "rst", "bwd_pkts"):
         out[name] = pd.to_numeric(out[name], errors="coerce").replace([np.inf, -np.inf], np.nan)
     out["src_ip"] = out["src_ip"].astype(str).str.strip()
     out["dst_ip"] = out["dst_ip"].astype(str).str.strip()
@@ -323,10 +340,77 @@ def _exfil(df, rule, rid, window):
     return hits
 
 
+def _dns(df, rule, rid, window):
+    """DNS amplification: many DNS flows whose replies dwarf the queries.
+
+    A flow is oriented by which side uses port 53. In a reflection attack the
+    victim receives replies it never asked for, so the flow starts at the
+    resolver (source port 53) and carries no query at all.
+    """
+    to_resolver = (df["dst_port"] == 53).to_numpy()
+    from_resolver = (df["src_port"] == 53).to_numpy() & ~to_resolver
+    dns = to_resolver | from_resolver
+    if not dns.any():
+        return {}
+    sub = df[dns]
+    fwd, bwd = sub["fwd_bytes"].fillna(0).to_numpy(), sub["bwd_bytes"].fillna(0).to_numpy()
+    out_query = to_resolver[dns]
+    sub = pd.DataFrame({
+        "client": np.where(out_query, sub["src_ip"], sub["dst_ip"]),
+        "resolver": np.where(out_query, sub["dst_ip"], sub["src_ip"]),
+        "reply": np.where(out_query, bwd, fwd),
+        "query": np.where(out_query, fwd, bwd),
+        "win": sub["win"].to_numpy(),
+    })
+    sub["ratio"] = sub["reply"] / np.maximum(sub["query"], 1)
+    stats, codes = _grouped(sub, ["client", "resolver", "win"],
+                            {"flows": ("client", "size"), "ratio": ("ratio", "median"),
+                             "reply": ("reply", "sum")})
+    q = stats[(stats["flows"] >= rule["min_flows"]) & (stats["ratio"] >= rule["min_reply_ratio"])]
+    local = _assign(codes, {int(k): _hit(
+        rid, rule,
+        f"{int(r.flows):,} DNS flows from {r.resolver} to {r.client} within {window} s with replies "
+        f"a median {r.ratio:,.1f} times the query size, {_fmt(r.reply)} reply bytes in total "
+        f"(thresholds {rule['min_flows']} flows and ratio {rule['min_reply_ratio']}).",
+        int(r.flows), rule["min_flows"]) for k, r in q.iterrows()})
+    positions = np.flatnonzero(dns)
+    return {int(positions[j]): hit for j, hit in local.items()}
+
+
+def _tls(df, rule, rid, window):
+    """Repeated TLS connections reset after a few packets: failed handshakes."""
+    if df["rst"].isna().all():
+        return {}
+    failed = (df["dst_port"].isin(rule["tls_ports"]) & (df["rst"] > 0)
+              & ((df["fwd_pkts"] + df["bwd_pkts"].fillna(0)) <= rule["max_packets"]))
+    if not failed.any():
+        return {}
+    sub = df[failed.to_numpy()]
+    stats, codes = _grouped(sub, ["src_ip", "dst_ip", "dst_port", "win"],
+                            {"flows": ("src_ip", "size")})
+    q = stats[stats["flows"] >= rule["min_failed_handshakes"]]
+    local = _assign(codes, {int(k): _hit(
+        rid, rule,
+        f"{int(r.flows)} connections from {r.src_ip} to {r.dst_ip} port {int(r.dst_port)} reset "
+        f"after at most {rule['max_packets']} packets within {window} s "
+        f"(threshold {rule['min_failed_handshakes']}).",
+        int(r.flows), rule["min_failed_handshakes"]) for k, r in q.iterrows()})
+    positions = np.flatnonzero(failed.to_numpy())
+    return {int(positions[j]): hit for j, hit in local.items()}
+
+
 RULE_FUNCTIONS = {
     "PortScan": _portscan, "DDoS": _ddos, "DoS": _dos, "Slowloris": _slowloris,
     "Bruteforce": _bruteforce, "C2Beaconing": _c2, "Exfiltration": _exfil,
+    "DNS": _dns, "TLSSSL": _tls,
 }
+
+
+def _allowlisted(df, allow) -> np.ndarray:
+    ips = set(allow.get("ips", []))
+    mask = df["src_ip"].isin(ips) | df["dst_ip"].isin(ips)
+    mask |= df["dst_port"].isin(allow.get("ports", []))
+    return mask.to_numpy()
 
 
 # ------------------------------------------------------------------
@@ -348,10 +432,16 @@ def evaluate_frame(frame: pd.DataFrame,
         for position, hit in RULE_FUNCTIONS[rule["class"]](df, rule, rule_id, window).items():
             per_row[position].append(hit)
 
-    order = {c: i for i, c in enumerate(config.get("priority", []))}
-    for hits in per_row:
-        hits.sort(key=lambda h: order.get(h["class"], len(order)))
-    return per_row
+    allow = config.get("allowlist") or {}
+    if allow.get("ips") or allow.get("ports"):
+        for i in np.flatnonzero(_allowlisted(df, allow)):
+            r = df.iloc[i]
+            per_row[i] = [{"rule_id": "ALLOWLIST", "class": "Benign", "tier": 1,
+                           "evidence": f"Flow from {r.src_ip} to {r.dst_ip} port "
+                                       f"{_fmt(r.dst_port)} matches the allowlist of known-good traffic.",
+                           "measured": None, "threshold": None, "severity": "info"}]
+
+    return [sort_hits(hits, config) for hits in per_row]
 
 
 def evaluate(flow_csv: str,
@@ -390,3 +480,38 @@ def evaluate(flow_csv: str,
           f"{sum(1 for h in per_row if h)} of {len(per_row)} flows flagged"
           + (f" -- {fired}" if fired else ""), flush=True)
     return result
+
+
+def decide(finding: Dict[str, Any],
+           hits: Optional[List[Dict[str, Any]]],
+           config: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
+    """(verdict, source) for one flow from the model and the rule hits.
+
+    source is agree, rule, ml, conflict or abstain. Rules decide only for the
+    classes rules.json -> decision.trust names (measured precise on held-out
+    data); elsewhere the model does, unless it abstained (below its class's
+    confidence threshold or out of distribution), when a rule hit stands in
+    and otherwise the verdict is Uncertain. `hits` is priority-ordered.
+    """
+    config = config or load_config()
+    trust = config.get("decision", {}).get("trust", {})
+    ml_class = str(finding.get("predicted_class", ""))
+    abstained = bool(finding.get("abstained"))
+    classes = [h.get("class") for h in (hits or []) if h.get("class")]
+    rule_class = classes[0] if classes else None
+
+    if rule_class and ml_class in classes and not abstained:
+        return ml_class, "agree"
+    if rule_class and trust.get(rule_class) == "rule":
+        return rule_class, "rule"
+    if abstained:
+        return (rule_class, "rule") if rule_class else ("Uncertain", "abstain")
+    if rule_class:
+        return ml_class, "conflict"
+    return ml_class, "ml"
+
+
+def sort_hits(hits: List[Dict[str, Any]], config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Most specific evidence first (rules.json -> priority)."""
+    order = {c: i for i, c in enumerate(config.get("priority", []))}
+    return sorted(hits, key=lambda h: order.get(h["class"], len(order)))

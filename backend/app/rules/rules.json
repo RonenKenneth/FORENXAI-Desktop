@@ -1,5 +1,5 @@
 {
-  "version": "tier1-1.1",
+  "version": "tier1-1.2+tier2-1.0",
   "description": "Tier 1 rule-based detection on CICFlowMeter flow records. Every threshold is here; change it here, not in code. Count thresholds are multiplied by the sensitivity factor (high sensitivity = lower thresholds = more alerts).",
   "window_seconds": 60,
   "sensitivity": "medium",
@@ -9,13 +9,21 @@
     "high": 0.7
   },
   "priority": [
+    "Exploitation",
+    "BufferOverflow",
+    "WebBased",
+    "API",
+    "MITM",
+    "Evasion",
     "DDoS",
     "DoS",
     "Slowloris",
-    "PortScan",
     "Bruteforce",
+    "PortScan",
     "C2Beaconing",
-    "Exfiltration"
+    "Exfiltration",
+    "DNS",
+    "TLSSSL"
   ],
   "rules": {
     "T1-PORTSCAN-01": {
@@ -110,6 +118,31 @@
       "description": "A flow sends far more data out than it receives.",
       "min_fwd_bytes": 10000000,
       "max_down_up_ratio": 0.1
+    },
+    "T1-DNS-01": {
+      "class": "DNS",
+      "enabled": true,
+      "severity": "high",
+      "description": "Many DNS flows between one host and one resolver inside a window whose replies are many times the size of the queries (amplification / reflection).",
+      "min_flows": 20,
+      "min_reply_ratio": 10
+    },
+    "T1-TLS-01": {
+      "class": "TLSSSL",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source makes many short TLS connections that end in a reset inside a window: failed or aborted handshakes.",
+      "tls_ports": [
+        443,
+        465,
+        636,
+        853,
+        993,
+        995,
+        8443
+      ],
+      "max_packets": 8,
+      "min_failed_handshakes": 10
     }
   },
   "tuning": {
@@ -179,5 +212,269 @@
       }
     },
     "report": "rules_tuning.json"
+  },
+  "allowlist": {
+    "description": "Known-good traffic: flows to or from these addresses, or to these destination ports, are marked Benign and no other rule is applied to them. Empty by default; fill in per network (resolvers, NTP, update servers, backup jobs).",
+    "ips": [],
+    "ports": []
+  },
+  "packet_rules": {
+    "description": "Tier 2 header, ARP and unencrypted-payload checks, run with scapy on the uploaded pcap (packet_rule_service.py).",
+    "encrypted_ports": [
+      22,
+      443,
+      465,
+      636,
+      853,
+      993,
+      995,
+      8443
+    ],
+    "max_payload_bytes": 4096,
+    "T2-MITM-01": {
+      "class": "MITM",
+      "enabled": true,
+      "severity": "high",
+      "description": "Several MAC addresses claim one IP address in ARP replies, or a burst of gratuitous ARP.",
+      "min_macs_per_ip": 2,
+      "min_gratuitous_arp": 5
+    },
+    "T2-EVASION-01": {
+      "class": "Evasion",
+      "enabled": true,
+      "severity": "medium",
+      "description": "Illegal TCP flag sets (NULL, XMAS, SYN+FIN), overlapping IP fragments, or TTL changes inside one flow.",
+      "min_illegal_flag_packets": 1,
+      "min_overlapping_fragments": 1,
+      "min_ttl_changes": 3
+    },
+    "T2-WEB-01": {
+      "class": "WebBased",
+      "enabled": true,
+      "severity": "high",
+      "description": "An unencrypted HTTP request line or body (URL-decoded) matches an injection pattern: SQL injection, XSS, path traversal, command injection. A fallback for when Suricata is not installed; Suricata's ET WEB_SERVER rules are the primary source.",
+      "min_matches": 1
+    },
+    "T2-API-01": {
+      "class": "API",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source calls API paths at a high rate, or collects many 401 / 403 / 429 replies, inside a window.",
+      "api_path_markers": [
+        "/api/",
+        "/v1/",
+        "/v2/",
+        "/v3/",
+        "/graphql",
+        "/rest/"
+      ],
+      "min_calls": 100,
+      "min_auth_failures": 10
+    },
+    "T2-BRUTEFORCE-01": {
+      "class": "Bruteforce",
+      "enabled": true,
+      "severity": "medium",
+      "description": "Failed-login replies to one client inside a window: FTP 530, SMTP 535, POP3 -ERR, HTTP 401.",
+      "min_failed_logins": 5
+    },
+    "T2-DNS-01": {
+      "class": "DNS",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One client sends many DNS queries with long or random-looking names inside a window (tunnelling).",
+      "min_name_length": 50,
+      "min_label_entropy": 4.0,
+      "min_queries": 10
+    },
+    "T2-TLS-01": {
+      "class": "TLSSSL",
+      "enabled": true,
+      "severity": "medium",
+      "description": "A TLS ClientHello offers SSL 2.0, SSL 3.0 or TLS 1.0 as its highest version. The handshake is sent in the clear, so this works on encrypted traffic.",
+      "max_weak_version": "0x0301"
+    },
+    "T2-BOF-01": {
+      "class": "BufferOverflow",
+      "enabled": true,
+      "severity": "high",
+      "description": "An unencrypted payload carries a long NOP run (0x90) or a long run of one filler character, typical of an overflow payload.",
+      "min_nop_run": 64,
+      "min_filler_run": 256,
+      "filler_bytes": [
+        "0x41",
+        "0x42",
+        "0x43",
+        "0x90"
+      ]
+    }
+  },
+  "suricata": {
+    "description": "Tier 2 signature engine: suricata -r <pcap> with the Emerging Threats Open ruleset. Used when the binary is found (FORENXAI_SURICATA, tools/suricata/, PATH, or C:/Program Files/Suricata); otherwise its classes rely on the scapy checks above and the case records that Suricata did not run.",
+    "enabled": true,
+    "binary": "",
+    "config": "",
+    "rules_file": "",
+    "timeout_seconds": 900,
+    "min_severity": 3,
+    "class_mapping": [
+      {
+        "class": "Exploitation",
+        "prefixes": [
+          "ET EXPLOIT",
+          "ET ATTACK_RESPONSE",
+          "GPL EXPLOIT"
+        ],
+        "categories": [
+          "Attempted Administrator Privilege Gain",
+          "Attempted User Privilege Gain",
+          "Successful Administrator Privilege Gain",
+          "Successful User Privilege Gain"
+        ]
+      },
+      {
+        "class": "BufferOverflow",
+        "prefixes": [
+          "ET SHELLCODE",
+          "GPL SHELLCODE"
+        ],
+        "categories": [
+          "Executable code was detected"
+        ]
+      },
+      {
+        "class": "WebBased",
+        "prefixes": [
+          "ET WEB_SERVER",
+          "ET WEB_SPECIFIC_APPS",
+          "ET WEB_CLIENT",
+          "GPL WEB_SERVER"
+        ],
+        "categories": [
+          "Web Application Attack"
+        ]
+      },
+      {
+        "class": "Evasion",
+        "prefixes": [
+          "SURICATA FRAG",
+          "SURICATA STREAM",
+          "SURICATA TCP",
+          "SURICATA IPv4",
+          "SURICATA IPv6"
+        ]
+      },
+      {
+        "class": "Slowloris",
+        "prefixes": [
+          "ET DOS"
+        ],
+        "contains": [
+          "slow",
+          "slowloris",
+          "rudy"
+        ]
+      },
+      {
+        "class": "DDoS",
+        "prefixes": [
+          "ET DOS"
+        ],
+        "contains": [
+          "ddos",
+          "loic",
+          "hoic",
+          "botnet"
+        ]
+      },
+      {
+        "class": "DoS",
+        "prefixes": [
+          "ET DOS",
+          "GPL DOS"
+        ],
+        "categories": [
+          "Attempted Denial of Service",
+          "Detection of a Denial of Service Attack"
+        ]
+      },
+      {
+        "class": "Bruteforce",
+        "prefixes": [
+          "ET SCAN",
+          "ET POLICY",
+          "GPL"
+        ],
+        "contains": [
+          "brute",
+          "login",
+          "password",
+          "auth fail"
+        ]
+      },
+      {
+        "class": "PortScan",
+        "prefixes": [
+          "ET SCAN",
+          "GPL SCAN"
+        ],
+        "categories": [
+          "Detection of a Network Scan"
+        ]
+      },
+      {
+        "class": "C2Beaconing",
+        "prefixes": [
+          "ET MALWARE",
+          "ET TROJAN",
+          "ET CNC",
+          "ET JA3",
+          "ET MOBILE_MALWARE"
+        ],
+        "categories": [
+          "A Network Trojan was detected",
+          "Malware Command and Control Activity Detected"
+        ]
+      },
+      {
+        "class": "DNS",
+        "prefixes": [
+          "ET DNS",
+          "SURICATA DNS"
+        ]
+      },
+      {
+        "class": "TLSSSL",
+        "prefixes": [
+          "SURICATA TLS",
+          "ET POLICY"
+        ],
+        "contains": [
+          "tls",
+          "ssl",
+          "certificate"
+        ]
+      },
+      {
+        "class": "Exfiltration",
+        "prefixes": [
+          "ET POLICY"
+        ],
+        "contains": [
+          "upload",
+          "exfil",
+          "file transfer",
+          "outbound"
+        ]
+      }
+    ],
+    "class_mapping_note": "Ordered: the first entry whose signature prefix or category (Suricata's classtype description as written in eve.json) matches wins; 'contains' words, when given, must also appear in the signature. Unmapped signatures are listed in the case's rule_analysis."
+  },
+  "decision": {
+    "description": "decide(): which detector's class becomes the verdict. trust = 'rule' only where the rule was measured as precise on held-out data (tuning.test_results precision >= 0.9); every other class trusts the model. Confidence thresholds and the out-of-distribution limit come from the model bundle (decision_thresholds.json, ood_stats.json).",
+    "trust": {
+      "PortScan": "rule",
+      "DoS": "rule"
+    }
   }
 }

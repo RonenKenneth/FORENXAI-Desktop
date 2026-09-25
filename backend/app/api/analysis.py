@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 from hashlib import sha256
 import json
@@ -13,6 +14,11 @@ from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
 from app.services.rule_service import evaluate as evaluate_rules
+from app.services.rule_service import decide, load_config as load_rule_config, sort_hits
+from app.services.packet_rule_service import (
+    PacketInspector,
+    evaluate as evaluate_packet_rules,
+)
 from app.services.recommendation_service import (
     get_recommendation,
     warm_recommendations,
@@ -274,8 +280,26 @@ def start_analysis(
         )
 
 
+        # Tier 2 packet rules look at every packet in this same pass, so
+        # the capture is read once. A broken rules.json turns them off
+        # without stopping the analysis.
+        try:
+            inspector = PacketInspector()
+        except Exception as error:  # noqa: BLE001
+            print(
+                f"[FORENXAI] Tier 2 packet rules off "
+                f"({type(error).__name__}: {error})",
+                flush=True
+            )
+            inspector = None
+
         packets = extract_packets(
-            evidence_file
+            evidence_file,
+            on_packet=(
+                inspector.add
+                if inspector is not None
+                else None
+            )
         )
 
 
@@ -452,6 +476,38 @@ def start_analysis(
             ml_result.get("findings", [])
         )
 
+        # Tier 2: the scapy checks gathered while reading the pcap, plus
+        # Suricata when it is installed, matched to the same flows.
+        tier2_hits, encrypted_flows, tier2_summary = (None, None, {
+            "error": "Tier 2 packet rules were not run."
+        })
+        if inspector is not None:
+            tier2_hits, encrypted_flows, tier2_summary = (
+                evaluate_packet_rules(
+                    evidence_file,
+                    str(cicflowmeter_csv),
+                    ml_result.get("findings", []),
+                    inspector,
+                    case_directory
+                )
+            )
+
+        try:
+            rule_config = load_rule_config()
+        except Exception:  # noqa: BLE001
+            rule_config = {}
+
+        if rule_hits is None and tier2_hits is not None:
+            rule_hits = {index: [] for index in tier2_hits}
+        if rule_hits is not None and tier2_hits:
+            rule_hits = {
+                index: sort_hits(
+                    hits + tier2_hits.get(index, []),
+                    rule_config
+                )
+                for index, hits in rule_hits.items()
+            }
+
 
         # =====================================================
         # PHASE 15.3
@@ -510,6 +566,17 @@ def start_analysis(
                     None if rule_hits is None
                     else rule_hits.get(index, [])
                 )
+                finding["payload_encrypted"] = (
+                    None if encrypted_flows is None
+                    else encrypted_flows.get(index)
+                )
+                verdict, source = decide(
+                    finding,
+                    finding["rule_findings"],
+                    rule_config or None
+                )
+                finding["verdict"] = verdict
+                finding["verdict_source"] = source
 
         generated = warm_recommendations(
             ml_findings
@@ -627,6 +694,29 @@ def start_analysis(
 
             "flows":
                 flows,
+
+
+            "rule_analysis": {
+
+                "rules_version":
+                    rule_config.get("version"),
+
+                "sensitivity":
+                    rule_config.get("sensitivity"),
+
+                "tier1_evaluated":
+                    rule_hits is not None,
+
+                "tier2":
+                    tier2_summary,
+
+                "verdict_sources":
+                    dict(Counter(
+                        f.get("verdict_source")
+                        for f in ml_findings
+                        if isinstance(f, dict)
+                    )),
+            },
 
 
             "ml_analysis": {

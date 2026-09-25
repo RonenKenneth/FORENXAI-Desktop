@@ -904,7 +904,12 @@ public partial class XaiView : UserControl
         RecModelText.Text =
             $"XGBoost: {finding.PredictedClass}, "
             + $"confidence {finding.Confidence:P1}"
-            + (f1 != null ? $" (class test F1 {f1:F3})" : string.Empty);
+            + (f1 != null ? $" (class test F1 {f1:F3})" : string.Empty)
+            + (finding.Abstained
+                ? (finding.AbstainReason == "out_of_distribution"
+                    ? " -- abstained: flow is outside the training distribution"
+                    : " -- abstained: below this class's confidence threshold")
+                : string.Empty);
 
         if (inputs?.Shap != null
             && inputs.Shap.Count > 0)
@@ -951,9 +956,15 @@ public partial class XaiView : UserControl
                     "\n",
                     rules.Hits.Select(
                         hit =>
-                            $"{hit.RuleId} ({hit.ClassName}): {hit.Evidence}"
+                            $"Tier {hit.Tier}, {hit.RuleId} ({hit.ClassName}): {hit.Evidence}"
                     )
                 );
+        }
+
+        if (finding.PayloadEncrypted == true)
+        {
+            RecRulesText.Text +=
+                "\nPayload encrypted: content rules not applied.";
         }
 
         (string label, string background, string foreground) =
@@ -964,6 +975,21 @@ public partial class XaiView : UserControl
                 "no_rule_fired" => ("Model only", "#1E3A5F", "#BFDBFE"),
                 _ => ("Rules not evaluated", "#1E293B", "#CBD5E1"),
             };
+
+        // The hybrid verdict, when the case has one, replaces the plain
+        // agreement label: it names the final class and who decided it.
+        if (!string.IsNullOrEmpty(finding.VerdictSource))
+        {
+            (label, background, foreground) =
+                finding.VerdictSource switch
+                {
+                    "agree" => ($"Verdict {finding.Verdict}: rules agree", "#14532D", "#BBF7D0"),
+                    "rule" => ($"Verdict {finding.Verdict}: rule decided", "#78350F", "#FDE68A"),
+                    "conflict" => ($"Verdict {finding.Verdict}: rules disagree", "#7F1D1D", "#FECACA"),
+                    "abstain" => ("Uncertain: analyst review", "#1E293B", "#CBD5E1"),
+                    _ => ($"Verdict {finding.Verdict}: model only", "#1E3A5F", "#BFDBFE"),
+                };
+        }
 
         RecAgreementText.Text = label;
 

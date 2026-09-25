@@ -35,6 +35,20 @@ datas = [
             "forenxai"
         )
     ),
+    # rules.json: every Tier 1 / Tier 2 threshold and the decision table.
+    # rule_service resolves it relative to its own module, so it must sit
+    # at app/rules inside the bundle.
+    (
+        os.path.join(
+            project_root,
+            "app",
+            "rules"
+        ),
+        os.path.join(
+            "app",
+            "rules"
+        )
+    ),
 ]
 
 

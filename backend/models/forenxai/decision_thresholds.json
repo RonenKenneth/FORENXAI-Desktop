@@ -1,0 +1,39 @@
+{
+  "fitted_on": "15% validation split carved from mc_train_random.parquet, seed 42",
+  "note": "Thresholds were never tuned on mc_test_random.parquet. The test figures below are a single final measurement.",
+  "rule": "Abstain when max(proba) < threshold[argmax class] or when the Mahalanobis distance exceeds ood_stats.json threshold.",
+  "per_class_threshold": {
+    "API": 0.575,
+    "Benign": 0.2,
+    "Bruteforce": 0.35,
+    "BufferOverflow": 0.475,
+    "C2Beaconing": 0.2,
+    "DDoS": 0.2,
+    "DNS": 0.2,
+    "DoS": 0.2,
+    "Evasion": 0.525,
+    "Exfiltration": 0.2,
+    "Exploitation": 0.475,
+    "MITM": 0.55,
+    "PortScan": 0.7,
+    "Slowloris": 0.2,
+    "TLSSSL": 0.425,
+    "WebBased": 0.2
+  },
+  "test_measurement": {
+    "without_layer": {
+      "accuracy": 0.935078892963369,
+      "macro_f1": 0.9305246323325909,
+      "abstention_rate": 0.0
+    },
+    "with_layer": {
+      "accuracy": 0.9374428826319683,
+      "macro_f1": 0.9331603860043549,
+      "abstention_rate": 0.015407247654991912,
+      "abstained_low_confidence": 0.004998875253068059,
+      "abstained_out_of_distribution": 0.010419084277466142
+    },
+    "error_rate_kept": 0.06255711736803168,
+    "error_rate_abstained": 0.21599073001158747
+  }
+}

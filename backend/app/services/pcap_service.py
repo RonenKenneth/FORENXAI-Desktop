@@ -10,8 +10,11 @@ from scapy.all import (
 
 
 def extract_packets(
-    pcap_path: Path
+    pcap_path: Path,
+    on_packet=None
 ) -> list[dict]:
+    """IP packets as dicts. on_packet, when given, sees every packet
+    (ARP included) in the same pass -- the Tier 2 packet rules use it."""
 
     if not pcap_path.exists():
         raise FileNotFoundError(
@@ -27,6 +30,9 @@ def extract_packets(
         for packet in reader:
 
             packet_number += 1
+
+            if on_packet is not None:
+                on_packet(packet)
 
             source_ip = None
             destination_ip = None

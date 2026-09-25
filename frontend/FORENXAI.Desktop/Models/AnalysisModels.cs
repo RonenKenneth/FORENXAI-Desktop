@@ -143,6 +143,30 @@ public class MlFinding
     /// </summary>
     [JsonPropertyName("rule_findings")]
     public List<RuleHit>? RuleFindings { get; set; }
+
+    /// <summary>
+    /// Final hybrid verdict from the model and both rule tiers, and which
+    /// side decided it: agree, rule, ml, conflict or abstain. Absent in
+    /// cases analysed before the hybrid decision existed.
+    /// </summary>
+    [JsonPropertyName("verdict")]
+    public string? Verdict { get; set; }
+
+    [JsonPropertyName("verdict_source")]
+    public string? VerdictSource { get; set; }
+
+    /// <summary>True when the model abstained: below its class's
+    /// confidence threshold or outside the training distribution.</summary>
+    [JsonPropertyName("abstained")]
+    public bool Abstained { get; set; }
+
+    [JsonPropertyName("abstain_reason")]
+    public string? AbstainReason { get; set; }
+
+    /// <summary>True when the flow's payload is encrypted, so the Tier 2
+    /// content rules were not applied to it; null when not determined.</summary>
+    [JsonPropertyName("payload_encrypted")]
+    public bool? PayloadEncrypted { get; set; }
 }
 
 

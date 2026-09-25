@@ -199,7 +199,35 @@ def main():
     order = rs.load_config()["priority"]
     check("several rules on one flow are ordered by priority",
           [h["class"] for h in hits] == sorted([h["class"] for h in hits], key=order.index)
-          and [h["class"] for h in hits] == ["PortScan", "Bruteforce"], str([h["class"] for h in hits]))
+          and [h["class"] for h in hits] == ["Bruteforce", "PortScan"], str([h["class"] for h in hits]))
+
+    print("\n4b. DNS, TLS and allowlist")
+    dns = rs.load_config()["rules"]["T1-DNS-01"]
+    n = dns["min_flows"]
+    reflected = flows(n, src="8.8.8.8", dst="10.0.0.5", step=0.5, fwd_bytes=3000, bwd_bytes=0)
+    reflected["Src Port"] = 53
+    reflected["Dst Port"] = 40000 + np.arange(n)
+    check(f"DNS: {n} unsolicited large replies from port 53 fire",
+          fired(reflected, "T1-DNS-01", shipped=True)[0] == n)
+    normal = flows(n * 3, dport=53, step=0.2, fwd_bytes=40, bwd_bytes=120)
+    check("DNS: ordinary lookups (reply 3x query) do not", fired(normal, "T1-DNS-01", shipped=True)[0] == 0)
+    check(f"DNS: {n - 1} amplified replies do not",
+          fired(reflected.iloc[: n - 1], "T1-DNS-01", shipped=True)[0] == 0)
+    tls = rs.load_config()["rules"]["T1-TLS-01"]
+    m = tls["min_failed_handshakes"]
+    resets = flows(m, dport=443, step=1, fwd_pkts=3)
+    resets["RST Flag Count"] = 1
+    check(f"TLS: {m} short connections reset on 443 fire", fired(resets, "T1-TLS-01", shipped=True)[0] == m)
+    check("TLS: without RST they do not",
+          fired(resets.assign(**{"RST Flag Count": 0}), "T1-TLS-01", shipped=True)[0] == 0)
+    check("TLS: without an RST column the rule is skipped, not an error",
+          fired(flows(m, dport=443, step=1), "T1-TLS-01", shipped=True)[0] == 0)
+    allow = rs.load_config()
+    allow["allowlist"] = {"ips": ["10.0.0.20"], "ports": []}
+    scan = flows(60, ports=list(range(1000, 1060)), step=0.5)
+    per = rs.evaluate_frame(scan, allow)
+    check("allowlisted host: flows marked Benign by the allowlist, scan hit suppressed",
+          all([h["rule_id"] for h in row] == ["ALLOWLIST"] for row in per))
 
     print("\n5. shipped rules.json (tuned thresholds)")
     shipped = rs.load_config()

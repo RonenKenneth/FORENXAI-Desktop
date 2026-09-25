@@ -61,3 +61,10 @@ tools/*
 # EXTRACTED_SEARCHABLE and LITERATURE_SEARCHABLE are both False in
 # rag/config/source_index.py, so a clone without them behaves the same.
 rag/_extracted/
+
+# ==========================================
+# Prepared RAG index: derived from knowledge/ and _sources/ by
+# rag/config/rag_index.py, rebuilt automatically when they change.
+# ==========================================
+rag/.rag_index.json
+rag/.rag_index.tmp

@@ -663,6 +663,49 @@ Full record in the pipeline bundle: `new_deploy_gpu/finetune/VALIDATION.md`,
 
 ---
 
+### 3.18 The recommendation panel runs from a prepared index (25 September 2026)
+
+**The problem.** Profiling showed where a recommendation's time went: Qwen
+spent 39 to 42 s just reading a ~3,000-token prompt and 31 to 35 s writing the
+answer; retrieval was 24 to 60 ms and everything else under a millisecond.
+
+**What changed.** Full description in `rag/RAG_PIPELINE.md`.
+
+- `rag/config/rag_index.py` prepares the corpus once into `rag/.rag_index.json`
+  (untracked) and rebuilds it only when knowledge/, the map, the manifest,
+  SHA256SUMS.txt or the archive change. The backend opens it on a background
+  thread at startup and preloads Qwen there too (`FORENXAI_PRELOAD_LLM=0`
+  disables that).
+- Retrieval returns the same passages as before for all 16 classes (tested),
+  through postings instead of a scan of 814 sections, with a version-keyed cache.
+- The prompt carries only the class, controls, the two baseline sections, 0-2
+  retrieved passages, the sourced playbook lines and the profile, each under an
+  id S1..Sn. Qwen answers in JSON constrained by a grammar; every action must
+  cite one supplied id, and `verify_actions()` drops any action whose cited
+  source does not support it. Fewer than three survivors are topped up with
+  verbatim playbook lines, never with unsourced text.
+- Every field the interface reads is unchanged; new fields
+  (`verified_actions`, `dropped_actions`, `verification_summary`,
+  `retrieved_sources`, ...) are added for reports. The frontend is untouched.
+
+**Measured** (`backend/bench_recommendations.py`, DoS / WebBased / PortScan,
+this machine, CPU-only Qwen, median):
+
+| | Before | After |
+|---|---|---|
+| prompt tokens | 3,016 | 1,662 |
+| Qwen prompt processing | 39.3 s | 19.3 s |
+| recommendation total | 71.2 s | 36.8 s |
+| first retrieval | 35.8 ms | 0.9 ms |
+| warm retrieval | 23.7 ms | <0.1 ms |
+
+Qwen now writes 3 to 5 actions (it usually stops at 3) instead of up to 6.
+
+**Found on the way.** `rag/_sources/SHA256SUMS.txt` is stale: it still lists
+the three duplicate PDFs removed in 3.6 and an older `manifest.json`. The index
+records this and the backend logs it at startup; it does not block anything.
+Regenerate the list once the archive is final.
+
 ## 4. How to check it still works
 
 ```

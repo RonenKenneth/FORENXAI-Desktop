@@ -8,7 +8,8 @@
 #
 # Important:
 #   - XGBoost performs classification. Nothing here changes it.
-#   - Retrieval is a dictionary lookup, not a similarity search.
+#   - Retrieval is a dictionary lookup plus a deterministic
+#     term search over a prebuilt index (rag/config/rag_index.py).
 #   - Qwen writes the wording, and only from the retrieved text.
 #   - Every action is checked back against that text before it
 #     is returned. An action that cannot be traced is dropped.
@@ -31,9 +32,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 import re
-from threading import Lock
-from typing import Any, Dict, List, Optional
+import time
+from threading import Lock, Thread
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.services import model_facts
 from app.utils.runtime_paths import (
@@ -69,9 +73,13 @@ SEARCHED_SECTIONS = 2
 # for the same reason as above: a panel is read, not scrolled.
 LITERATURE_SECTIONS = 2
 
-MAX_ACTIONS = 6
+MAX_ACTIONS = 5
 
-MAX_TOKENS = 320
+# Fewer verified actions than this are topped up with quoted playbook lines.
+MIN_ACTIONS = 3
+
+# Enough for five ~30-word actions in JSON; a cut-off answer is salvaged.
+MAX_TOKENS = 360
 
 # Greedy decoding. Not a tuning choice -- it is what makes two
 # runs of the same case produce the same text.
@@ -154,91 +162,216 @@ def _knowledge_map():
 
 
 # ============================================================
-# SOURCE INDEX -- the real publications in _sources/
+# RAG INDEX -- prepared once, reused across launches
 # ============================================================
+#
+# rag/config/rag_index.py parses knowledge/ and the source archive once and
+# writes rag/.rag_index.json. Here it is opened, not rebuilt: startup reads
+# the index file and compares its recorded knowledge version with a cheap
+# fingerprint of the corpus. Only a changed corpus triggers a rebuild.
+#
+# start_rag_warmup() does this on a background thread when the backend
+# starts, so the first analysis does not pay for it. Every caller that needs
+# the index goes through _rag(), which waits on the same lock, so the index
+# is never built twice.
 
-_si = None
-_si_lock = Lock()
-_si_failed = False
+_rag_module = None
+_rag_index: Optional[Dict[str, Any]] = None
+_rag_lock = Lock()
+_rag_status: Dict[str, Any] = {"state": "not started"}
+_warmup_thread: Optional[Thread] = None
 
 
-def _source_index():
-    """Import rag/config/source_index.py, or None when unavailable.
+def _rag_index_module():
+    global _rag_module
 
-    Unlike the knowledge map this is optional: the archive holds
-    third-party publications and is not in Git, so a checkout without it
-    must still produce a recommendation. What changes is the grounding --
-    with the archive, actions are written from NIST SP 800-53 control text
-    and the incident-response and forensic-process sections; without it,
-    only the local corpus is available, and the response says so.
-    """
-    global _si, _si_failed
-
-    if _si is not None or _si_failed:
-        return _si
-
-    with _si_lock:
-
-        if _si is not None or _si_failed:
-            return _si
-
-        path = get_rag_directory() / "config" / "source_index.py"
+    if _rag_module is None:
+        path = get_rag_directory() / "config" / "rag_index.py"
 
         if not path.is_file():
-            _si_failed = True
-            return None
+            raise FileNotFoundError(
+                f"RAG index builder not found: {path}"
+            )
 
+        spec = importlib.util.spec_from_file_location(
+            "forenxai_rag_index", path
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _rag_module = module
+
+    return _rag_module
+
+
+def _rag() -> Dict[str, Any]:
+    """The loaded index. Opens it on first use; rebuilds only if stale."""
+    global _rag_index
+
+    if _rag_index is not None:
+        return _rag_index
+
+    with _rag_lock:
+
+        if _rag_index is not None:
+            return _rag_index
+
+        _rag_status["state"] = "loading"
+        started = time.perf_counter()
+
+        index, how = _rag_index_module().load_rag_index()
+
+        _rag_status.update({
+            "state": "ready",
+            "how": how,
+            "version": index["version"],
+            "load_ms": round((time.perf_counter() - started) * 1000, 1),
+            "archive_present": index["archive_present"],
+            "integrity": index["integrity"]["status"],
+        })
+
+        print(
+            f"[FORENXAI] RAG index {how} in {_rag_status['load_ms']} ms: "
+            f"{len(index['classes'])} classes, {len(index['pool'])} "
+            f"searchable sections, version {index['version']}"
+            + ("" if index["archive_present"]
+               else " (source archive absent: local corpus only)"),
+            flush=True
+        )
+
+        if index["integrity"]["status"] not in ("ok", "archive not present"):
+            print(
+                f"[FORENXAI] Source integrity: {index['integrity']['status']} "
+                f"-- {index['integrity']['mismatch'] + index['integrity']['missing']} "
+                f"do not match rag/_sources/SHA256SUMS.txt.",
+                flush=True
+            )
+
+        _rag_index = index
+
+        return index
+
+
+def rag_ready(wait: bool = False) -> bool:
+    """Whether the index is open. With wait=True, open it now if needed."""
+    if wait:
+        if _warmup_thread is not None:
+            _warmup_thread.join()
+        _rag()
+    return _rag_index is not None
+
+
+def rag_status() -> Dict[str, Any]:
+    return dict(_rag_status)
+
+
+def start_rag_warmup(preload_llm: Optional[bool] = None) -> None:
+    """Open the index, then load Qwen, on a background thread.
+
+    Called once at backend startup. Nothing waits for it: an analysis that
+    starts before it finishes simply waits on the same lock. Loading Qwen
+    here moves its load time off the first recommendation; set
+    FORENXAI_PRELOAD_LLM=0 to skip that on a machine short of memory.
+    """
+    global _warmup_thread
+
+    if _warmup_thread is not None:
+        return
+
+    if preload_llm is None:
+        preload_llm = os.environ.get("FORENXAI_PRELOAD_LLM", "1") != "0"
+
+    def work():
         try:
-            spec = importlib.util.spec_from_file_location(
-                "forenxai_source_index",
-                path
-            )
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            _rag()
+        except Exception as error:                      # noqa: BLE001
+            _rag_status.update({"state": "failed", "error": str(error)})
+            print(f"[FORENXAI] RAG index unavailable: {error}", flush=True)
+            return
 
-            if not module.available():
-                print(
-                    "[FORENXAI] Source archive not present; "
-                    "recommendations will cite the local corpus only.",
-                    flush=True
-                )
-                _si_failed = True
-                return None
+        if preload_llm:
+            try:
+                from app.services.llm_provider import get_llm
+                get_llm()
+            except Exception as error:                  # noqa: BLE001
+                print(f"[FORENXAI] Qwen preload skipped: {error}", flush=True)
 
-            _si = module
-
-            print(
-                f"[FORENXAI] Source index loaded: "
-                f"{len(module.index()['controls'])} NIST SP 800-53 "
-                f"controls, "
-                f"{sum(len(d['sections']) for d in module.index()['documents'].values())} "
-                f"indexed sections.",
-                flush=True
-            )
-
-            return _si
-
-        except Exception as error:                  # noqa: BLE001
-            print(
-                f"[FORENXAI] Source index unavailable "
-                f"({type(error).__name__}: {error}).",
-                flush=True
-            )
-            _si_failed = True
-            return None
+    _warmup_thread = Thread(target=work, name="rag-warmup", daemon=True)
+    _warmup_thread.start()
 
 
 # ============================================================
 # RETRIEVAL
 # ============================================================
 
-def _clip(text: Optional[str], budget: int):
-    """Head-truncate to a fixed budget. Returns (text, was_cut)."""
-    if not text:
-        return "", False
-    if len(text) <= budget:
-        return text, False
-    return text[:budget], True
+def _class_bundle(predicted_class: str) -> Dict[str, Any]:
+    """The prepared per-class entry. Unknown classes raise, never fall back."""
+    bundle = _rag()["classes"].get(predicted_class)
+
+    if bundle is None:
+        raise KeyError(
+            f"{predicted_class!r} has no entry in KNOWLEDGE_MAP. Add one "
+            f"rather than falling back to a similar class -- a "
+            f"recommendation attached to the wrong playbook is worse than "
+            f"none."
+        )
+
+    return bundle
+
+
+# (knowledge_version, class, terms, top_k) -> retrieved passages. The version
+# is part of the key, so a rebuilt index can never be served an old answer.
+_retrieval_cache: Dict[Any, List[Dict[str, Any]]] = {}
+_retrieval_lock = Lock()
+
+
+def retrieve_supporting_passages(predicted_class: str,
+                                 query_context: Optional[str] = None,
+                                 top_k: int = SEARCHED_SECTIONS
+                                 ) -> List[Dict[str, Any]]:
+    """Runtime retrieval over the indexed archive, conditioned on the class.
+
+    The query is built deterministically -- the class name, its summary and
+    its MITRE techniques, as knowledge_map.py records them -- plus any extra
+    `query_context`. No model is involved before retrieval. The search runs
+    through the index's postings, so only sections that contain a query term
+    are scored; rarer terms weigh more, fewer than two matched terms is not
+    a match, and ties break on document and section identifier. At most
+    `top_k` passages come back; a weak match is not padded in.
+    """
+    index = _rag()
+    bundle = _class_bundle(predicted_class)
+
+    terms = list(bundle["terms"])
+
+    if query_context:
+        extra = _rag_index_module().source_index()
+        if extra is not None:
+            for term in extra.terms_of(query_context):
+                if term not in terms:
+                    terms.append(term)
+
+    key = (index["version"], predicted_class, tuple(terms), top_k)
+
+    with _retrieval_lock:
+        cached = _retrieval_cache.get(key)
+
+    if cached is not None:
+        return [dict(p) for p in cached]
+
+    found = _rag_index_module().search(
+        index,
+        terms,
+        limit=top_k,
+        exclude=[tuple(r) for r in index["baseline_requests"]],
+    )
+
+    with _retrieval_lock:
+        # Entries for any other knowledge version are dead; drop them.
+        for stale in [k for k in _retrieval_cache if k[0] != index["version"]]:
+            del _retrieval_cache[stale]
+        _retrieval_cache[key] = found
+
+    return [dict(p) for p in found]
 
 
 def retrieve(predicted_class: str,
@@ -246,194 +379,121 @@ def retrieve(predicted_class: str,
              confidence: Optional[float] = None) -> Dict[str, Any]:
     """Every document the recommendation stage may use for one class.
 
-    Raises KeyError for an unknown class rather than substituting a
-    similar one.
+    Assembled from the prepared index: no knowledge file is opened and the
+    archive is not parsed here. Raises KeyError for an unknown class rather
+    than substituting a similar one. The return shape is unchanged, so the
+    interface and the report read it as before.
     """
-    km = _knowledge_map()
-
-    context = km.context_for(predicted_class)
+    index = _rag()
+    bundle = _class_bundle(predicted_class)
 
     passages: List[Dict[str, Any]] = []
     truncated: List[str] = []
 
     for role in ("attack", "response"):
 
-        document = context["documents"].get(role)
+        document = bundle["documents"].get(role)
 
         if not document:
             continue
-
-        text, was_cut = _clip(
-            document["text"],
-            DOC_CHAR_BUDGET
-        )
 
         passages.append({
             "role": role,
             "doc_id": "FORENXAI.corpus",
             "path": f"knowledge/{document['path']}",
-            "text": text
+            "text": document["text"],
         })
 
-        if was_cut:
+        if document["truncated"]:
             truncated.append(document["path"])
 
-    for relative_path in getattr(km, "ALWAYS_LOAD", []):
-
-        text = km.load(relative_path)
-
-        if not text:
-            continue
-
-        clipped, was_cut = _clip(text, ALWAYS_CHAR_BUDGET)
+    for note in index["always"]:
 
         passages.append({
             "role": "always",
             "doc_id": "FORENXAI.corpus",
-            "path": f"knowledge/{relative_path}",
-            "text": clipped
+            "path": f"knowledge/{note['path']}",
+            "text": note["text"],
         })
 
-        if was_cut:
-            truncated.append(relative_path)
+        if note["truncated"]:
+            truncated.append(note["path"])
 
-    # What the evaluation measured about this prediction: how good the
-    # class is, and what this particular flow might be instead. Read from
-    # model_facts.json rather than from a table in the knowledge map, so a
-    # retrain updates it instead of silently invalidating it.
+    # What the evaluation measured about this prediction, from
+    # model_facts.json, so a retrain updates it.
     measured = model_facts.describe(
         predicted_class,
         probabilities,
         confidence
     )
 
-    # A live alternative earns its own documents. An analyst told the flow
-    # might be DoS or Slowloris needs both playbooks, not one of them and a
-    # warning.
+    # A live alternative earns its detection profile. An analyst told the
+    # flow might be DoS or Slowloris needs both, not one and a warning.
     for alternative in measured["alternatives"]:
 
-        try:
-            other = km.context_for(alternative["class"])
-        except KeyError:
+        other = index["classes"].get(alternative["class"])
+        profile = other and other.get("alternative_profile")
+
+        if not profile:
             continue
-
-        document = other["documents"].get("attack")
-
-        if not document:
-            continue
-
-        text, was_cut = _clip(
-            document["text"],
-            ALTERNATIVE_CHAR_BUDGET
-        )
 
         passages.append({
             "role": "alternative",
             "doc_id": "FORENXAI.corpus",
-            "path": f"knowledge/{document['path']}",
-            "text": text
+            "path": f"knowledge/{profile['path']}",
+            "text": profile["text"],
         })
 
-        if was_cut:
-            truncated.append(document["path"])
+        if profile["truncated"]:
+            truncated.append(profile["path"])
 
     ambiguous = [
-        pair for pair in getattr(km, "AMBIGUOUS_PAIRS", [])
-        if predicted_class in pair.get("classes", ())
+        pair for pair in index["ambiguous_pairs"]
+        if predicted_class in pair["classes"]
     ]
 
-    # Passages from the real publications. The control identifiers are
-    # already class-specific; the two sections apply to every class.
-    standards: List[Dict[str, Any]] = []
+    # Fixed sources, resolved once at index build: the class's NIST SP
+    # 800-53 controls by exact identifier, and the two baseline sections.
+    # Then runtime retrieval for the supporting passages.
+    standards = (
+        [dict(p) for p in bundle["control_passages"]]
+        + [dict(p) for p in index["baselines"]]
+        + retrieve_supporting_passages(predicted_class)
+    )
+
+    literature = [dict(p) for p in bundle["literature"]]
+
     sources: List[Dict[str, str]] = []
-    literature: List[Dict[str, Any]] = []
-    missing_standards: List[str] = []
 
-    si = _source_index()
+    for passage in standards + literature:
 
-    if si is not None:
-
-        requests = list(si.BASELINE_SECTIONS)
-
-        standards = (
-            si.controls_for(context["controls"])
-            + si.sections_for(requests)
+        formatted = (
+            index["citations"].get(passage["doc_id"], {}).get("citation")
         )
 
-        # The two baseline sections apply to every class, and the control
-        # identifiers are fixed per class in the knowledge map. Neither
-        # reaches the rest of the archive: the OWASP risk that matches a
-        # web attack, the RFC that defines the fragmentation behaviour,
-        # the forensic step that fits this traffic. Search finds those by
-        # the terms the class is described in, so a document earns its
-        # place in the answer instead of being wired to one.
-        searched = si.search(
-            si.terms_of(
-                predicted_class,
-                context["summary"],
-                " ".join(context.get("mitre") or []),
-            ),
-            limit=SEARCHED_SECTIONS,
-            exclude=requests,
-        )
-
-        standards = standards + searched
-
-        # Published context, kept apart from `standards` on purpose. The
-        # nine peer-reviewed comparators answer "what does the literature
-        # report for this class" -- useful beside a prediction, and not
-        # authority for a containment step. Feeding a methods section to
-        # the action generator would let it ground an instruction in a
-        # paper's experimental setup, so these never enter `standards`
-        # and never reach the verifier's evidence set. They are cited.
-        literature = []
-
-        lookup = getattr(si, "literature_for", None)
-
-        if callable(lookup):
-            try:
-                literature = lookup(
-                    si.terms_of(
-                        predicted_class,
-                        context["summary"],
-                    ),
-                    limit=LITERATURE_SECTIONS,
-                )
-            except Exception:                        # noqa: BLE001
-                literature = []
-
-        missing_standards = si.missing_for(
-            context["controls"],
-            requests
-        )
-
-        for passage in standards + literature:
-
-            formatted = si.citation(passage["doc_id"])
-
-            if formatted and not any(
-                s["doc_id"] == passage["doc_id"] for s in sources
-            ):
-                sources.append({
-                    "doc_id": passage["doc_id"],
-                    "citation": formatted
-                })
+        if formatted and not any(
+            s["doc_id"] == passage["doc_id"] for s in sources
+        ):
+            sources.append({
+                "doc_id": passage["doc_id"],
+                "citation": formatted
+            })
 
     return {
         "predicted_class": predicted_class,
-        "summary": context["summary"],
-        "mitre": context["mitre"],
-        "controls": context["controls"],
+        "summary": bundle["summary"],
+        "mitre": bundle["mitre"],
+        "controls": bundle["controls"],
         "passages": passages,
         "standards": standards,
         "literature": literature,
         "sources": sources,
-        "missing_standards": missing_standards,
+        "missing_standards": bundle["missing_standards"],
         "citations": (
             [p["path"] for p in passages]
             + [s["label"] for s in standards]
         ),
-        "missing": context["missing"],
+        "missing": bundle["missing"],
         "truncated": truncated,
         "low_confidence_f1": (
             measured["class_f1"]
@@ -447,6 +507,7 @@ def retrieve(predicted_class: str,
             }
             for pair in ambiguous
         ],
+        "knowledge_version": index["version"],
     }
 
 
@@ -723,112 +784,196 @@ def _extract_actions(passages: List[Dict[str, Any]]) -> List[str]:
 
 
 # ============================================================
-# PROMPT
+# PROMPT -- compact, numbered, source-linked
 # ============================================================
+#
+# Prompt length is what the recommendation panel waits on: Qwen processes
+# the prompt at roughly 76 tokens per second on this CPU, and the previous
+# prompt -- two whole documents, three always-loaded notes, alternatives,
+# full control text -- was about 3,200 tokens, 42 seconds before the first
+# output token. The context below carries only what an action can be written
+# from, each piece once, under a short identifier the model cites:
+#
+#   the class and its summary, one line on alternatives and ambiguity
+#   the detection profile, as one citable passage
+#   every sourced line of the response playbook (NIST 800-61r3 / 800-86)
+#   the class's NIST SP 800-53 controls, resolved by exact identifier
+#   the two baseline sections, SP 800-61r3 3.2 and SP 800-86 3.1
+#   0-2 retrieved supporting passages
+#
+# SHAP features are no longer sent: generating with two disjoint feature
+# sets was measured to give identical actions, so they cost tokens and
+# changed nothing. The glossary, caveats and scope notes are not sent either;
+# they are shown with the recommendation, not used to write it.
 
-def _build_prompt(retrieved: Dict[str, Any],
-                  shap_features=None) -> str:
+def _short(text: str, budget: int) -> str:
+    text = " ".join(str(text).split())
+    if len(text) <= budget:
+        return text
+    cut = text[:budget].rsplit(" ", 1)[0]
+    return cut.rstrip(",;:") + " ..."
 
-    # Published standards first. They are the authority; the local corpus
-    # describes this dataset and, for the response playbooks, is still
-    # placeholder prose. Ordering the prompt this way is what stops a
-    # 3B model from preferring the familiar-sounding local text.
-    blocks = [
-        f"[{passage['label']}]\n{passage['text']}"
-        for passage in retrieved.get("standards", [])
-    ]
 
-    blocks += [
-        f"[{passage['path']}]\n{passage['text']}"
-        for passage in retrieved["passages"]
-    ]
+def build_generation_context(predicted_class: str,
+                             retrieved: Dict[str, Any]
+                             ) -> Tuple[str, Dict[str, Dict[str, Any]]]:
+    """The Qwen prompt and the sources it may cite.
 
-    sources = "\n\n".join(blocks)
+    Returns (prompt, sources) where sources maps each prompt identifier
+    ("S1", "S2", ...) to its provenance: the canonical source_id, document,
+    label and the exact text shown to the model. verify_actions() accepts an
+    action only if it cites one of these identifiers.
+    """
+    rag_budget = _rag_index_module()
+    bundle = _class_bundle(predicted_class)
 
-    caveat = ""
+    entries: List[Dict[str, Any]] = []
 
+    def add(source_id, doc_id, label, text, budget, kind):
+        shown = _short(text, budget)
+        if not shown:
+            return
+        entries.append({
+            "source_id": source_id,
+            "doc_id": doc_id,
+            "label": label,
+            "text": shown,
+            "kind": kind,
+        })
+
+    for passage in retrieved.get("standards", []):
+        kind = "control" if passage.get("kind") == "control" else "section"
+        if passage.get("score") is not None:
+            kind = "retrieved"
+        budget = {
+            "control": rag_budget.CONTROL_CHARS,
+            "section": rag_budget.BASELINE_CHARS,
+            "retrieved": rag_budget.PASSAGE_CHARS,
+        }[kind]
+        add(
+            passage.get("source_id") or passage["label"],
+            passage["doc_id"],
+            passage["label"],
+            passage["text"],
+            budget,
+            kind,
+        )
+
+    for line in bundle["playbook_lines"]:
+        add(line["source_id"], line["doc_id"], line["label"], line["text"],
+            rag_budget.PLAYBOOK_LINE_CHARS, "playbook")
+
+    profile = bundle["documents"].get("attack")
+    if profile and bundle["profile_summary"]:
+        add(f"FORENXAI:{profile['path'].rsplit('/', 1)[-1].rsplit('.', 1)[0]}",
+            "FORENXAI.corpus", f"knowledge/{profile['path']}",
+            bundle["profile_summary"], rag_budget.PROFILE_CHARS, "profile")
+
+    # One identifier per distinct source; a repeated source_id keeps the
+    # first, so every prompt identifier resolves to exactly one source.
+    sources: Dict[str, Dict[str, Any]] = {}
+    seen = set()
+    for entry in entries:
+        if entry["source_id"] in seen:
+            continue
+        seen.add(entry["source_id"])
+        sources[f"S{len(sources) + 1}"] = entry
+
+    notes = []
     measured = retrieved.get("measured", {})
-
-    for note in measured.get("notes", []):
-        caveat += f"\n{note}"
-
-    alternatives = measured.get("alternatives", [])
-
+    alternatives = [a["class"] for a in measured.get("alternatives", [])]
     if alternatives:
-        named = ", ".join(
-            a["class"] for a in alternatives
+        notes.append(
+            f"This flow may instead be {', '.join(alternatives)}; write "
+            f"actions that hold for either."
         )
-        caveat += (
-            f"\nThis flow may instead be: {named}. Write actions that are "
-            f"correct whichever of these it is, and do not name one of them "
-            f"as settled."
-        )
+    for pair in retrieved.get("ambiguous_with", []):
+        notes.append(_short(pair["note"], 200))
 
-    if measured.get("confidence") is not None:
-        caveat += (
-            f"\nThe model's confidence in this flow is "
-            f"{measured['confidence']:.1%}."
-        )
+    listing = "\n".join(
+        f"[{ref}] {entry['label'] if entry['kind'] != 'profile' else 'Detection profile'}: "
+        f"{entry['text']}"
+        for ref, entry in sources.items()
+    )
 
-    for pair in retrieved["ambiguous_with"]:
-        caveat += f"\n{pair['note']}"
+    note_text = ("\nNOTE: " + " ".join(notes)) if notes else ""
 
-    # What TreeSHAP says drove THIS flow's classification. It is evidence
-    # about the decision, not a source for the actions: the model may cite
-    # a feature by name only because the glossary is among the retrieved
-    # passages, and the verifier checks against those, not against this.
-    evidence = ""
+    prompt = f"""You write the response actions of a network forensic report.
+The classifier has decided the class. Do not change or question it.
 
-    if shap_features:
-        named = ", ".join(
-            f"{f.get('feature')} ({f.get('contribution', f.get('shap', 0)):+.3f})"
-            for f in shap_features[:5]
-            if f.get("feature")
-        )
-        if named:
-            evidence = (
-                f"\nThe features that drove this classification, by TreeSHAP "
-                f"contribution in log-odds: {named}. Refer to them only where "
-                f"a source document explains what they mean."
-            )
+CLASS: {predicted_class} -- {retrieved['summary']}{note_text}
 
-    mitre = ", ".join(retrieved["mitre"]) or "none recorded"
-    controls = ", ".join(retrieved["controls"]) or "none recorded"
+SOURCES (the only material you may use):
+{listing}
 
-    return f"""You are writing the response section of a network forensic report.
-
-The classifier has determined the class. You do not change it, question it, or
-add a different one. You write the analyst's next actions and nothing else.
-
-SOURCE DOCUMENTS -- the only material you may use:
-
-{sources}
-
-CLASS: {retrieved['predicted_class']}
-SUMMARY: {retrieved['summary']}
-MITRE: {mitre}
-CONTROLS: {controls}{caveat}{evidence}
-
-Write between three and {MAX_ACTIONS} response actions, drawn only from the
-source documents above. One action per line, each beginning with "- ".
-Each must be a single imperative sentence an analyst can carry out.
-Do not number them, do not add a heading, do not add commentary, and do not
-state anything the source documents do not support.
-
-ACTIONS:
+TASK: Write 3 to {MAX_ACTIONS} response actions for this {predicted_class} finding.
+Each action is one imperative sentence (at most 30 words) that an analyst can
+carry out, reuses the wording of ONE source above, and gives that source's
+bracketed id as source_id. Prefer the playbook and control sources. Reply with
+a JSON object whose "actions" list holds objects with "text" and "source_id".
 """
 
+    return prompt, sources
+
+
+def _build_prompt(retrieved: Dict[str, Any], shap_features=None) -> str:
+    """The prompt alone, for callers of the previous interface."""
+    return build_generation_context(
+        retrieved["predicted_class"], retrieved
+    )[0]
+
 
 # ============================================================
-# GENERATION
+# GENERATION -- structured, constrained, greedy
 # ============================================================
 
-def _generate(prompt: str) -> Optional[str]:
+def _action_schema(source_refs: List[str]) -> Dict[str, Any]:
+    """JSON schema the output is constrained to.
+
+    source_id is an enum of the identifiers in the prompt, so Qwen cannot
+    emit a source that was not supplied; verify_actions() still checks,
+    because the grammar is a generation aid and the verifier is the rule.
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "actions": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": MAX_ACTIONS,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "source_id": {"type": "string", "enum": source_refs},
+                    },
+                    "required": ["text", "source_id"],
+                },
+            },
+        },
+        "required": ["actions"],
+    }
+
+
+def _generate(prompt: str,
+              source_refs: Optional[List[str]] = None) -> Optional[str]:
     """Run Qwen greedily. Returns None when it is unavailable."""
     try:
         from app.services.llm_provider import get_llm
 
         llm = get_llm()
+
+        grammar = None
+
+        if source_refs:
+            try:
+                from llama_cpp import LlamaGrammar
+                grammar = LlamaGrammar.from_json_schema(
+                    json.dumps(_action_schema(source_refs)),
+                    verbose=False,
+                )
+            except Exception:                           # noqa: BLE001
+                grammar = None
 
         result = llm(
             prompt,
@@ -836,7 +981,8 @@ def _generate(prompt: str) -> Optional[str]:
             temperature=TEMPERATURE,
             top_p=TOP_P,
             top_k=TOP_K,
-            echo=False
+            echo=False,
+            grammar=grammar,
         )
 
         return result["choices"][0]["text"].strip()
@@ -853,78 +999,193 @@ def _generate(prompt: str) -> Optional[str]:
         return None
 
 
-# A 3B model does not reliably stop after the list. It appends a code
-# fence, restates the instruction, or repeats the whole list. None of
-# that is a grounding failure -- the words still come from the sources,
-# so the overlap check passes -- which is why it is removed here rather
-# than left to _is_grounded.
-_FENCE = re.compile(r"`{2,}\s*\w*")
-
-_META = re.compile(
-    r"(here are the|to ensure the|to remain sensi|guidelines provided|"
-    r"as an ai|in summary|the above actions|these actions|i hope this|"
-    r"let me know|based on the source|remain sensible|if the class is "
-    r"wrong|source document)",
-    re.IGNORECASE
+_ACTION_OBJECT = re.compile(
+    r'\{\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*'
+    r'"source_id"\s*:\s*("(?:[^"\\]|\\.)*"|\[[^\]]*\])\s*\}'
 )
 
 
-def _parse_actions(generated: str) -> List[str]:
+def _parse_structured(generated: Optional[str]) -> Tuple[List[Any], str]:
+    """Actions from Qwen's JSON. Returns (actions, status).
 
-    actions: List[str] = []
-    seen = set()
+    status is "ok", "salvaged" (the JSON was cut off, usually by the token
+    limit, and the complete action objects were recovered from it) or
+    "malformed" (nothing usable). Each action is returned as Qwen wrote it;
+    judging it is verify_actions()'s job.
+    """
+    if not generated:
+        return [], "empty"
 
-    # A 3B model sometimes runs two bullets onto one line. Splitting on
-    # " - " recovers them; a hyphenated word has no surrounding spaces so
-    # it is untouched.
-    lines = []
+    try:
+        data = json.loads(generated)
+        actions = data.get("actions") if isinstance(data, dict) else None
+        if isinstance(actions, list):
+            return actions, "ok"
+    except ValueError:
+        pass
 
-    for raw in generated.splitlines():
-        lines.extend(raw.split(" - "))
+    salvaged = []
+    for text, source in _ACTION_OBJECT.findall(generated):
+        try:
+            salvaged.append({
+                "text": json.loads(f'"{text}"'),
+                "source_id": json.loads(source),
+            })
+        except ValueError:
+            continue
 
+    return salvaged, ("salvaged" if salvaged else "malformed")
+
+
+# Playbook sections in the order a responder needs them when quoting.
+_QUOTE_ORDER = ("4.3", "4.5", "4.4", "4.2")
+
+
+def _quoted_playbook_actions(predicted_class: str, used, needed: int
+                             ) -> List[Dict[str, Any]]:
+    """Playbook lines quoted verbatim, each under its own source_id."""
+    lines = sorted(
+        _class_bundle(predicted_class)["playbook_lines"],
+        key=lambda line: (
+            _QUOTE_ORDER.index(line["section"])
+            if line["section"] in _QUOTE_ORDER else len(_QUOTE_ORDER)
+        ),
+    )
+    quoted = []
     for line in lines:
-
-        stripped = line.strip()
-
-        if not stripped:
-            continue
-
-        # A fence ends the list; everything after it is commentary.
-        if _FENCE.search(stripped):
-            stripped = _FENCE.split(stripped)[0].strip()
-            if len(stripped) < 15:
-                break
-
-        stripped = re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", stripped)
-
-        # Commentary can begin mid-line. Keep what precedes it.
-        meta = _META.search(stripped)
-
-        if meta:
-            stripped = stripped[:meta.start()].strip()
-            if len(stripped) < 15:
-                break
-
-        if len(stripped) < 15:
-            continue
-
-        if stripped.lower().startswith(("actions", "note", "source",
-                                        "class:", "mitre", "controls")):
-            continue
-
-        if not stripped.endswith("."):
-            stripped += "."
-
-        key = stripped.lower()
-
-        if key in seen:
-            # The model has started repeating; the list is finished.
+        if len(quoted) >= needed:
             break
+        if line["source_id"] in used:
+            continue
+        used.add(line["source_id"])
+        text = line["text"] if line["text"].endswith(".") else line["text"] + "."
+        quoted.append({
+            "text": text,
+            "evidence": {
+                "source": line["label"],
+                "doc_id": line["doc_id"],
+                "match": "quoted",
+                "span": "",
+                "coverage": 1.0,
+                "source_id": line["source_id"],
+                "kind": "playbook",
+            },
+        })
+    return quoted
 
-        seen.add(key)
-        actions.append(stripped)
 
-    return actions[:MAX_ACTIONS]
+def verify_actions(actions: List[Any],
+                   sources: Dict[str, Dict[str, Any]]
+                   ) -> Dict[str, Any]:
+    """Deterministic check of generated actions against the supplied sources.
+
+    An action is kept only when all of these hold:
+      - it is an object with non-empty text
+      - it carries exactly one source_id (a list or "S1, S2" is rejected)
+      - that source_id was supplied in the prompt
+      - it resolves to exactly one source
+      - the cited source itself accounts for the action's wording
+        (verify(): a shared run of SPAN_WORDS words, or TERM_COVERAGE of
+        its significant words), so a real citation on an invented sentence
+        still fails
+    No model is involved. Every dropped action carries its reason.
+    """
+    verified: List[Dict[str, Any]] = []
+    dropped: List[Dict[str, Any]] = []
+    seen_text = set()
+
+    for position, action in enumerate(actions, start=1):
+
+        def drop(reason, text=""):
+            dropped.append({"action_id": f"a{position}", "text": text,
+                            "source_id": None, "reason": reason})
+
+        if not isinstance(action, dict):
+            drop("malformed action", str(action)[:200])
+            continue
+
+        text = " ".join(str(action.get("text") or "").split())
+        ref = action.get("source_id")
+
+        if not text:
+            drop("empty action text")
+            continue
+
+        if not text.endswith("."):
+            text += "."
+
+        if ref is None or (isinstance(ref, str) and not ref.strip()):
+            drop("missing source_id", text)
+            continue
+
+        if isinstance(ref, (list, tuple)) or not isinstance(ref, str) or \
+                len(re.findall(r"S\d+", ref)) > 1 or "," in ref:
+            drop("more than one source_id", text)
+            dropped[-1]["source_id"] = ref
+            continue
+
+        ref = ref.strip().strip("[]")
+
+        matches = [r for r in sources if r == ref]
+
+        if not matches:
+            drop("source_id not in the supplied context", text)
+            dropped[-1]["source_id"] = ref
+            continue
+
+        if len(matches) != 1:
+            drop("source_id does not resolve to one source", text)
+            dropped[-1]["source_id"] = ref
+            continue
+
+        source = sources[ref]
+
+        evidence = verify(text, [{
+            "text": source["text"],
+            "doc_id": source["doc_id"],
+            "label": source["label"],
+            "role": source["kind"],
+        }])
+
+        if evidence is None:
+            drop("not supported by the cited source", text)
+            dropped[-1]["source_id"] = source["source_id"]
+            continue
+
+        if text.lower() in seen_text:
+            drop("duplicate action", text)
+            dropped[-1]["source_id"] = source["source_id"]
+            continue
+
+        seen_text.add(text.lower())
+
+        evidence.update({
+            "source_id": source["source_id"],
+            "source_ref": ref,
+            "kind": source["kind"],
+        })
+
+        verified.append({
+            "action_id": f"a{position}",
+            "text": text,
+            "source_id": source["source_id"],
+            "evidence": evidence,
+        })
+
+    reasons: Dict[str, int] = {}
+    for item in dropped:
+        reasons[item["reason"]] = reasons.get(item["reason"], 0) + 1
+
+    return {
+        "verified_actions": verified,
+        "dropped_actions": dropped,
+        "verification_summary": {
+            "generated": len(actions),
+            "verified": len(verified),
+            "dropped": len(dropped),
+            "reasons": reasons,
+        },
+    }
 
 
 # ============================================================
@@ -963,35 +1224,9 @@ def _locator(label: str) -> str:
 
 
 def _manifest_acm(doc_id: str) -> Optional[str]:
-    """ACM citation from the source manifest, archive present or not."""
-    si = _source_index()
-
-    if si is not None:
-        return si.acm_citation(doc_id)
-
-    # The index would not load without the PDFs, but the manifest that
-    # names them is tracked. Read it directly.
-    try:
-        import json
-
-        path = (
-            get_rag_directory() / "_sources" / "manifest.json"
-        )
-
-        if not path.is_file():
-            return None
-
-        entry = json.loads(
-            path.read_text(encoding="utf-8")
-        ).get(doc_id)
-
-        if not entry:
-            return None
-
-        return entry.get("acm") or entry.get("citation")
-
-    except (OSError, ValueError):
-        return None
+    """ACM citation for a manifest entry, from the prepared index."""
+    entry = _rag()["citations"].get(doc_id) or {}
+    return entry.get("acm") or entry.get("citation")
 
 
 def _build_references(evidence: List[Dict[str, Any]],
@@ -1003,8 +1238,6 @@ def _build_references(evidence: List[Dict[str, Any]],
     because a reference list is a record of what was used, not of what
     was available.
     """
-    si = _source_index()
-
     order: List[str] = []
 
     for item in evidence:
@@ -1251,6 +1484,12 @@ def get_recommendation(predicted_class: str,
 
     retrieved = retrieve(predicted_class, probabilities, confidence)
 
+    verification: Dict[str, Any] = {
+        "verified_actions": [], "dropped_actions": [],
+        "verification_summary": {"generated": 0, "verified": 0,
+                                 "dropped": 0, "reasons": {}},
+    }
+
     has_playbook = any(
         p["role"] == "response"
         for p in retrieved["passages"]
@@ -1352,6 +1591,42 @@ def get_recommendation(predicted_class: str,
             "measured": retrieved.get("measured", {}),
             "ambiguous_with": retrieved["ambiguous_with"],
             "rejected_ungrounded": rejected or [],
+            # The shared recommendation object. The interface reads the
+            # fields above as before; these carry the structured record
+            # the report and the verification view read.
+            "retrieved_sources": [
+                {
+                    "source_id": p.get("source_id") or p["label"],
+                    "doc_id": p["doc_id"],
+                    "label": p["label"],
+                    "kind": "retrieved" if p.get("score") is not None
+                    else p.get("kind", "section"),
+                    "score": p.get("score"),
+                }
+                for p in retrieved.get("standards", [])
+            ],
+            "generated_actions": (
+                verification["verification_summary"]["generated"]
+            ),
+            "verified_actions": [
+                {
+                    "action_id": f"a{i}",
+                    "text": t,
+                    "source_id": (e or {}).get("source_id"),
+                    "label": (e or {}).get("source"),
+                    "doc_id": (e or {}).get("doc_id"),
+                }
+                for i, (t, e) in enumerate(
+                    zip(texts, evidence or [None] * len(texts)), start=1)
+            ],
+            "dropped_actions": verification["dropped_actions"],
+            "verification_summary": verification["verification_summary"],
+            "verification": {
+                k: v for k, v in verification.items()
+                if k not in ("verified_actions", "dropped_actions",
+                             "verification_summary")
+            },
+            "knowledge_version": retrieved.get("knowledge_version"),
         }
 
         with _cache_lock:
@@ -1367,30 +1642,42 @@ def get_recommendation(predicted_class: str,
         retrieved.get("standards", []) + retrieved["passages"]
     )
 
-    generated = _generate(
-        _build_prompt(retrieved, shap_features)
-    )
+    prompt, supplied = build_generation_context(predicted_class, retrieved)
 
-    actions: List[Dict[str, Any]] = []
-    rejected: List[str] = []
-    generator = "extraction"
+    generated = _generate(prompt, list(supplied))
 
-    if generated:
+    raw_actions, parse_status = _parse_structured(generated)
 
-        for action in _parse_actions(generated):
+    checked = verify_actions(raw_actions, supplied)
 
-            evidence = verify(action, all_passages)
+    verification.update(checked)
+    verification["parse_status"] = parse_status if generated else "generator unavailable"
+    verification["supplied_sources"] = {
+        ref: {k: v for k, v in entry.items() if k != "text"}
+        for ref, entry in supplied.items()
+    }
 
-            if evidence:
-                actions.append({"text": action, "evidence": evidence})
-            else:
-                rejected.append(action)
+    actions: List[Dict[str, Any]] = [
+        {"text": a["text"], "evidence": a["evidence"]}
+        for a in checked["verified_actions"]
+    ]
+    rejected: List[str] = [
+        d["text"] for d in checked["dropped_actions"] if d["text"]
+    ]
+    generator = "qwen2.5-3b-q4.gguf" if actions else "extraction"
 
-        if len(actions) >= 3:
-            generator = "qwen2.5-3b-q4.gguf"
-        else:
-            rejected.extend(a["text"] for a in actions)
-            actions = []
+    if len(actions) < MIN_ACTIONS:
+        # Too few verified actions to present alone. Top up with playbook
+        # lines quoted verbatim under their own source identifier --
+        # quotation, not generation, so nothing unsourced is added.
+        quoted = _quoted_playbook_actions(
+            predicted_class,
+            used={a["evidence"].get("source_id") for a in actions},
+            needed=MIN_ACTIONS - len(actions),
+        )
+        if quoted:
+            actions.extend(quoted)
+            verification["topped_up_with_quotes"] = len(quoted)
 
     if not actions:
         actions = [

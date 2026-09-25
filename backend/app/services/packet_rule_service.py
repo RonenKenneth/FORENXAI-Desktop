@@ -77,6 +77,9 @@ FAILED_LOGIN = [                      # (server port, reply prefix, description)
     (23, b"Login incorrect", "Telnet login incorrect"),
 ]
 
+# Written by update_suricata_rules.py; used when rules.json names no rules_file.
+DEFAULT_RULES_FILE = Path(__file__).resolve().parents[3] / "tools" / "suricata" / "et-open.rules"
+
 TLS_VERSIONS = {0x0002: "SSL 2.0", 0x0300: "SSL 3.0", 0x0301: "TLS 1.0"}
 
 
@@ -484,8 +487,10 @@ def run_suricata(pcap: Path, out_dir: Path,
         (str(p) for p in (Path(binary).parent / "suricata.yaml",) if p.is_file()), "")
     if config_file:
         command += ["-c", config_file]
-    if cfg.get("rules_file"):
-        command += ["-S", cfg["rules_file"]]
+    rules_file = cfg.get("rules_file") or (str(DEFAULT_RULES_FILE) if DEFAULT_RULES_FILE.is_file() else "")
+    if rules_file:
+        command += ["-S", rules_file]
+    status["rules_file"] = rules_file or "suricata.yaml default"
     status["binary"] = binary
     try:
         finished = subprocess.run(command, capture_output=True, text=True, cwd=str(Path(binary).parent),
@@ -505,6 +510,7 @@ def run_suricata(pcap: Path, out_dir: Path,
 def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Dict[str, Any]]:
     mapping = cfg.get("class_mapping", [])
     worst = int(cfg.get("min_severity", 3))
+    ignored = cfg.get("ignore_signatures_containing", [])
     grouped: Dict[Tuple[int, tuple], Dict[str, Any]] = {}
     unmapped = Counter()
     with eve.open(encoding="utf-8", errors="replace") as stream:
@@ -521,6 +527,9 @@ def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Di
             if severity > worst:
                 continue
             signature = str(alert.get("signature", ""))
+            if any(w.lower() in signature.lower() for w in ignored):
+                status["ignored"] = status.get("ignored", 0) + 1
+                continue
             cls = map_alert(signature, alert.get("category", ""), mapping)
             if cls is None:
                 unmapped[signature] += 1

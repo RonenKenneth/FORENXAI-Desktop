@@ -198,6 +198,12 @@ def main():
               len(hits) == 1 and hits[0]["measured"] == 2 and hits[0]["class"] == "WebBased")
         check("evidence names the signature id", "2006445" in hits[0]["evidence"])
         check("eve timestamp with +0800 parsed", hits[0]["_flows"][0][1] == 1790402400.0)
+        offload = dict(alert, alert=dict(alert["alert"], signature_id=2200074,
+                                         signature="SURICATA TCPv4 invalid checksum"))
+        eve.write_text(json.dumps(offload), encoding="utf-8")
+        status = {"alerts": 0, "mapped": 0}
+        check("checksum-offload alerts are ignored, and counted",
+              ps.parse_eve(eve, rs.load_config()["suricata"], status) == [] and status["ignored"] == 1)
     missing = ps.run_suricata(Path("x.pcap"), Path(tempfile.gettempdir()) / "fx_suri",
                               {"suricata": {"enabled": True, "binary": "Z:/none/suricata.exe"}})
     check("missing Suricata is reported, not raised",

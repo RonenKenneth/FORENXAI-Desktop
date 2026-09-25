@@ -468,7 +468,11 @@
         ]
       }
     ],
-    "class_mapping_note": "Ordered: the first entry whose signature prefix or category (Suricata's classtype description as written in eve.json) matches wins; 'contains' words, when given, must also appear in the signature. Unmapped signatures are listed in the case's rule_analysis."
+    "class_mapping_note": "Ordered: the first entry whose signature prefix or category (Suricata's classtype description as written in eve.json) matches wins; 'contains' words, when given, must also appear in the signature. Unmapped signatures are listed in the case's rule_analysis.",
+    "ignore_signatures_containing": [
+      "invalid checksum"
+    ],
+    "ignore_note": "Captures taken on the sending host carry wrong checksums from NIC offloading; Suricata's checksum signatures then fire on nearly every packet (6,991 of 7,029 alerts on LabActivity2) without any attack."
   },
   "decision": {
     "description": "decide(): which detector's class becomes the verdict. trust = 'rule' only where the rule was measured as precise on held-out data (tuning.test_results precision >= 0.9); every other class trusts the model. Confidence thresholds and the out-of-distribution limit come from the model bundle (decision_thresholds.json, ood_stats.json).",

@@ -93,3 +93,23 @@ dir C:\Windows\System32\wpcap.dll C:\Windows\System32\Packet.dll
 
 Wireshark being installed is not sufficient: it can be installed with the Npcap
 component unticked, which is the state this machine was in.
+
+## Suricata (Tier 2 signatures)
+
+Suricata itself is installed system-wide, not here:
+
+    winget install --id OISF.Suricata --exact
+
+(needs Npcap, which Wireshark already installs, and one UAC prompt). The
+backend finds `C:\Program Files\Suricata\suricata.exe`, or the path in the
+`FORENXAI_SURICATA` environment variable, or `binary` in `rules.json`.
+
+The Emerging Threats Open signatures live here, because Program Files is not
+writable without admin rights:
+
+    cd backend
+    python update_suricata_rules.py          # writes tools/suricata/et-open.rules
+
+Rerun it to refresh the signatures. Without the file Suricata falls back to
+the protocol-event rules in its own suricata.yaml; without Suricata the case
+records "Suricata not run" and the scapy checks still run.

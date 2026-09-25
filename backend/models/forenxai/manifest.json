@@ -115,14 +115,14 @@
       "sha256": "7b356febe0212f2db8d669d1fd676702606ff1da2f7b87814bc0deb7d95d512d"
     },
     "shap_global.json": {
-      "bytes": 53974,
-      "sha256_16": "89f65b8890027710",
-      "sha256": "89f65b88900277104f379d41f04447560a6799dce09fe7c82fedef2fae2a8ec9"
+      "bytes": 54248,
+      "sha256_16": "704dfcec9581d067",
+      "sha256": "704dfcec9581d0672e484ef87f090de0bf4d8d853f73808d7486281461f3c3b0"
     },
     "XGBoost.pkl": {
-      "bytes": 26858847,
-      "sha256_16": "25ca234168549112",
-      "sha256": "25ca2341685491128ba53a5a536e0f9546e34ff618e81e376c7dd0666038acbc"
+      "bytes": 4553513,
+      "sha256_16": "247fb8446ca6144a",
+      "sha256": "247fb8446ca6144a33916e8105711864f4305147bb41e94696ecdeb1ad1b3a87"
     }
   }
 }

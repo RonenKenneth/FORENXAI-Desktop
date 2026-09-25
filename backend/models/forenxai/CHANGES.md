@@ -14,13 +14,13 @@ be hunted for.
 
 | File | What it is | SHA-256 (first 16) |
 |---|---|---|
-| `XGBoost.pkl` | the 16-class classifier, 25.6 MB, trained on TRUSTLab | `25ca234168549112` |
+| `XGBoost.pkl` | the 16-class classifier, tuned (section 3.17), 132 rounds, trained on TRUSTLab | `247fb8446ca6144a` |
 | `scaler.pkl` | StandardScaler, fitted on training rows only | `7b356febe0212f2d` |
 | `features.pkl` | the 66 feature names **in order** | `64a7c523e12144dc` |
 | `label_encoder.pkl` | the sixteen class names | `64ed93e1e30701b1` |
-| `shap_global.json` | both attribution profiles (`per_class`, `per_class_own`) | `89f65b8890027710` |
-| `manifest.json` | all five hashes, the frozen feature order, library versions | `58c50b76390f0216` |
-| `model_facts.json` | measured per-class F1, confusion matrix, 120 pair similarities |  |
+| `shap_global.json` | both attribution profiles (`per_class`, `per_class_own`), from the tuned model | `704dfcec9581d067` |
+| `manifest.json` | all five hashes, the frozen feature order, library versions | `1e7bfc833e0b5dad` |
+| `model_facts.json` | measured per-class F1, confusion matrix, 120 pair similarities, from the tuned model | `c233da34f9455fab` |
 
 **The feature order matters.** A model fed the right 66 columns in the wrong
 order fails silently rather than loudly, which is why the order is frozen in
@@ -608,6 +608,60 @@ backend\.venv\Scripts\python.exe test_narration_rag.py
 
 Five checks. One of them greps the module for `get_llm` and `_build_prompt` and
 fails if either returns, so a second model call cannot quietly come back.
+
+### 3.17 The classifier was replaced by the tuned XGBoost (25 September 2026)
+
+**What changed.** `XGBoost.pkl` is the hyperparameter-tuned model from
+`scripts/18_tune_xgboost.py` in the pipeline. Optuna ran 30 trials, selected on
+validation macro F1 from the same 15% leakage-safe validation split as script 09;
+the test split was read once, after selection. `scaler.pkl`, `features.pkl` and
+`label_encoder.pkl` are byte-identical, so the 66-feature contract and the
+84-to-66 column selection are unchanged.
+
+| Hyperparameter | Initial | Tuned |
+|---|---|---|
+| boosting rounds | 400, fixed | 132, early stopping |
+| max_depth | 10 | 13 |
+| learning_rate | 0.08 | 0.129 |
+| min_child_weight | 5 | 3.59 |
+| subsample / colsample_bytree | 0.8 / 0.8 | 0.92 / 0.64 |
+| gamma / reg_alpha / reg_lambda | 0 / 0 / 1 | 1.40 / 1.57 / 0.71 |
+| max_bin | 256 | 512 |
+| extra weight on DoS, Slowloris, Exploitation, BufferOverflow | 1.0 | 1.71 |
+
+| Measure (TRUSTLab test, 280,063 flows) | Initial | Tuned |
+|---|---|---|
+| accuracy | 0.9313 | 0.9351 |
+| macro F1 | 0.9267 | 0.9305 |
+| DoS F1 | 0.671 | 0.686 |
+| PortScan F1 | 0.967 | 0.992 |
+| Exploitation F1 | 0.784 | 0.790 |
+
+The gain is small but significant (McNemar p = 1.4e-53, bootstrap 95% CI of the
+macro-F1 gain +0.0033 to +0.0044). DoS / Slowloris and Exploitation /
+BufferOverflow remain the hard pairs.
+
+**What was regenerated with it.** `shap_global.json` (TreeSHAP from the tuned
+model; the booster holds exactly the 132 rounds it predicts with, so SHAP and
+`predict()` use the same trees) and `model_facts.json` (per-class F1, confusion
+matrix and pair similarities, rebuilt from the tuned model's evaluation; the
+same builder reproduces the previous file byte-for-byte from the previous
+evaluation). The top SHAP feature is unchanged for 13 of 16 classes. Every
+figure the recommendation panel quotes comes from `model_facts.json`, so none
+of the knowledge files needed editing.
+
+**Verified.** `python verify_bundle.py` passes every check, including SHAP
+additivity (max error 5.7e-06). The failures in `test_model_service.py`,
+`test_classifier.py`, `test_shap_service.py`, the generator-extraction check in
+`test_recommendations.py` and the passage checks in
+`test_recommendations_all_classes.py` occur identically on the previous model;
+none is caused by this change.
+
+Full record in the pipeline bundle: `new_deploy_gpu/finetune/VALIDATION.md`,
+`new_deploy_gpu/thesis_table_24a.md`. The previous model is archived in
+`new_deploy_gpu_pre_tune/`.
+
+---
 
 ## 4. How to check it still works
 

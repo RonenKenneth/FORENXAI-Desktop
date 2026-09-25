@@ -117,6 +117,31 @@
 
         </Style>
 
+        <!-- One bullet per item. Used by the explanation and the
+             recommended actions so long text reads as a list. -->
+        <DataTemplate x:Key="BulletItemTemplate">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0"
+                        Width="6"
+                        Height="6"
+                        CornerRadius="3"
+                        Background="#60A5FA"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="3,7,0,0"/>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding}"
+                           Foreground="#E2E8F0"
+                           FontSize="13"
+                           TextWrapping="Wrap"
+                           LineHeight="19"/>
+            </Grid>
+        </DataTemplate>
+
     </UserControl.Resources>
 
 
@@ -618,12 +643,26 @@
                                         CornerRadius="6"
                                         Padding="12">
 
-                                    <TextBlock x:Name="GenAiExplanationText"
-                                               Text="Select a detected threat to generate a local AI explanation."
-                                               Foreground="#CBD5E1"
-                                               FontSize="13"
-                                               TextWrapping="Wrap"
-                                               LineHeight="20"/>
+                                    <ScrollViewer MaxHeight="240"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+
+                                        <StackPanel>
+
+                                            <TextBlock x:Name="GenAiExplanationText"
+                                                       Text="Select a detected threat to generate a local AI explanation."
+                                                       Foreground="#CBD5E1"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       LineHeight="20"/>
+
+                                            <ItemsControl x:Name="GenAiBulletsList"
+                                                          ItemTemplate="{StaticResource BulletItemTemplate}"
+                                                          Visibility="Collapsed"/>
+
+                                        </StackPanel>
+
+                                    </ScrollViewer>
 
                                 </Border>
 
@@ -755,77 +794,151 @@
                                 </Border>
 
 
-                                <ItemsControl x:Name="RecommendationActionsList">
-
-                                    <ItemsControl.ItemTemplate>
-
-                                        <DataTemplate>
-
-                                            <Grid Margin="0,4">
-
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="24"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-
-
-                                                <Border Grid.Column="0"
-                                                        Width="7"
-                                                        Height="7"
-                                                        CornerRadius="4"
-                                                        Background="#60A5FA"
-                                                        HorizontalAlignment="Left"
-                                                        VerticalAlignment="Top"
-                                                        Margin="4,7,0,0"/>
-
-
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding}"
-                                                           Foreground="#E2E8F0"
-                                                           FontSize="13"
-                                                           TextWrapping="Wrap"
-                                                           LineHeight="19"/>
-
-                                            </Grid>
-
-                                        </DataTemplate>
-
-                                    </ItemsControl.ItemTemplate>
-
-                                </ItemsControl>
-
-
-                                <!-- Provenance. Every action above was
-                                     traced back to one retrieved passage
-                                     before the backend returned it. -->
+                                <!-- What the recommendation was built from -->
 
                                 <Border Background="#0B1220"
                                         BorderBrush="#1E293B"
                                         BorderThickness="1"
                                         CornerRadius="6"
                                         Padding="12"
-                                        Margin="0,14,0,0">
+                                        Margin="0,0,0,12">
 
                                     <StackPanel>
 
-                                        <TextBlock x:Name="RecommendationVerificationText"
-                                                   Text=""
-                                                   Foreground="#7DD3A8"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,0,0,6"/>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
 
-                                        <TextBlock x:Name="RecommendationSourcesText"
-                                                   Text=""
-                                                   Foreground="#94A3B8"
-                                                   FontSize="12"
-                                                   TextWrapping="Wrap"
-                                                   LineHeight="18"/>
+                                            <TextBlock Text="BASIS FOR THIS RECOMMENDATION"
+                                                       Foreground="#94A3B8"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+
+                                            <Border x:Name="RecAgreementBadge"
+                                                    Grid.Column="1"
+                                                    Background="#1E293B"
+                                                    CornerRadius="10"
+                                                    Padding="10,2">
+                                                <TextBlock x:Name="RecAgreementText"
+                                                           Text="--"
+                                                           Foreground="#CBD5E1"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"/>
+                                            </Border>
+                                        </Grid>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="92"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0" Text="Model"
+                                                       Foreground="#94A3B8" FontSize="12"
+                                                       Margin="0,0,0,6"/>
+                                            <TextBlock x:Name="RecModelText"
+                                                       Grid.Row="0" Grid.Column="1"
+                                                       Text="--"
+                                                       Foreground="#E2E8F0" FontSize="12"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,6"/>
+
+                                            <TextBlock Grid.Row="1" Text="SHAP"
+                                                       Foreground="#94A3B8" FontSize="12"
+                                                       Margin="0,0,0,6"/>
+                                            <TextBlock x:Name="RecShapText"
+                                                       Grid.Row="1" Grid.Column="1"
+                                                       Text="--"
+                                                       Foreground="#E2E8F0" FontSize="12"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,6"/>
+
+                                            <TextBlock Grid.Row="2" Text="Rule-based"
+                                                       Foreground="#94A3B8" FontSize="12"/>
+                                            <TextBlock x:Name="RecRulesText"
+                                                       Grid.Row="2" Grid.Column="1"
+                                                       Text="--"
+                                                       Foreground="#E2E8F0" FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
 
                                     </StackPanel>
 
                                 </Border>
+
+
+                                <TextBlock x:Name="RecommendationActionsHeader"
+                                           Text="ACTIONS"
+                                           Foreground="#94A3B8"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,6"/>
+
+                                <ScrollViewer MaxHeight="300"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+
+                                    <ItemsControl x:Name="RecommendationActionsList"
+                                                  ItemTemplate="{StaticResource BulletItemTemplate}"/>
+
+                                </ScrollViewer>
+
+
+                                <!-- Provenance. Every action above was
+                                     traced back to one retrieved passage
+                                     before the backend returned it. -->
+
+                                <Expander Header="Verification, sources and references"
+                                          Foreground="#94A3B8"
+                                          FontSize="12"
+                                          IsExpanded="False"
+                                          Margin="0,14,0,0">
+
+                                    <Border Background="#0B1220"
+                                            BorderBrush="#1E293B"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="12"
+                                            Margin="0,8,0,0">
+
+                                        <ScrollViewer MaxHeight="260"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled">
+
+
+                                            <StackPanel>
+
+                                                <TextBlock x:Name="RecommendationVerificationText"
+                                                           Text=""
+                                                           Foreground="#7DD3A8"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,0,0,6"/>
+
+                                                <TextBlock x:Name="RecommendationSourcesText"
+                                                           Text=""
+                                                           Foreground="#94A3B8"
+                                                           FontSize="12"
+                                                           TextWrapping="Wrap"
+                                                           LineHeight="18"/>
+
+                                            </StackPanel>
+
+
+                                        </ScrollViewer>
+
+                                    </Border>
+
+                                </Expander>
 
                             </StackPanel>
 

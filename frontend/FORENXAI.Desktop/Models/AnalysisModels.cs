@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace FORENXAI.Desktop.Models;
@@ -135,6 +136,13 @@ public class MlFinding
 
     [JsonPropertyName("recommendation")]
     public RecommendationData? Recommendation { get; set; }
+
+    /// <summary>
+    /// Rule-based detector hits for this flow. Null when no rule engine
+    /// ran; an empty list when it ran and nothing fired.
+    /// </summary>
+    [JsonPropertyName("rule_findings")]
+    public List<RuleHit>? RuleFindings { get; set; }
 }
 
 
@@ -248,6 +256,146 @@ public class RecommendationData
     /// </summary>
     [JsonPropertyName("measured")]
     public MeasuredContext? Measured { get; set; }
+
+    /// <summary>
+    /// What the recommendation was built from: the XGBoost prediction,
+    /// the SHAP drivers and the rule-based result, with whether the rules
+    /// agree with the model. Absent in cases analysed before this field.
+    /// </summary>
+    [JsonPropertyName("inputs")]
+    public RecommendationInputs? Inputs { get; set; }
+
+    /// <summary>Generated / verified / dropped counts and drop reasons.</summary>
+    [JsonPropertyName("verification_summary")]
+    public VerificationSummary? VerificationSummary { get; set; }
+
+    [JsonPropertyName("dropped_actions")]
+    public List<DroppedAction> DroppedActions { get; set; } = new();
+}
+
+
+public class RecommendationInputs
+{
+    [JsonPropertyName("model")]
+    public ModelInput? Model { get; set; }
+
+    [JsonPropertyName("shap")]
+    public List<ShapInput> Shap { get; set; } = new();
+
+    [JsonPropertyName("rules")]
+    public RuleInput? Rules { get; set; }
+}
+
+
+public class ModelInput
+{
+    [JsonPropertyName("predicted_class")]
+    public string PredictedClass { get; set; } = string.Empty;
+
+    [JsonPropertyName("confidence_band")]
+    public double? ConfidenceBand { get; set; }
+
+    [JsonPropertyName("class_f1")]
+    public double? ClassF1 { get; set; }
+}
+
+
+public class ShapInput
+{
+    [JsonPropertyName("feature")]
+    public string Feature { get; set; } = string.Empty;
+
+    // A number for numeric features, but kept loose: a string must not
+    // break deserialisation of the whole case.
+    [JsonPropertyName("raw_value")]
+    public JsonElement? RawValue { get; set; }
+
+    [JsonPropertyName("shap_value")]
+    public double ShapValue { get; set; }
+
+    [JsonPropertyName("toward_prediction")]
+    public bool TowardPrediction { get; set; }
+}
+
+
+public class RuleInput
+{
+    /// <summary>"evaluated" or "not_evaluated".</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>agree, conflict, no_rule_fired or not_evaluated.</summary>
+    [JsonPropertyName("agreement")]
+    public string Agreement { get; set; } = string.Empty;
+
+    [JsonPropertyName("agreement_note")]
+    public string AgreementNote { get; set; } = string.Empty;
+
+    [JsonPropertyName("hits")]
+    public List<RuleHit> Hits { get; set; } = new();
+}
+
+
+public class RuleHit
+{
+    [JsonPropertyName("rule_id")]
+    public string RuleId { get; set; } = string.Empty;
+
+    [JsonPropertyName("class")]
+    public string ClassName { get; set; } = string.Empty;
+
+    [JsonPropertyName("tier")]
+    public int? Tier { get; set; }
+
+    [JsonPropertyName("evidence")]
+    public string Evidence { get; set; } = string.Empty;
+
+    [JsonPropertyName("measured")]
+    public JsonElement? Measured { get; set; }
+
+    [JsonPropertyName("threshold")]
+    public JsonElement? Threshold { get; set; }
+
+    [JsonPropertyName("severity")]
+    public string Severity { get; set; } = string.Empty;
+}
+
+
+public class VerificationSummary
+{
+    [JsonPropertyName("generated")]
+    public int Generated { get; set; }
+
+    [JsonPropertyName("verified")]
+    public int Verified { get; set; }
+
+    [JsonPropertyName("dropped")]
+    public int Dropped { get; set; }
+
+    /// <summary>Actions kept after their citation was corrected to the one source that supports them.</summary>
+    [JsonPropertyName("citation_corrected")]
+    public int CitationCorrected { get; set; }
+
+    [JsonPropertyName("reasons")]
+    public Dictionary<string, int> Reasons { get; set; } = new();
+}
+
+
+public class DroppedAction
+{
+    [JsonPropertyName("action_id")]
+    public string ActionId { get; set; } = string.Empty;
+
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = string.Empty;
+
+    // Usually an id string; a list when the model cited several, which is
+    // exactly why the action was dropped.
+    [JsonPropertyName("source_id")]
+    public JsonElement? SourceId { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = string.Empty;
 }
 
 

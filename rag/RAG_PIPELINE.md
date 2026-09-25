@@ -102,15 +102,41 @@ Cache: `(knowledge_version, class, terms, top_k) -> passages`. Entries of any
 other version are dropped on the next write. The full recommendation cache
 (class, confidence band, alternatives) is unchanged.
 
+## What the recommendation reads
+
+The analysis runs in this order: CICFlowMeter, XGBoost, TreeSHAP, the rule
+layer, then recommendations. Each recommendation is built from three inputs,
+summarised by `_recommendation_inputs()` and returned as `inputs`:
+
+| Input | Source | In the prompt as |
+|---|---|---|
+| Model | predicted class, confidence band, class test F1 | `[S?] Model prediction` |
+| SHAP | top 3 drivers (aggregated over the flows that share the answer) | `[S?] SHAP drivers` |
+| Rule-based | hits from `app/services/rule_service.py` | `[S?] Rule <id> (<class>)`, one per hit (max 3) |
+
+The rule result also sets `inputs.rules.agreement`: `agree` (a rule flagged the
+predicted class), `conflict` (rules flagged a different class), `no_rule_fired`,
+or `not_evaluated` (no rule engine configured -- the current state). The note
+is added to the prompt, and the outcome is part of the recommendation cache key.
+
+These three are citable like any source. An action citing them is checked by
+`_evidence_supports()`: every figure in the action (counts, addresses, ports,
+SHAP values) must appear in the cited evidence, and 70% of its terms must come
+from it, so a number cannot be invented.
+
+`rule_service.evaluate(flow_csv, findings)` is the extension point for the
+Tier 1 / Tier 2 engine; its docstring defines the hit format. It returns None
+today.
+
 ## Qwen context
 
 `build_generation_context(class, retrieved)` returns the prompt and the
 `S1..Sn -> source` map. It contains only: the class and summary, one note line
 on alternatives and ambiguity, the NIST SP 800-53 controls, the two baseline
 sections, the 0-2 retrieved passages, each sourced playbook line (section 4.1 is
-skipped because it repeats the controls), and the detection profile. Each piece
-is clipped to a fixed budget (`rag_index.py`). SHAP features, the glossary, the
-caveats and scope notes are no longer sent.
+skipped because it repeats the controls), the detection profile, and the model /
+SHAP / rule evidence above. Each piece is clipped to a fixed budget
+(`rag_index.py`). The glossary, the caveats and scope notes are not sent.
 
 Generation is greedy (temperature 0, top_k 1) and constrained by a JSON-schema
 grammar in which `source_id` is an enum of the supplied ids and the list holds 3
@@ -121,8 +147,14 @@ to 5 actions.
 `verify_actions(actions, sources)` keeps an action only if it is an object with
 text, has exactly one `source_id`, that id was supplied, it resolves to one
 source, and the cited source itself accounts for the wording (`verify()`: a
-shared four-word run, or 70% of the significant words). A correct-looking
-action citing the wrong line is dropped. Every drop has a reason.
+shared four-word run, or 70% of the significant words).
+
+A 3B model often copies one line faithfully and cites its neighbour. When the
+cited source does not support the action but exactly one other supplied source
+does, the action is attributed to that source; the original id is kept in
+`evidence.cited_as` and counted in `verification_summary.citation_corrected`.
+When no source or more than one supports it, it is dropped. Every drop has a
+reason.
 
 If fewer than three actions survive, the remainder is filled with playbook lines
 quoted verbatim under their own source id, in the order containment, evidence
@@ -131,7 +163,7 @@ three fixed policy actions.
 
 ## Recommendation object
 
-All fields the WPF interface reads are unchanged in name and type (`actions`,
+All fields the WPF interface already read are unchanged in name and type (`actions`,
 `actions_cited`, `references`, `action_evidence`, `sources`, `verified`, ...),
 so the interface needs no change. New fields for the verification view and the
 reports:
@@ -145,6 +177,13 @@ reports:
 | `verification_summary` | generated / verified / dropped counts and reasons |
 | `verification` | parse status, supplied source map, top-up count |
 | `knowledge_version` | index version the answer was built from |
+| `inputs` | model, SHAP drivers, rule result and agreement (see above) |
+
+The XAI view shows these as: a BASIS panel (Model / SHAP / Rule-based rows and
+an agreement badge), the actions as a bulleted list in a scroll box, and the
+verification counts, sources and references in a collapsed, scrollable section.
+The explanation box above it scrolls and turns into bullets when longer than two
+sentences.
 
 `references` lists only documents that displayed actions cite. The in-app
 report (`report_service.build_case_report`) embeds this same object per flow.
@@ -172,6 +211,6 @@ the exact prompt the service built.
 ## Tests
 
 ```
-python backend/test_rag_pipeline.py          # 130 checks, no language model
+python backend/test_rag_pipeline.py          # 146 checks, no language model
 python backend/test_rag_pipeline.py --live   # plus one real generation
 ```

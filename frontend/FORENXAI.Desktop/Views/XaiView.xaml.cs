@@ -624,6 +624,8 @@ public partial class XaiView : UserControl
         }
 
 
+        ResetExplanationBullets();
+
         GenAiStatusText.Text =
             "Generating...";
 
@@ -675,8 +677,9 @@ public partial class XaiView : UserControl
             }
 
 
-            GenAiExplanationText.Text =
-                response.Narration.Text;
+            ShowExplanation(
+                response.Narration.Text
+            );
 
 
             if (
@@ -710,6 +713,8 @@ public partial class XaiView : UserControl
             }
 
 
+            ResetExplanationBullets();
+
             GenAiStatusText.Text =
                 "Unavailable";
 
@@ -720,9 +725,51 @@ public partial class XaiView : UserControl
     }
 
 
+    // Long explanations read as a list: one sentence per bullet, in a
+    // scrollable box. Two sentences or fewer stay as a paragraph.
+    private static readonly System.Text.RegularExpressions.Regex
+        SentenceBreak = new(@"(?<=[.!?])\s+(?=[A-Z(\[])");
+
+    private void ShowExplanation(
+        string text)
+    {
+        string[] sentences =
+            SentenceBreak
+                .Split(text.Trim())
+                .Select(sentence => sentence.Trim())
+                .Where(sentence => sentence.Length > 0)
+                .ToArray();
+
+        if (sentences.Length > 2)
+        {
+            GenAiExplanationText.Text = string.Empty;
+            GenAiExplanationText.Visibility = Visibility.Collapsed;
+            GenAiBulletsList.ItemsSource = sentences;
+            GenAiBulletsList.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            GenAiBulletsList.ItemsSource = null;
+            GenAiBulletsList.Visibility = Visibility.Collapsed;
+            GenAiExplanationText.Visibility = Visibility.Visible;
+            GenAiExplanationText.Text = text;
+        }
+    }
+
+
+    private void ResetExplanationBullets()
+    {
+        GenAiBulletsList.ItemsSource = null;
+        GenAiBulletsList.Visibility = Visibility.Collapsed;
+        GenAiExplanationText.Visibility = Visibility.Visible;
+    }
+
+
     private void ClearNarrationPanel()
     {
         ++narrationRequestVersion;
+
+        ResetExplanationBullets();
 
         GenAiStatusText.Text =
             "Not generated";
@@ -810,6 +857,11 @@ public partial class XaiView : UserControl
         }
 
 
+        ShowRecommendationBasis(
+            recommendation,
+            finding
+        );
+
         ShowRecommendationProvenance(
             recommendation
         );
@@ -839,6 +891,106 @@ public partial class XaiView : UserControl
                 == recommendation.Actions.Count
                 ? recommendation.ActionsCited
                 : recommendation.Actions;
+
+        RecommendationActionsHeader.Text =
+            $"ACTIONS ({recommendation.Actions.Count})";
+    }
+
+
+    // =========================================================
+    // RECOMMENDATION BASIS
+    //
+    // The three inputs the recommendation was built from: the
+    // classifier's prediction, the SHAP drivers, and the rule-based
+    // detector's result, with whether the rules agree with the model.
+    // =========================================================
+
+    private void ShowRecommendationBasis(
+        RecommendationData recommendation,
+        MlFinding finding)
+    {
+        RecommendationInputs? inputs =
+            recommendation.Inputs;
+
+        double? f1 =
+            inputs?.Model?.ClassF1
+            ?? recommendation.Measured?.ClassF1;
+
+        RecModelText.Text =
+            $"XGBoost: {finding.PredictedClass}, "
+            + $"confidence {finding.Confidence:P1}"
+            + (f1 != null ? $" (class test F1 {f1:F3})" : string.Empty);
+
+        if (inputs?.Shap != null
+            && inputs.Shap.Count > 0)
+        {
+            RecShapText.Text =
+                string.Join(
+                    "; ",
+                    inputs.Shap.Select(
+                        driver =>
+                            $"{driver.Feature} "
+                            + (driver.TowardPrediction ? "↑" : "↓")
+                            + $" {driver.ShapValue:+0.000;-0.000}"
+                    )
+                );
+        }
+        else
+        {
+            RecShapText.Text =
+                "No SHAP drivers were available when this recommendation was generated.";
+        }
+
+        RuleInput? rules =
+            inputs?.Rules;
+
+        string agreement =
+            rules?.Agreement
+            ?? "not_evaluated";
+
+        if (rules == null
+            || rules.Status != "evaluated")
+        {
+            RecRulesText.Text =
+                "Not evaluated: no rule engine is configured yet.";
+        }
+        else if (rules.Hits.Count == 0)
+        {
+            RecRulesText.Text =
+                "Evaluated: no rule fired for this traffic.";
+        }
+        else
+        {
+            RecRulesText.Text =
+                string.Join(
+                    "\n",
+                    rules.Hits.Select(
+                        hit =>
+                            $"{hit.RuleId} ({hit.ClassName}): {hit.Evidence}"
+                    )
+                );
+        }
+
+        (string label, string background, string foreground) =
+            agreement switch
+            {
+                "agree" => ("Rules agree", "#14532D", "#BBF7D0"),
+                "conflict" => ("Rules disagree", "#7F1D1D", "#FECACA"),
+                "no_rule_fired" => ("Model only", "#1E3A5F", "#BFDBFE"),
+                _ => ("Rules not evaluated", "#1E293B", "#CBD5E1"),
+            };
+
+        RecAgreementText.Text = label;
+
+        RecAgreementBadge.Background =
+            (System.Windows.Media.Brush)
+            new System.Windows.Media.BrushConverter()
+                .ConvertFromString(background)!;
+
+        RecAgreementText.Foreground =
+            (System.Windows.Media.Brush)
+            new System.Windows.Media.BrushConverter()
+                .ConvertFromString(foreground)!;
     }
 
 
@@ -855,6 +1007,14 @@ public partial class XaiView : UserControl
 
         RecommendationSourcesText.Text =
             string.Empty;
+
+        RecommendationActionsHeader.Text =
+            "ACTIONS";
+
+        RecModelText.Text = "--";
+        RecShapText.Text = "--";
+        RecRulesText.Text = "--";
+        RecAgreementText.Text = "--";
     }
 
 
@@ -898,6 +1058,33 @@ public partial class XaiView : UserControl
             verification +=
                 $" {rejected} generated statement(s) could not be matched "
                 + "to a source and were discarded.";
+        }
+
+        VerificationSummary? summary =
+            recommendation.VerificationSummary;
+
+        if (summary != null
+            && summary.Generated > 0)
+        {
+            verification +=
+                $" Generated {summary.Generated}, verified {summary.Verified}, "
+                + $"dropped {summary.Dropped}."
+                + (summary.CitationCorrected > 0
+                    ? $" {summary.CitationCorrected} citation(s) corrected to the one source that supports the action."
+                    : string.Empty);
+
+            if (summary.Reasons.Count > 0)
+            {
+                verification +=
+                    " Dropped because: "
+                    + string.Join(
+                        "; ",
+                        summary.Reasons.Select(
+                            reason => $"{reason.Key} ({reason.Value})"
+                        )
+                    )
+                    + ".";
+            }
         }
 
         MeasuredContext? measured =

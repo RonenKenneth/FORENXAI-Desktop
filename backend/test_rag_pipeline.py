@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -49,10 +50,29 @@ SHARED_FIELDS = ("predicted_class", "retrieved_sources", "generated_actions",
 
 
 def fake_generation(payload):
-    """Replace Qwen with a fixed answer for one call."""
+    """Replace Qwen with a fixed answer, or one computed from the prompt."""
     real = rs._generate
-    rs._generate = lambda prompt, refs=None: payload
+    rs._generate = lambda prompt, refs=None: (
+        payload(prompt) if callable(payload) else payload)
     return real
+
+
+_LINE = re.compile(r"^\[(S\d+)\] ([^:]+): (.+)$", re.M)
+
+
+def from_prompt(playbook=3, extra=(), cite_label=None):
+    """Answer as a faithful model would: restate lines, cite their own ids."""
+    def answer(prompt):
+        lines = _LINE.findall(prompt)
+        actions = [{"text": text, "source_id": ref}
+                   for ref, label, text in lines
+                   if label.startswith("NIST SP 800-61r3,")][:playbook]
+        for ref, label, text in lines:
+            if cite_label and label.startswith(cite_label):
+                actions.append({"text": text, "source_id": ref})
+        actions.extend(extra)
+        return json.dumps({"actions": actions})
+    return answer
 
 
 def main():
@@ -215,17 +235,22 @@ def main():
     reasons = [d["reason"] for d in result["dropped_actions"]]
     for reason in cases:
         check(f"dropped: {reason.strip()}", reason.strip() in reasons)
+    wrong_ref = next(r for r, s in sources.items() if r != ref_ok and s["kind"] == "control")
+    moved = rs.verify_actions([{"text": good["text"], "source_id": wrong_ref}], sources)
+    kept = moved["verified_actions"]
+    check("a mis-cited action is re-attributed to the one source that supports it",
+          len(kept) == 1 and kept[0]["source_id"] == "SP800-61r3:RS.MI-02 R1"
+          and kept[0]["evidence"]["cited_as"] == sources[wrong_ref]["source_id"]
+          and moved["verification_summary"]["citation_corrected"] == 1)
     check("summary counts add up",
           result["verification_summary"]["generated"] == 7
           and result["verification_summary"]["verified"] == 1
           and result["verification_summary"]["dropped"] == 6)
 
     print("\n7. recommendation object (UI and reports)")
-    three = [
-        {"text": s["text"], "source_id": r}
-        for r, s in sources.items() if s["kind"] == "playbook"
-    ][:3]
-    real = fake_generation(json.dumps({"actions": three + [cases["not supported by the cited source"]]}))
+    invented = {"text": cases["not supported by the cited source"]["text"],
+                "source_id": "S1"}
+    real = fake_generation(from_prompt(3, [invented]))
     rs._cache.clear()
     try:
         rec = rs.get_recommendation("DoS", None, 0.95, None)
@@ -273,14 +298,86 @@ def main():
         rs._generate = real
     check("Benign keeps its fixed policy actions", rec["generator"] == "none")
 
-    print("\n8. startup")
+    print("\n8. model, SHAP and rule-based inputs")
+    shap = [{"feature": "Fwd Packet Length Max", "raw_value": 1500.0,
+             "shap_value": 2.31, "direction": "toward"},
+            {"feature": "Bwd Header Length", "raw_value": 40.0,
+             "shap_value": -0.4, "direction": "against"}]
+    hit = {"rule_id": "T1-DOS-01", "class": "DoS", "tier": 1,
+           "evidence": "143 flows from 10.0.0.5 to 10.0.0.20:80 in 60 s, threshold 100.",
+           "measured": 143, "threshold": 100, "severity": "high"}
+    other = {"rule_id": "T1-PORTSCAN-01", "class": "PortScan", "tier": 1,
+             "evidence": "25 distinct ports from 10.0.0.5 to 10.0.0.20 in 60 s, threshold 20.",
+             "measured": 25, "threshold": 20, "severity": "medium"}
+    for expected, rules in {"not_evaluated": None, "no_rule_fired": [],
+                            "agree": [hit], "conflict": [other]}.items():
+        inputs = rs._recommendation_inputs("DoS", 0.95, {"class_f1": 0.686}, shap, rules)
+        check(f"rules: {expected}", inputs["rules"]["agreement"] == expected)
+    inputs = rs._recommendation_inputs("DoS", 0.95, {"class_f1": 0.686}, shap, [hit])
+    prompt, sources = rs.build_generation_context("DoS", retrieved, inputs)
+    ids = {s["source_id"]: r for r, s in sources.items()}
+    check("model, SHAP and rule evidence are citable sources",
+          {"CASE:model", "CASE:shap", "CASE:rule:T1-DOS-01"} <= set(ids))
+    check("SHAP drivers appear in the prompt", "Fwd Packet Length Max" in prompt)
+    check("rule agreement appears in the prompt", "independently flagged DoS" in prompt)
+    cite_rule = {"text": "Investigate the 143 flows from 10.0.0.5 to 10.0.0.20:80 in 60 s.",
+                 "source_id": ids["CASE:rule:T1-DOS-01"]}
+    checked = rs.verify_actions([cite_rule], sources)
+    check("an action citing rule evidence verifies",
+          checked["verification_summary"]["verified"] == 1)
+    invented_figure = dict(cite_rule, text=cite_rule["text"].replace("143", "999"))
+    checked = rs.verify_actions([invented_figure], sources)
+    check("an invented figure in a rule-evidence action is dropped",
+          checked["verification_summary"]["dropped"] == 1)
+
+    real = fake_generation(from_prompt(3, cite_label="Rule T1-DOS-01"))
+    rs._cache.clear()
+    try:
+        rec = rs.get_recommendation("DoS", shap, 0.95, None, [hit])
+    finally:
+        rs._generate = real
+    check("recommendation records its inputs",
+          rec["inputs"]["rules"]["agreement"] == "agree" and len(rec["inputs"]["shap"]) == 2)
+    check("rule-evidence action kept and referenced as case evidence",
+          len(rec["actions"]) == 4
+          and any(r["doc_id"] == "FORENXAI.case" and "Case evidence" in r["acm"]
+                  for r in rec["references"]))
+    check("case evidence does not count as a published standard",
+          rec["standards_grounded"])
+    rs._cache.clear()
+    real = fake_generation(from_prompt(3))
+    try:
+        a = rs.get_recommendation("DoS", shap, 0.95, None, None)
+        b = rs.get_recommendation("DoS", shap, 0.95, None, [hit])
+    finally:
+        rs._generate = real
+    check("a different rule outcome is a different answer",
+          a["inputs"]["rules"]["agreement"] == "not_evaluated"
+          and b["inputs"]["rules"]["agreement"] == "agree")
+
+    findings = [
+        {"predicted_class": "DoS", "confidence": 0.97, "probabilities": None,
+         "top_features": shap, "rule_findings": [hit]},
+        {"predicted_class": "DoS", "confidence": 0.99, "probabilities": None,
+         "top_features": shap[:1], "rule_findings": [hit]},
+        {"predicted_class": "DoS", "confidence": 0.98, "probabilities": None,
+         "top_features": shap, "rule_findings": None},
+    ]
+    plan = rs.plan_recommendations(findings)
+    check("flows grouped by rule outcome", len(plan) == 2)
+    top = next(p for p in plan if p["flows"] == 2)
+    check("SHAP aggregated across the group",
+          top["shap_features"][0]["feature"] == "Fwd Packet Length Max"
+          and top["shap_features"][0]["flows"] == 2)
+
+    print("\n9. startup")
     t = time.perf_counter()
     rs.start_rag_warmup(preload_llm=False)
     check("warmup returns immediately", (time.perf_counter() - t) < 0.5)
     check("index ready after warmup", rs.rag_ready(wait=True))
 
     if args.live:
-        print("\n9. live generation")
+        print("\n10. live generation")
         rs._cache.clear()
         t = time.perf_counter()
         rec = rs.get_recommendation("DoS", None, 0.95, None)

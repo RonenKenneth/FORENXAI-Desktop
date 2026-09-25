@@ -12,6 +12,7 @@ from app.services.flow_service import build_flows
 from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
+from app.services.rule_service import evaluate as evaluate_rules
 from app.services.recommendation_service import (
     get_recommendation,
     warm_recommendations,
@@ -406,6 +407,53 @@ def start_analysis(
 
 
         # =====================================================
+        # SHAP EXPLAINABILITY
+        # =====================================================
+
+        print(
+            "[FORENXAI] Generating "
+            "SHAP explanations...",
+            flush=True
+        )
+
+
+        shap_result = (
+            explain_flow_csv(
+                ml_result,
+                top_n=10
+            )
+        )
+
+
+        print(
+            f"[FORENXAI] SHAP explanations: "
+            f"{shap_result['total_flows']}",
+            flush=True
+        )
+
+
+        print(
+            "[FORENXAI] SHAP "
+            "explainability complete.",
+            flush=True
+        )
+
+
+        # =====================================================
+        # RULE-BASED DETECTION
+        # =====================================================
+        #
+        # Runs beside the classifier on the same flows. None means no
+        # rule engine is configured yet; the recommendation then says the
+        # rule layer was not evaluated, rather than that nothing fired.
+
+        rule_hits = evaluate_rules(
+            str(cicflowmeter_csv),
+            ml_result.get("findings", [])
+        )
+
+
+        # =====================================================
         # PHASE 15.3
         # ATTACH RESPONSE RECOMMENDATIONS
         # =====================================================
@@ -444,6 +492,25 @@ def start_analysis(
         # Doing them here makes the work countable and reportable -- the
         # loop below then costs nothing, instead of the first flow of
         # each class silently blocking for two minutes inside it.
+        # SHAP ran above, so each flow's drivers are available here; the
+        # rule hits too. Both are attached only for the recommendation
+        # stage and removed again below, so analysis.json does not carry
+        # a second copy of the SHAP explanations.
+        top_features_per_flow = shap_result.get(
+            "top_features_per_flow", {}
+        )
+
+        for finding in ml_findings:
+            if isinstance(finding, dict):
+                index = finding.get("flow_index")
+                finding["top_features"] = top_features_per_flow.get(
+                    str(index)
+                )
+                finding["rule_findings"] = (
+                    None if rule_hits is None
+                    else rule_hits.get(index, [])
+                )
+
         generated = warm_recommendations(
             ml_findings
         )
@@ -498,6 +565,7 @@ def start_analysis(
                     finding.get("top_features"),
                     finding.get("confidence"),
                     finding.get("probabilities"),
+                    finding.get("rule_findings"),
                 )
             )
 
@@ -505,6 +573,10 @@ def start_analysis(
             finding[
                 "recommendation"
             ] = recommendation
+
+            # Rule hits stay on the finding; SHAP already has its own
+            # section in the analysis document.
+            finding.pop("top_features", None)
 
 
         print(
@@ -518,39 +590,6 @@ def start_analysis(
         print(
             "[FORENXAI] Recommendation "
             "mapping complete.",
-            flush=True
-        )
-
-
-        # =====================================================
-        # SHAP EXPLAINABILITY
-        # =====================================================
-
-        print(
-            "[FORENXAI] Generating "
-            "SHAP explanations...",
-            flush=True
-        )
-
-
-        shap_result = (
-            explain_flow_csv(
-                ml_result,
-                top_n=10
-            )
-        )
-
-
-        print(
-            f"[FORENXAI] SHAP explanations: "
-            f"{shap_result['total_flows']}",
-            flush=True
-        )
-
-
-        print(
-            "[FORENXAI] SHAP "
-            "explainability complete.",
             flush=True
         )
 

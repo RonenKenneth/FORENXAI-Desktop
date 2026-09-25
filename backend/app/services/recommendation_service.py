@@ -784,6 +784,135 @@ def _extract_actions(passages: List[Dict[str, Any]]) -> List[str]:
 
 
 # ============================================================
+# INPUTS -- prediction, SHAP and rule-based result
+# ============================================================
+
+SHAP_FEATURES_SHOWN = 3
+
+
+def _rule_signature(rule_findings) -> Any:
+    """What about the rule result changes the answer: which classes fired."""
+    if rule_findings is None:
+        return "not_evaluated"
+    return tuple(sorted({h.get("class", "") for h in rule_findings}))
+
+
+def _aggregate_shap(per_flow: List[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """The drivers most often in a flow's top five, across a group of flows."""
+    if not per_flow:
+        return []
+    if len(per_flow) == 1:
+        return per_flow[0]
+    tally: Dict[str, Dict[str, Any]] = {}
+    for contributors in per_flow:
+        for c in (contributors or [])[:5]:
+            name = c.get("feature")
+            if not name:
+                continue
+            row = tally.setdefault(name, {"feature": name, "count": 0, "total": 0.0,
+                                          "raw_value": c.get("raw_value"),
+                                          "direction": c.get("direction")})
+            row["count"] += 1
+            row["total"] += float(c.get("shap_value") or 0.0)
+    ranked = sorted(tally.values(), key=lambda r: (-r["count"], -abs(r["total"]), r["feature"]))
+    return [{
+        "feature": r["feature"],
+        "shap_value": r["total"] / r["count"],
+        "raw_value": r["raw_value"],
+        "direction": r["direction"],
+        "flows": r["count"],
+    } for r in ranked[:5]]
+
+
+def _fmt_value(value) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return f"{number:,.0f}" if abs(number) >= 100 else f"{number:.3g}"
+
+
+def _recommendation_inputs(predicted_class: str,
+                           confidence: Optional[float],
+                           measured: Dict[str, Any],
+                           shap_features,
+                           rule_findings) -> Dict[str, Any]:
+    """Model, SHAP and rule result, summarised once for prompt and display."""
+    evidence: List[Dict[str, str]] = []
+
+    f1 = measured.get("class_f1")
+    model_text = (
+        f"XGBoost classified this traffic as {predicted_class}"
+        + (f" with confidence in the {confidence:.0%} band" if confidence is not None else "")
+        + (f"; the class's test F1 is {f1:.3f}" if f1 is not None else "")
+        + "."
+    )
+    evidence.append({"source_id": "CASE:model", "label": "Model prediction",
+                     "text": model_text})
+
+    drivers = []
+    for c in (shap_features or [])[:SHAP_FEATURES_SHOWN]:
+        name = c.get("feature")
+        if not name:
+            continue
+        value = c.get("shap_value", c.get("contribution", c.get("shap", 0.0)))
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = 0.0
+        drivers.append({
+            "feature": name,
+            "raw_value": c.get("raw_value"),
+            "shap_value": round(value, 4),
+            "toward_prediction": value > 0,
+        })
+    if drivers:
+        evidence.append({
+            "source_id": "CASE:shap",
+            "label": "SHAP drivers",
+            "text": "The features that most influenced this classification were "
+                    + "; ".join(
+                        f"{d['feature']} = {_fmt_value(d['raw_value'])} "
+                        f"({'toward' if d['toward_prediction'] else 'against'} "
+                        f"{predicted_class}, SHAP {d['shap_value']:+.3f})"
+                        for d in drivers) + ".",
+        })
+
+    if rule_findings is None:
+        rules = {"status": "not_evaluated", "hits": [], "agreement": "not_evaluated",
+                 "agreement_note": ""}
+    else:
+        classes = sorted({h.get("class", "") for h in rule_findings if h.get("class")})
+        if not rule_findings:
+            agreement, note = "no_rule_fired", (
+                "No detection rule fired for this traffic; the classification "
+                "rests on the model alone.")
+        elif predicted_class in classes:
+            agreement, note = "agree", (
+                f"The rule-based detector independently flagged {predicted_class}.")
+        else:
+            agreement, note = "conflict", (
+                f"The rule-based detector flagged {', '.join(classes)}, not "
+                f"{predicted_class}; write actions that hold for both.")
+        for i, hit in enumerate(rule_findings[:3], start=1):
+            evidence.append({
+                "source_id": f"CASE:rule:{hit.get('rule_id', i)}",
+                "label": f"Rule {hit.get('rule_id', i)} ({hit.get('class', '?')})",
+                "text": str(hit.get("evidence", "")),
+            })
+        rules = {"status": "evaluated", "hits": list(rule_findings),
+                 "agreement": agreement, "agreement_note": note}
+
+    return {
+        "model": {"predicted_class": predicted_class, "confidence_band": confidence,
+                  "class_f1": f1},
+        "shap": drivers,
+        "rules": rules,
+        "evidence": evidence,
+    }
+
+
+# ============================================================
 # PROMPT -- compact, numbered, source-linked
 # ============================================================
 #
@@ -815,7 +944,8 @@ def _short(text: str, budget: int) -> str:
 
 
 def build_generation_context(predicted_class: str,
-                             retrieved: Dict[str, Any]
+                             retrieved: Dict[str, Any],
+                             inputs: Optional[Dict[str, Any]] = None
                              ) -> Tuple[str, Dict[str, Dict[str, Any]]]:
     """The Qwen prompt and the sources it may cite.
 
@@ -840,6 +970,13 @@ def build_generation_context(predicted_class: str,
             "text": shown,
             "kind": kind,
         })
+
+    # What was observed about this finding, citable like any source: an
+    # action may point the analyst at the rule's evidence or the SHAP
+    # drivers, but only by restating what is written here.
+    for item in (inputs or {}).get("evidence", []):
+        add(item["source_id"], "FORENXAI.case", item["label"], item["text"],
+            400, "evidence")
 
     for passage in retrieved.get("standards", []):
         kind = "control" if passage.get("kind") == "control" else "section"
@@ -890,6 +1027,10 @@ def build_generation_context(predicted_class: str,
     for pair in retrieved.get("ambiguous_with", []):
         notes.append(_short(pair["note"], 200))
 
+    agreement = (inputs or {}).get("rules", {}).get("agreement_note")
+    if agreement:
+        notes.append(agreement)
+
     listing = "\n".join(
         f"[{ref}] {entry['label'] if entry['kind'] != 'profile' else 'Detection profile'}: "
         f"{entry['text']}"
@@ -909,7 +1050,8 @@ SOURCES (the only material you may use):
 TASK: Write 3 to {MAX_ACTIONS} response actions for this {predicted_class} finding.
 Each action is one imperative sentence (at most 30 words) that an analyst can
 carry out, reuses the wording of ONE source above, and gives that source's
-bracketed id as source_id. Prefer the playbook and control sources. Reply with
+bracketed id as source_id. Prefer the playbook and control sources; where the
+model, SHAP or rule evidence names what to examine, one action may cite it. Reply with
 a JSON object whose "actions" list holds objects with "text" and "source_id".
 """
 
@@ -1074,6 +1216,44 @@ def _quoted_playbook_actions(predicted_class: str, used, needed: int
     return quoted
 
 
+_FIGURE = re.compile(r"\d+(?:[.:]\d+)*")
+
+
+def _evidence_supports(text: str, source: Dict[str, Any]) -> Optional[Dict]:
+    """Grounding check for case evidence (model, SHAP, rule hits).
+
+    Evidence is mostly figures -- counts, addresses, ports, SHAP values --
+    which the word-level check ignores. Here every figure in the action must
+    appear in the cited evidence (no invented numbers), and TERM_COVERAGE of
+    the action's words and figures together must come from it.
+    """
+    figures = set(_FIGURE.findall(text))
+    source_figures = set(_FIGURE.findall(source["text"]))
+    if figures - source_figures:
+        return None
+    terms = set(_tokens(text)) | figures
+    if len(terms) < 3:
+        return None
+    covered = terms & (set(_tokens(source["text"])) | source_figures)
+    coverage = len(covered) / len(terms)
+    if coverage < TERM_COVERAGE:
+        return None
+    return {"source": source["label"], "doc_id": source["doc_id"],
+            "match": "evidence", "span": "", "coverage": round(coverage, 3)}
+
+
+def _supports(text: str, source: Dict[str, Any]) -> Optional[Dict]:
+    """Whether one supplied source accounts for an action's wording."""
+    if source["kind"] == "evidence":
+        return _evidence_supports(text, source)
+    return verify(text, [{
+        "text": source["text"],
+        "doc_id": source["doc_id"],
+        "label": source["label"],
+        "role": source["kind"],
+    }])
+
+
 def verify_actions(actions: List[Any],
                    sources: Dict[str, Dict[str, Any]]
                    ) -> Dict[str, Any]:
@@ -1087,11 +1267,14 @@ def verify_actions(actions: List[Any],
       - the cited source itself accounts for the action's wording
         (verify(): a shared run of SPAN_WORDS words, or TERM_COVERAGE of
         its significant words), so a real citation on an invented sentence
-        still fails
+        still fails. When it does not, but exactly one other supplied source
+        does, the action is re-attributed to that source and the original
+        citation is kept in `cited_as` and counted in citation_corrected
     No model is involved. Every dropped action carries its reason.
     """
     verified: List[Dict[str, Any]] = []
     dropped: List[Dict[str, Any]] = []
+    corrected = 0
     seen_text = set()
 
     for position, action in enumerate(actions, start=1):
@@ -1139,18 +1322,27 @@ def verify_actions(actions: List[Any],
             continue
 
         source = sources[ref]
-
-        evidence = verify(text, [{
-            "text": source["text"],
-            "doc_id": source["doc_id"],
-            "label": source["label"],
-            "role": source["kind"],
-        }])
+        evidence = _supports(text, source)
+        corrected_from = None
 
         if evidence is None:
-            drop("not supported by the cited source", text)
-            dropped[-1]["source_id"] = source["source_id"]
-            continue
+            # A 3B model often copies one line and cites its neighbour.
+            # If exactly one OTHER supplied source supports the sentence,
+            # attribute it there and record the correction; if none or
+            # several do, the action cannot be traced and is dropped.
+            others = [
+                (r, e) for r, e in (
+                    (r, _supports(text, s))
+                    for r, s in sources.items() if r != ref
+                ) if e is not None
+            ]
+            if len(others) != 1:
+                drop("not supported by the cited source", text)
+                dropped[-1]["source_id"] = source["source_id"]
+                continue
+            corrected_from = source["source_id"]
+            ref, evidence = others[0]
+            source = sources[ref]
 
         if text.lower() in seen_text:
             drop("duplicate action", text)
@@ -1164,6 +1356,9 @@ def verify_actions(actions: List[Any],
             "source_ref": ref,
             "kind": source["kind"],
         })
+        if corrected_from:
+            evidence["cited_as"] = corrected_from
+            corrected += 1
 
         verified.append({
             "action_id": f"a{position}",
@@ -1183,6 +1378,7 @@ def verify_actions(actions: List[Any],
             "generated": len(actions),
             "verified": len(verified),
             "dropped": len(dropped),
+            "citation_corrected": corrected,
             "reasons": reasons,
         },
     }
@@ -1249,7 +1445,7 @@ def _build_references(evidence: List[Dict[str, Any]],
 
     # Published standards before the internal corpus: a reader checks
     # the authority first.
-    order.sort(key=lambda d: (d == "FORENXAI.corpus", d))
+    order.sort(key=lambda d: (d.startswith("FORENXAI."), d))
 
     references = []
     number_of = {}
@@ -1258,7 +1454,13 @@ def _build_references(evidence: List[Dict[str, Any]],
 
         number_of[doc_id] = position
 
-        if doc_id == "FORENXAI.corpus":
+        if doc_id == "FORENXAI.case":
+            acm = (
+                "FORENXAI. 2026. Case evidence: the XGBoost prediction, its "
+                "TreeSHAP attribution and the rule-based detection result for "
+                "the analysed capture."
+            )
+        elif doc_id == "FORENXAI.corpus":
             acm = (
                 "FORENXAI. 2026. Detection profiles for the sixteen "
                 "TRUSTLab classes. Internal knowledge base, "
@@ -1361,29 +1563,47 @@ def plan_recommendations(
             band,
         )
 
+        rules = finding.get("rule_findings")
+
         key = (
             predicted,
             band,
             tuple(a["class"] for a in measured["alternatives"]),
+            _rule_signature(rules),
         )
 
         entry = groups.get(key)
 
         if entry is None:
-            groups[key] = {
+            entry = groups[key] = {
                 "predicted_class": predicted,
                 "confidence": band,
                 "probabilities": finding.get("probabilities"),
-                "shap_features": finding.get("top_features"),
-                "flows": 1,
+                "shap_per_flow": [],
+                "rule_findings": None if rules is None else [],
+                "flows": 0,
             }
-        else:
-            entry["flows"] += 1
 
-    return sorted(
+        entry["flows"] += 1
+
+        if finding.get("top_features"):
+            entry["shap_per_flow"].append(finding["top_features"])
+
+        if rules:
+            known = {h.get("rule_id") for h in entry["rule_findings"]}
+            entry["rule_findings"].extend(
+                h for h in rules if h.get("rule_id") not in known
+            )
+
+    plan = sorted(
         groups.values(),
         key=lambda entry: -entry["flows"],
     )
+
+    for entry in plan:
+        entry["shap_features"] = _aggregate_shap(entry.pop("shap_per_flow"))
+
+    return plan
 
 
 def warm_recommendations(
@@ -1421,6 +1641,7 @@ def warm_recommendations(
             entry["shap_features"],
             entry["confidence"],
             entry["probabilities"],
+            entry["rule_findings"],
         )
 
     return len(plan)
@@ -1429,7 +1650,8 @@ def warm_recommendations(
 def get_recommendation(predicted_class: str,
                        shap_features=None,
                        confidence: Optional[float] = None,
-                       probabilities: Optional[Dict[str, float]] = None
+                       probabilities: Optional[Dict[str, float]] = None,
+                       rule_findings: Optional[List[Dict[str, Any]]] = None
                        ) -> Dict[str, Any]:
     """Grounded response recommendation for one predicted class.
 
@@ -1471,10 +1693,15 @@ def get_recommendation(predicted_class: str,
     # the class, the confidence band, and the alternative classes the
     # band brings with it. Same capture, same five classes: at most
     # fifteen generations instead of two hundred, and usually five.
+    # The rule outcome changes the answer (agreement, conflict, the
+    # evidence Qwen may cite), so it is part of the key. SHAP is not: the
+    # group's aggregated drivers reach the prompt through warm_recommendations,
+    # and a per-flow key would make the cache miss on every flow again.
     cache_key = (
         predicted_class,
         confidence,
         tuple(a["class"] for a in _measured["alternatives"]),
+        _rule_signature(rule_findings),
     )
 
     with _cache_lock:
@@ -1483,6 +1710,11 @@ def get_recommendation(predicted_class: str,
             return dict(_cache[cache_key])
 
     retrieved = retrieve(predicted_class, probabilities, confidence)
+
+    inputs = _recommendation_inputs(
+        predicted_class, confidence, retrieved.get("measured", {}),
+        shap_features, rule_findings,
+    )
 
     verification: Dict[str, Any] = {
         "verified_actions": [], "dropped_actions": [],
@@ -1556,7 +1788,7 @@ def get_recommendation(predicted_class: str,
         # assert; what to do about it is not, so an answer built only from
         # them is grounded in less than it looks.
         standards_grounded = any(
-            item.get("doc_id", "FORENXAI.corpus") != "FORENXAI.corpus"
+            not item.get("doc_id", "FORENXAI.corpus").startswith("FORENXAI.")
             for item in evidence
         )
 
@@ -1627,6 +1859,10 @@ def get_recommendation(predicted_class: str,
                              "verification_summary")
             },
             "knowledge_version": retrieved.get("knowledge_version"),
+            # What the recommendation was built from: the classifier's
+            # prediction, the SHAP drivers and the rule-based result, with
+            # whether the rules agree with the model.
+            "inputs": inputs,
         }
 
         with _cache_lock:
@@ -1642,7 +1878,9 @@ def get_recommendation(predicted_class: str,
         retrieved.get("standards", []) + retrieved["passages"]
     )
 
-    prompt, supplied = build_generation_context(predicted_class, retrieved)
+    prompt, supplied = build_generation_context(
+        predicted_class, retrieved, inputs
+    )
 
     generated = _generate(prompt, list(supplied))
 

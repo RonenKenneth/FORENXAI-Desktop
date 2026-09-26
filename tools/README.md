@@ -104,8 +104,11 @@ Suricata itself is installed system-wide, not here:
 backend finds `C:\Program Files\Suricata\suricata.exe`, or the path in the
 `FORENXAI_SURICATA` environment variable, or `binary` in `rules.json`.
 
-The Emerging Threats Open signatures live here, because Program Files is not
-writable without admin rights:
+The free rulesets live here, because Program Files is not writable without
+admin rights: ET Open, Positive Technologies (ptrules/open and
+ptresearch/attackdetection), aleksibovellan/nmap and abuse.ch SSLBL (JA3 and
+certificates), plus Suricata's own decoder, stream, http, dns, tls, smtp and
+app-layer event rules. A source that cannot be reached is skipped and reported:
 
     cd backend
     python update_suricata_rules.py          # writes tools/suricata/et-open.rules

@@ -345,6 +345,12 @@
       {
         "class": "Exploitation",
         "prefixes": [
+          "ATTACK [PTsecurity]"
+        ]
+      },
+      {
+        "class": "Exploitation",
+        "prefixes": [
           "ET EXPLOIT",
           "ET ATTACK_RESPONSE",
           "GPL EXPLOIT"
@@ -376,6 +382,17 @@
         ],
         "categories": [
           "Web Application Attack"
+        ]
+      },
+      {
+        "class": "Evasion",
+        "prefixes": [
+          "POSSBL"
+        ],
+        "contains": [
+          "fin",
+          "null",
+          "xmas"
         ]
       },
       {
@@ -439,11 +456,25 @@
       {
         "class": "PortScan",
         "prefixes": [
+          "POSSBL PORT",
+          "POSSBL SCAN"
+        ]
+      },
+      {
+        "class": "PortScan",
+        "prefixes": [
           "ET SCAN",
           "GPL SCAN"
         ],
         "categories": [
           "Detection of a Network Scan"
+        ]
+      },
+      {
+        "class": "C2Beaconing",
+        "prefixes": [
+          "MALWARE [PTsecurity]",
+          "SSLBL"
         ]
       },
       {
@@ -501,7 +532,16 @@
     "external_net": "any",
     "home_net_note": "'auto' = private ranges (10/8, 172.16/12, 192.168/16, 100.64/10, 169.254/16, fc00::/7, fe80::/10) plus the 256 busiest hosts that received connections in the capture; or give an explicit list. EXTERNAL_NET 'any' keeps attacks between two internal hosts in scope.",
     "sid_classes": {},
-    "sid_classes_note": "Per-signature overrides, checked before class_mapping: {\"2012345\": \"WebBased\"} maps a signature ID to a class; null ignores it."
+    "sid_classes_note": "Per-signature overrides, checked before class_mapping: {\"2012345\": \"WebBased\"} maps a signature ID to a class; null ignores it.",
+    "rulesets": [
+      "et/open",
+      "ptrules/open",
+      "ptresearch/attackdetection",
+      "aleksibovellan/nmap",
+      "abuse.ch/sslbl-ja3",
+      "abuse.ch/sslbl-blacklist",
+      "suricata event rules: decoder, stream, http, dns, tls, smtp, app-layer"
+    ]
   },
   "decision": {
     "description": "decide(): which detector's class becomes the verdict. trust = 'rule' only where the rule was measured as precise on held-out data (tuning.test_results precision >= 0.9); every other class trusts the model. Confidence thresholds and the out-of-distribution limit come from the model bundle (decision_thresholds.json, ood_stats.json).",

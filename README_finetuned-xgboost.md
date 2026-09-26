@@ -260,6 +260,22 @@ Status of the twelve improvements. Code is in
 | 10 | Flow matching | Non-first IP fragments take the first fragment's ports. The time offset is chosen among the quarter-hour estimate, one step either side and zero, by how many hit times fall inside a flow with their own 5-tuple. Suricata's input and output paths are resolved to absolute paths (a relative evidence path made Suricata fail) |
 | 12 | Interface | The Dashboard lists capture-level hits with their evidence, and the Suricata signatures that mapped to no class. The whole Dashboard now scrolls |
 
+### Suricata rulesets
+
+`backend/update_suricata_rules.py` merges the free rulesets from the OISF
+ruleset index into `tools/suricata/et-open.rules`: ET Open (52,483
+signatures), Positive Technologies ptrules/open and ptresearch/attackdetection
+(exploits, malware), aleksibovellan/nmap (scan types, mapped to PortScan or
+Evasion), abuse.ch SSLBL JA3 and certificate rules (C2 over TLS), and
+Suricata's own decoder, stream, http, dns, tls, smtp and app-layer event
+rules. Unreachable sources are skipped and reported. On 26 Sep 2026
+ptrules/open and the abuse.ch feeds timed out from the development network;
+52,956 rules loaded. `suricata.class_mapping` maps the new signature prefixes
+(`ATTACK [PTsecurity]` to Exploitation, `MALWARE [PTsecurity]` and `SSLBL` to
+C2Beaconing, `POSSBL` scans to PortScan or Evasion). API and MITM have no
+free Suricata ruleset (Suricata does not parse ARP); both stay covered by the
+scapy checks T2-API-01 and T2-MITM-01.
+
 ### Still open (these need data or a long run)
 
 1. **Score Tier 2 on labelled captures.** No Tier 2 rule has a measured

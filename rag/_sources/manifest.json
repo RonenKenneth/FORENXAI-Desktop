@@ -28,15 +28,6 @@
     "sha256": "f9a4dbb9cc6ac6778bb9f4e6be9272c2f14d113f3ad241a295684ac6bd71f257",
     "retrieved": "2026-09-08T10:03:54"
   },
-  "NIST.CSWP.29": {
-    "url": "https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf",
-    "landing": "https://www.nist.gov/cyberframework",
-    "citation": "National Institute of Standards and Technology, \"The NIST Cybersecurity Framework (CSF) 2.0,\" NIST CSWP 29, Feb. 2024, doi: 10.6028/NIST.CSWP.29.",
-    "file": "NIST.CSWP.29.pdf",
-    "bytes": 1518858,
-    "sha256": "3c31f46fee98cac0c4323453e5109291a213b4de7fef8c058af9bf67f717433c",
-    "retrieved": "2026-09-08T10:04:07"
-  },
   "CISA.playbooks": {
     "url": "https://www.cisa.gov/sites/default/files/publications/Federal_Government_Cybersecurity_Incident_and_Vulnerability_Response_Playbooks_508C.pdf",
     "landing": "https://www.cisa.gov/resources-tools/resources/federal-government-cybersecurity-incident-and-vulnerability-response-playbooks",
@@ -91,24 +82,6 @@
     "sha256": "7576edb531d9848825814ee88e28b1795d3a84b435b4b797d3670eafdc4a89f1",
     "retrieved": "2026-09-08T17:00:03"
   },
-  "SommerPaxson.closedworld": {
-    "url": "https://www.icir.org/robin/papers/oakland10-ml.pdf",
-    "landing": "https://ieeexplore.ieee.org/document/5504793",
-    "citation": "R. Sommer and V. Paxson, \"Outside the closed world: On using machine learning for network intrusion detection,\" in Proc. IEEE Symp. Security and Privacy, Oakland, CA, USA, May 2010, pp. 305-316, doi: 10.1109/SP.2010.25.",
-    "file": "SommerPaxson.closedworld.pdf",
-    "bytes": 162273,
-    "sha256": "b73595240914c8b75ee6255bf08a0a429b0753f669427107388af7a90281866a",
-    "retrieved": "2026-09-08T17:00:09"
-  },
-  "Lundberg.shap": {
-    "url": "https://arxiv.org/pdf/1705.07874",
-    "landing": "https://arxiv.org/abs/1705.07874",
-    "citation": "S. M. Lundberg and S.-I. Lee, \"A unified approach to interpreting model predictions,\" in Advances in Neural Information Processing Systems 30, Long Beach, CA, USA, Dec. 2017, pp. 4765-4774.",
-    "file": "Lundberg.shap.pdf",
-    "bytes": 1014198,
-    "sha256": "01c7aa8f7d9edcf0cd185bf02e82363f743e441fcaf05b99e6054bfb470bf8ae",
-    "retrieved": "2026-09-08T17:00:11"
-  },
   "Lundberg.treeshap": {
     "url": "https://arxiv.org/pdf/1905.04610",
     "landing": "https://arxiv.org/abs/1905.04610",
@@ -117,33 +90,6 @@
     "bytes": 19028452,
     "sha256": "aa3824ce44c797539ec61cbb24a900a348363dc609a3ae717df5c92315557482",
     "retrieved": "2026-09-08T17:01:08"
-  },
-  "OWASP.A01.2025": {
-    "url": "https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/",
-    "landing": "https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/",
-    "citation": "Open Worldwide Application Security Project, \"A01:2025 — Broken access control,\" in OWASP Top 10:2025, OWASP Foundation, 2025.",
-    "file": "OWASP.A01.2025.html",
-    "bytes": 36881,
-    "sha256": "da315070df0ad805417c9b6d5a8715b6211513afc5d70d3cf780d52bb56c5a39",
-    "retrieved": "2026-09-08T19:55:51"
-  },
-  "OWASP.A05.2025": {
-    "url": "https://owasp.org/Top10/2025/A05_2025-Injection/",
-    "landing": "https://owasp.org/Top10/2025/A05_2025-Injection/",
-    "citation": "Open Worldwide Application Security Project, \"A05:2025 — Injection,\" in OWASP Top 10:2025, OWASP Foundation, 2025.",
-    "file": "OWASP.A05.2025.html",
-    "bytes": 38472,
-    "sha256": "df8f178b38dc4be8099690aee02701d07ad7d2b0dabc0363ea4309265518d6a3",
-    "retrieved": "2026-09-08T19:55:51"
-  },
-  "OWASP.A07.2025": {
-    "url": "https://owasp.org/Top10/2025/A07_2025-Authentication_Failures/",
-    "landing": "https://owasp.org/Top10/2025/A07_2025-Authentication_Failures/",
-    "citation": "Open Worldwide Application Security Project, \"A07:2025 — Authentication failures,\" in OWASP Top 10:2025, OWASP Foundation, 2025.",
-    "file": "OWASP.A07.2025.html",
-    "bytes": 37855,
-    "sha256": "e5e4c51698ed4c966e5a767fd09db489edc11544cb24da09c76265a9015f8092",
-    "retrieved": "2026-09-08T19:55:52"
   },
   "NIST.SP.800-86": {
     "url": "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-86.pdf",
@@ -182,26 +128,6 @@
     "sha256": "a30c5d3c6e998fd4608199860968a5d70013030c8957337203147daef4559eee",
     "retrieved": "2026-09-09T07:11:45"
   },
-  "NIST.FIPS.200": {
-    "url": "https://csrc.nist.gov/pubs/fips/200/final",
-    "landing": "https://csrc.nist.gov/pubs/fips/200/final",
-    "citation": "National Institute of Standards and Technology, \"Minimum security requirements for federal information and information systems,\" FIPS PUB 200, Mar. 2006.",
-    "file": "NIST.FIPS.200.pdf",
-    "bytes": 218892,
-    "sha256": "107a9b9cdc8eccf37386aec28bbaf2dfaef5cfece17151ceabc3960423243a57",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2006. Minimum Security Requirements for Federal Information and Information Systems. Federal Information Processing Standards Publication 200. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.IR.8312": {
-    "url": "https://doi.org/10.6028/NIST.IR.8312",
-    "landing": "https://doi.org/10.6028/NIST.IR.8312",
-    "citation": "P. J. Phillips, C. A. Hahn, P. C. Fontana, A. N. Yates, K. Greene, D. A. Broniatowski and M. A. Przybocki, \"Four principles of explainable artificial intelligence,\" NISTIR 8312, Sep. 2021, doi: 10.6028/NIST.IR.8312.",
-    "file": "NIST.IR.8312.pdf",
-    "bytes": 1356040,
-    "sha256": "344b3945534c77913596b27d62e3cd9e804cf3759f92989c26cc3e02cd32b616",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "P. Jonathon Phillips, Carina A. Hahn, Peter C. Fontana, Amy N. Yates, Kristen Greene, David A. Broniatowski, and Mark A. Przybocki. 2021. Four Principles of Explainable Artificial Intelligence. NISTIR 8312. National Institute of Standards and Technology, Gaithersburg, MD. https://doi.org/10.6028/NIST.IR.8312"
-  },
   "NIST.SP.800-18r2": {
     "url": "https://doi.org/10.6028/NIST.SP.800-18r2",
     "landing": "https://doi.org/10.6028/NIST.SP.800-18r2",
@@ -212,16 +138,6 @@
     "retrieved": "2026-09-08T10:00:00",
     "acm": "Jeremy Licata, Rebecca McWhite, Laura Calloway, Dylan Gilbert, Meghan Anderson, Julie Snyder, and Jeremy Miller. 2026. Developing Security, Privacy, and Cybersecurity Supply Chain Risk Management Plans for Systems. NIST Special Publication 800-18r2. National Institute of Standards and Technology, Gaithersburg, MD. https://doi.org/10.6028/NIST.SP.800-18r2"
   },
-  "NIST.PrivacyFramework": {
-    "url": "https://www.nist.gov/privacy-framework",
-    "landing": "https://www.nist.gov/privacy-framework",
-    "citation": "National Institute of Standards and Technology, \"NIST privacy framework: A tool for improving privacy through enterprise risk management, version 1.0,\" Jan. 2020.",
-    "file": "NIST Privacy Framework_V1.0.pdf",
-    "bytes": 1494678,
-    "sha256": "184cd2462d30ead5e516ba555293bb7ba989608bb07f1592941d8e2259b447b5",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2020. NIST Privacy Framework: A Tool for Improving Privacy Through Enterprise Risk Management, Version 1.0. National Institute of Standards and Technology, Gaithersburg, MD. https://www.nist.gov/privacy-framework"
-  },
   "Arslan.mits": {
     "url": "https://doi.org/10.56578/mits050102",
     "landing": "https://doi.org/10.56578/mits050102",
@@ -231,95 +147,6 @@
     "sha256": "6a7b09a61b920f1ba426630bc1fdaddb88fe6183f0f4a4c09b1726c102468ac3",
     "retrieved": "2026-09-08T10:00:00",
     "acm": "Recep Arslan, Turgut Ozseven, Metin Mutlu Aydin, and Yasin Celik. 2026. Cybersecurity in Intelligent Transportation Systems: A Comparative Study on AI-Based Anomaly Detection and Threat Analysis. Mechatronics and Intelligent Transportation Systems 5, 1 (2026), 11-30. https://doi.org/10.56578/mits050102"
-  },
-  "NIST.SP.800-53r5.changes": {
-    "url": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd2/final",
-    "landing": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd2/final",
-    "citation": "National Institute of Standards and Technology, \"Summary of changes: NIST SP 800-53 release 5.2.0,\" Aug. 2025.",
-    "file": "SP800-53-r5.2.0-changes.pdf",
-    "bytes": 93468,
-    "sha256": "bc4e626745fa4cf48a1bb6d09f552aa4f7a4b945b459119407d08f2e97a89a86",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2025. Summary of Changes: NIST SP 800-53 Release 5.2.0. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Prepare": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: prepare step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Prepare Step-FAQs.pdf",
-    "bytes": 2157371,
-    "sha256": "eae7c922e1ecb06ea2a022492566a2c51fed753a8f1343d0129e659686389080",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Prepare Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Categorize": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: categorize step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Categorize Step-FAQs.pdf",
-    "bytes": 2243129,
-    "sha256": "77574123e464a966ff616930b91237f1702297bb6e0e10a1c3ae0effc57c2c08",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Categorize Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Select": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: select step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Select Step-FAQs.pdf",
-    "bytes": 2331782,
-    "sha256": "8ae22496e52fe715c812ad1ee7dc0d39796189876dc4ba3a8c60a2ddb0ad27f6",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Select Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Implement": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: implement step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Implement Step-FAQs.pdf",
-    "bytes": 1912701,
-    "sha256": "b3ac3a46388cff220261749c5d6aaf5208a5fbd8c8f8e80b2146be36ca3adfb9",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Implement Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Assess": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: assess step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Assess Step-FAQs.pdf",
-    "bytes": 2049950,
-    "sha256": "1d471a45ffd5291a2f2f83e86074a03603b68e8d97f0e59f4685b9d431725ff3",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Assess Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Authorize": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: authorize step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Authorize Step-FAQs.pdf",
-    "bytes": 2029844,
-    "sha256": "269bcb4752b25a59e2a8f81f00009529fe969c196353da97780337a5ec7c961d",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Authorize Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "NIST.RMF.Monitor": {
-    "url": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "landing": "https://csrc.nist.gov/projects/risk-management/rmf-quick-start-guides",
-    "citation": "National Institute of Standards and Technology, \"NIST risk management framework quick start guide: monitor step -- frequently asked questions,\" Mar. 2021.",
-    "file": "NIST RMF Monitor Step-FAQs.pdf",
-    "bytes": 2169650,
-    "sha256": "0b38a787c456eb1db03714e0f16d55966a723f6f34a7b8e9992acbdeb499926b",
-    "retrieved": "2026-09-08T10:00:00",
-    "acm": "National Institute of Standards and Technology. 2021. NIST Risk Management Framework Quick Start Guide: Monitor Step, Frequently Asked Questions. National Institute of Standards and Technology, Gaithersburg, MD."
-  },
-  "Herzalla.tiissrc": {
-    "url": "https://doi.org/10.1109/ACCESS.2023.3319213",
-    "landing": "https://doi.org/10.1109/ACCESS.2023.3319213",
-    "citation": "D. Herzalla, W. T. Lunardi and M. Andreoni, \"TII-SSRC-23 dataset: Typological exploration of diverse traffic patterns for intrusion detection,\" IEEE Access, vol. 11, pp. 118577-118594, 2023, doi: 10.1109/ACCESS.2023.3319213.",
-    "file": "01_Herzalla_2023_IEEEAccess.pdf",
-    "bytes": 2796198,
-    "sha256": "28d75317bb09dfef8f3310b7ee77371e4f903c792a26bfb108700696694c70a7",
-    "retrieved": "2026-09-23T10:45:42"
   },
   "Catillo.transferability": {
     "url": "https://doi.org/10.1007/s11219-022-09587-0",
@@ -337,24 +164,6 @@
     "file": "04_Cosar_2024_AITA_cseciids2018.pdf",
     "bytes": 529515,
     "sha256": "c95eb0c6a3fa3abff67898b68def8c2dbfe1381f811868ca7705f90d82034e22",
-    "retrieved": "2026-09-23T10:45:42"
-  },
-  "Mchina.acafs": {
-    "url": "https://doi.org/10.3389/fdata.2026.1871346",
-    "landing": "https://doi.org/10.3389/fdata.2026.1871346",
-    "citation": "J. P. Mchina, N. Mduma and R. S. Sinde, \"Adaptive class-aware feature selection for high-dimensional and imbalanced multi-class network intrusion detection,\" Frontiers in Big Data, vol. 9, 1871346, 2026, doi: 10.3389/fdata.2026.1871346.",
-    "file": "05_Mchina_2026_FrontiersBigData.pdf",
-    "bytes": 1989934,
-    "sha256": "f8c8ba3a2f9e12079764ec348729c0febf66432610985424360fcebeb538d81f",
-    "retrieved": "2026-09-23T10:45:42"
-  },
-  "Badiger.stacking": {
-    "url": "https://www.jait.us/",
-    "landing": "https://www.jait.us/",
-    "citation": "V. S. Badiger and G. K. Shyam, \"A multiclass network intrusion detection system using stacking ensemble technique with hybrid feature selection,\" Journal of Advances in Information Technology, vol. 16, no. 3, 2025.",
-    "file": "06_Badiger_2025_JAIT_stacking_multiclass.pdf",
-    "bytes": 2330727,
-    "sha256": "ed430943d1aed7207639c94a2ba698c70cf4f09635dc05d9c716cd417267f45d",
     "retrieved": "2026-09-23T10:45:42"
   },
   "Gombar.triage": {

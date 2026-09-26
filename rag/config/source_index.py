@@ -56,18 +56,7 @@ SECTION_DOCUMENTS = {
     # footnotes are indistinguishable from its section headings.
     "NIST.SP.800-52r2": "NIST.SP.800-52r2.pdf",
     "NIST.SP.800-18r2": "NIST.SP.800-18r2.pdf",
-    "NIST.FIPS.200": "NIST.FIPS.200.pdf",
-    "NIST.IR.8312": "NIST.IR.8312.pdf",
-    "NIST.CSWP.29": "NIST.CSWP.29.pdf",
     "NIST.AI.100-1": "NIST.AI.100-1.pdf",
-    "NIST.PrivacyFramework": "NIST Privacy Framework_V1.0.pdf",
-    "NIST.RMF.Prepare": "NIST RMF Prepare Step-FAQs.pdf",
-    "NIST.RMF.Categorize": "NIST RMF Categorize Step-FAQs.pdf",
-    "NIST.RMF.Select": "NIST RMF Select Step-FAQs.pdf",
-    "NIST.RMF.Implement": "NIST RMF Implement Step-FAQs.pdf",
-    "NIST.RMF.Assess": "NIST RMF Assess Step-FAQs.pdf",
-    "NIST.RMF.Authorize": "NIST RMF Authorize Step-FAQs.pdf",
-    "NIST.RMF.Monitor": "NIST RMF Monitor Step-FAQs.pdf",
     "Chen.xgboost": "Chen.xgboost.pdf",
     "Arp.cacm": "Arp.cacm.pdf",
     "Arslan.mits": "Arslan.mits.pdf",
@@ -106,11 +95,8 @@ MIN_EXTRACTED_CHARS = 400
 # section. LITERATURE_SEARCHABLE controls that, and defaults off; the
 # documents stay indexed and stay retrievable by name either way.
 LITERATURE_DOCUMENTS = {
-    "Herzalla.tiissrc": "01_Herzalla_2023_IEEEAccess.pdf",
     "Catillo.transferability": "02_Catillo_2022_SQJ_transferability.pdf",
     "Cosar.cseciids2018": "04_Cosar_2024_AITA_cseciids2018.pdf",
-    "Mchina.acafs": "05_Mchina_2026_FrontiersBigData.pdf",
-    "Badiger.stacking": "06_Badiger_2025_JAIT_stacking_multiclass.pdf",
     "Gombar.triage": "07_Gombar_2026_Electronics_triage.pdf",
     "Bilal.federated": "08_SciRep_2026_federated_iot.pdf",
     "Villafranca.trustlab": "09_Villafranca_2026_FrontCompSci_TRUSTLab.pdf",

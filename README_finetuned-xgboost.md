@@ -79,6 +79,73 @@ trained on (`EXCLUDED_DEGENERATE_COLUMNS` in `model_service.py`). Identifier
 columns (Flow ID, Src/Dst IP, Src Port, Timestamp, Label) are never model
 inputs.
 
+### Abstain layer: out-of-distribution (OOD) statistics
+
+A flow is **abstained** when the model should not be trusted on it: it lies
+too far from the training data, or its confidence is below its class's
+threshold. Stored in `backend/models/forenxai/ood_stats.json` and
+`decision_thresholds.json`; applied by `abstain_decisions()` in
+`backend/app/services/model_service.py`.
+
+**Distance measure:** squared Mahalanobis distance of the flow's 66 scaled
+features `x` from the training mean `μ`, using the inverse covariance `Σ⁻¹`:
+
+    D²(x) = (x − μ)ᵀ Σ⁻¹ (x − μ)
+
+| Statistic | Value | Meaning |
+|---|---|---|
+| Method | `mahalanobis_squared` | Distance that accounts for how features vary together |
+| Fitted on | `mc_train_random.parquet`, 85% training split, after the bundle's scaler | The test split was never used |
+| Mean vector `μ` | 66 values | The average training flow (scaled units) |
+| Inverse covariance `Σ⁻¹` | 66 × 66 matrix | Feature co-variation, inverted |
+| Shrinkage | 1e-6 | Added to `Σ` before inversion for numerical stability |
+| Threshold | **554.10** | 99th percentile of training distances |
+| Training median | 12.22 | Typical distance of a training flow |
+
+A flow with `D² > 554.10` gets `abstained = true`,
+`abstain_reason = "out_of_distribution"` and `ood_distance = D²`.
+
+**Verification** (from `ood_stats.json`):
+
+| Data | Flows flagged OOD |
+|---|---|
+| TRUSTLab training | about 1% (by construction: p99) |
+| TRUSTLab held-out test | 1.04% |
+| CSE-CIC-IDS2018 | 65.29% |
+
+Traffic from another network is mostly recognised as unfamiliar, which is
+what the layer is for.
+
+**Confidence thresholds** (`decision_thresholds.json`, fitted on a 15%
+validation split of the training data): a flow whose top probability is
+below its class's threshold gets `abstain_reason = "low_confidence"`.
+
+| Class | Threshold | Class | Threshold |
+|---|---|---|---|
+| API | 0.575 | Evasion | 0.525 |
+| Benign | 0.200 | Exfiltration | 0.200 |
+| Bruteforce | 0.350 | Exploitation | 0.475 |
+| BufferOverflow | 0.475 | MITM | 0.550 |
+| C2Beaconing | 0.200 | PortScan | 0.700 |
+| DDoS | 0.200 | Slowloris | 0.200 |
+| DNS | 0.200 | TLSSSL | 0.425 |
+| DoS | 0.200 | WebBased | 0.200 |
+
+**Effect on the TRUSTLab test split** (measured once, thresholds never
+tuned on it):
+
+| | Without abstain layer | With abstain layer |
+|---|---|---|
+| Accuracy | 0.9351 | 0.9374 |
+| Macro F1 | 0.9305 | 0.9332 |
+| Flows abstained | 0% | 1.54% (1.04% OOD, 0.50% low confidence) |
+| Error rate on kept flows | | 6.26% |
+| Error rate on abstained flows | | 21.60% |
+
+In the application, `decide()` gives an abstained flow the rule's class when a
+rule fired (source `rule`), and otherwise the verdict **Uncertain** (source
+`abstain`) for analyst review.
+
 ## 2. Tier 1 rules: flow records
 
 **Purpose:** behaviour rules that run beside the model on the CICFlowMeter

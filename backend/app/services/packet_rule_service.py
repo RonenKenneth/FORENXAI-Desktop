@@ -41,7 +41,9 @@ import os
 import re
 import shutil
 import subprocess
-from collections import Counter, defaultdict
+import base64
+import html
+from collections import Counter, OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -50,7 +52,8 @@ from urllib.parse import unquote_plus
 import numpy as np
 from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import IP, TCP, UDP
-from scapy.layers.inet6 import IPv6
+from scapy.layers.dhcp import BOOTP, DHCP
+from scapy.layers.inet6 import ICMPv6ND_NA, ICMPv6NDOptDstLLAddr, IPv6
 from scapy.layers.l2 import ARP
 
 from app.services import rule_service as rs
@@ -82,6 +85,38 @@ DEFAULT_RULES_FILE = Path(__file__).resolve().parents[3] / "tools" / "suricata" 
 
 MAX_OPEN_REQUESTS = 100_000
 MAX_TAILS = 200_000
+
+# Always part of HOME_NET when rules.json asks for "auto".
+PRIVATE_NETS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10",
+                "169.254.0.0/16", "fc00::/7", "fe80::/10"]
+WEAK_TLS_LOG = {"SSLv2", "SSLv3", "TLSv1"}             # Suricata's names for SSL 2/3 and TLS 1.0
+STARTTLS = (b"STARTTLS", b"AUTH TLS", b"AUTH SSL")
+
+
+def _decoded_variants(text: str) -> str:
+    """The request as the server may read it: URL-decoded twice, then HTML
+    entities, %uXXXX and \\uXXXX escapes, and long base64 tokens decoded."""
+    once = unquote_plus(unquote_plus(text))
+    variants = [once, html.unescape(once),
+                re.sub(r"%u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), once),
+                re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), once)]
+    for token in re.findall(r"[A-Za-z0-9+/]{24,}={0,2}", once)[:20]:
+        try:
+            plain = base64.b64decode(token + "=" * (-len(token) % 4)).decode("ascii")
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if sum(c.isprintable() for c in plain) >= 0.9 * len(plain):
+            variants.append(plain)
+    return "\n".join(variants).lower()
+
+
+def _touch(store: "OrderedDict", key, value, cap: int):
+    """Insert or refresh `key`, evicting the least recently used entry past `cap`."""
+    store[key] = value
+    store.move_to_end(key)
+    if len(store) > cap:
+        store.popitem(last=False)
+
 
 TLS_VERSIONS = {0x0002: "SSL 2.0", 0x0300: "SSL 3.0", 0x0301: "TLS 1.0"}
 
@@ -132,9 +167,13 @@ class PacketInspector:
         self.tls_weak: Dict[tuple, Tuple[float, str, str, str]] = {}
         self.bof: Dict[tuple, Tuple[float, str, int, str, str]] = {}
         self.errors = 0
-        self.requests: Dict[tuple, List[Any]] = {}                      # open plain-HTTP requests
+        self.requests: "OrderedDict[tuple, Dict[str, Any]]" = OrderedDict()   # open plain-HTTP requests (LRU)
         self.paths: Dict[tuple, set] = defaultdict(set)                  # (client, server, window) -> paths
-        self.tails: Dict[tuple, bytes] = {}                              # last bytes per direction (BOF)
+        self.tails: "OrderedDict[tuple, bytes]" = OrderedDict()          # last bytes per direction (BOF, LRU)
+        self.nd_macs: Dict[str, Dict[str, float]] = defaultdict(dict)    # IPv6 -> MAC -> first seen
+        self.dhcp_servers: Dict[str, Tuple[float, tuple, str]] = {}      # server id -> (t, key, src)
+        self.syn_targets: Counter = Counter()                            # hosts that received connections
+        self.frag_keys: Dict[tuple, tuple] = {}                          # fragment id -> first fragment's flow key
 
     def _on(self, rule_id):
         return self.rules.get(rule_id, {}).get("enabled", False)
@@ -167,6 +206,9 @@ class PacketInspector:
         elif IPv6 in packet:
             ip = packet[IPv6]
             src, dst, proto, ttl = ip.src, ip.dst, int(ip.nh), int(ip.hlim)
+            if ICMPv6ND_NA in packet and ICMPv6NDOptDstLLAddr in packet and self._on("T2-MITM-01"):
+                target = str(packet[ICMPv6ND_NA].tgt)             # IPv6 neighbour advertisement
+                self.nd_macs[target].setdefault(str(packet[ICMPv6NDOptDstLLAddr].lladdr), t)
         else:
             return
 
@@ -179,6 +221,10 @@ class PacketInspector:
         if layer is not None:
             sport, dport = int(layer.sport), int(layer.dport)
         key = _key(proto, src, sport, dst, dport)
+        if layer is not None and proto == 6 and int(packet[TCP].flags) & 0x12 == 0x02:
+            self.syn_targets[dst] += 1                       # SYN without ACK: dst is a server
+        if proto == 17 and sport == 67 and DHCP in packet and self._on("T2-MITM-01"):
+            self._dhcp(packet, key, src, t)
 
         if IP in packet and self._on("T2-EVASION-01"):
             self._evasion_ip(packet[IP], key, t)
@@ -189,7 +235,7 @@ class PacketInspector:
                 self.ttl[directed] = [ttl, 0, key, t]
             elif ttl != state[0]:
                 state[0], state[1] = ttl, state[1] + 1
-        if proto == 6 and self._on("T2-EVASION-01"):
+        if layer is not None and proto == 6 and self._on("T2-EVASION-01"):
             flags = int(packet[TCP].flags)
             name = ("NULL" if flags == 0 else "XMAS" if flags & 0x29 == 0x29
                     else "SYN+FIN" if flags & 0x03 == 0x03 else None)
@@ -213,7 +259,11 @@ class PacketInspector:
             return
         if key in self.encrypted_keys:
             return
-        self._http(payload, key, src, dst, sport, dport, t)
+        if any(word in payload[:40].upper() for word in STARTTLS):
+            self.encrypted_keys.add(key)                     # upgraded in place: the rest is ciphertext
+            return
+        seq = int(packet[TCP].seq) if proto == 6 else None
+        self._http(payload, key, src, dst, sport, dport, t, seq)
         self._failed_login(payload, key, src, dst, sport, t)
         self._bof(payload, key, (src, sport, dst, dport), src, dst, t)
 
@@ -224,10 +274,19 @@ class PacketInspector:
             return
         span = (offset, offset + len(ip.payload))
         fid = (ip.src, ip.dst, int(ip.id), int(ip.proto))
+        if offset == 0 and (key[2] or key[4]):
+            self.frag_keys.setdefault(fid, key)              # later fragments carry no ports
+        key = self.frag_keys.get(fid, key)
         if any(span[0] < end and start < span[1] for start, end in self.fragments[fid]):
             entry = self.fragment_overlaps.setdefault(fid, [0, key, t])
             entry[0] += 1
         self.fragments[fid].append(span)
+
+    def _dhcp(self, packet, key, src, t):
+        options = {o[0]: o[1] for o in packet[DHCP].options if isinstance(o, tuple) and len(o) >= 2}
+        if options.get("message-type") in (2, 5):            # OFFER or ACK: a server answered
+            server = str(options.get("server_id") or src)
+            self.dhcp_servers.setdefault(server, (t, key, str(packet[BOOTP].yiaddr)))
 
     def _dns(self, packet, key, src, t):
         if not self._on("T2-DNS-01"):
@@ -260,10 +319,11 @@ class PacketInspector:
             self.tls_weak[key] = (t, TLS_VERSIONS.get(version, f"0x{version:04x}"), src, dst)
         return True
 
-    def _http(self, payload, key, src, dst, sport, dport, t):
+    def _http(self, payload, key, src, dst, sport, dport, t, seq=None):
         """HTTP requests and replies. A request is buffered until its reply
         (or max_payload_bytes), so a pattern split across TCP segments is
-        still seen; segments are appended in arrival order."""
+        still seen. Segments are placed by TCP sequence number, so
+        out-of-order segments and retransmissions do not corrupt it."""
         window = int(t // self.window)
         directed = (src, sport, dst, dport)
         if payload.startswith(HTTP_METHODS):
@@ -277,16 +337,17 @@ class PacketInspector:
                 if any(m in path.lower() for m in markers) or b"application/json" in head.lower():
                     self.api_flows.add(key)
                     self.groups["api_calls"][(src, dst, window)].append((key, t, path))
-            if len(self.requests) > MAX_OPEN_REQUESTS:
-                self.requests.clear()        # ponytail: drop buffers on floods; per-flow LRU if that loses real hits
-            self.requests[directed] = [bytearray(payload[: self.max_payload]), False]
+            _touch(self.requests, directed,
+                   {"base": seq, "segments": {0: payload}, "matched": False}, MAX_OPEN_REQUESTS)
             self._match_request(directed, key, src, dst, t)
         elif directed in self.requests:
-            buffer = self.requests[directed][0]
-            buffer += payload[: self.max_payload - len(buffer)]
-            self._match_request(directed, key, src, dst, t)
-            if len(buffer) >= self.max_payload:
-                del self.requests[directed]
+            state = self.requests[directed]
+            offset = (seq - state["base"]) % (1 << 32) if seq is not None and state["base"] is not None \
+                else sum(len(v) for v in state["segments"].values())
+            if offset < self.max_payload:
+                state["segments"].setdefault(offset, payload)  # a retransmission keeps the first copy
+                self.requests.move_to_end(directed)
+                self._match_request(directed, key, src, dst, t)
         elif payload.startswith(b"HTTP/1.") and len(payload) >= 12:
             self.requests.pop((dst, dport, src, sport), None)
             try:
@@ -301,17 +362,26 @@ class PacketInspector:
             elif status == 401 and self._on("T2-BRUTEFORCE-01"):
                 self.groups["login_fail"][(client, src, window)].append((key, t, "HTTP 401"))
 
+    def _request_bytes(self, state) -> bytes:
+        """The contiguous request from offset 0, in sequence order."""
+        data = b""
+        for offset in sorted(state["segments"]):
+            if offset > len(data):
+                break                                        # a gap: wait for the missing segment
+            data += state["segments"][offset][len(data) - offset:]
+        return data[: self.max_payload]
+
     def _match_request(self, directed, key, src, dst, t):
         state = self.requests.get(directed)
-        if not self._on("T2-WEB-01") or state is None or state[1]:
+        if not self._on("T2-WEB-01") or state is None or state["matched"]:
             return
-        head, _, body = bytes(state[0]).partition(b"\r\n\r\n")
+        head, _, body = self._request_bytes(state).partition(b"\r\n\r\n")
         text = head.split(b"\r\n", 1)[0].decode("latin-1", "replace") + " " + body.decode("latin-1", "replace")
-        decoded = unquote_plus(unquote_plus(text)).lower()
+        decoded = _decoded_variants(text)
         for technique, pattern in WEB_PATTERNS:
             match = pattern.search(decoded)
             if match:
-                state[1] = True                               # one match per request
+                state["matched"] = True                      # one match per request
                 self.web.append((key, t, src, dst, technique, match.group(0)[:60]))
                 return
 
@@ -330,10 +400,8 @@ class PacketInspector:
             return
         rule = self.rules["T2-BOF-01"]
         keep = max(rule["min_nop_run"], rule["min_filler_run"]) - 1
-        if len(self.tails) > MAX_TAILS:
-            self.tails.clear()               # ponytail: bounded memory on huge captures; LRU if split runs get missed
         payload = self.tails.get(directed, b"") + payload
-        self.tails[directed] = payload[-keep:]
+        _touch(self.tails, directed, payload[-keep:], MAX_TAILS)
         if b"\x90" * rule["min_nop_run"] in payload:
             self.bof[key] = (t, "NOP (0x90)", rule["min_nop_run"], src, dst)
             return
@@ -374,6 +442,26 @@ class PacketInspector:
                                peak, rule["min_gratuitous_arp"])
                     hit["_ip"], hit["_since"] = ip, float(times[0])
                     out.append(hit)
+            for ip, macs in self.nd_macs.items():
+                if len(macs) >= rule["min_macs_per_ip"]:
+                    hit = _hit("T2-MITM-01", rule,
+                               f"{len(macs)} MAC addresses ({', '.join(sorted(macs))}) claimed {ip} "
+                               f"in IPv6 neighbour advertisements (threshold {rule['min_macs_per_ip']}).",
+                               len(macs), rule["min_macs_per_ip"])
+                    hit["_ip"], hit["_since"] = ip, sorted(macs.values())[1]
+                    out.append(hit)
+            if len(self.dhcp_servers) >= rule.get("min_dhcp_servers", 2):
+                servers = sorted(self.dhcp_servers)
+                hit = _hit("T2-MITM-01", rule,
+                           f"{len(servers)} DHCP servers answered on this network ({', '.join(servers)}); "
+                           f"a second, rogue server can hand out its own gateway or DNS "
+                           f"(threshold {rule.get('min_dhcp_servers', 2)}).",
+                           len(servers), rule.get("min_dhcp_servers", 2))
+                hit["_flows"] = [(k, t) for t, k, _ in self.dhcp_servers.values()]
+                out.append(hit)
+            for h in out:
+                if "_since" in h:
+                    h["_until"] = h["_since"] + rule.get("attach_window_seconds", 300)
 
         if self._on("T2-EVASION-01"):
             rule = R["T2-EVASION-01"]
@@ -476,6 +564,13 @@ class PacketInspector:
                 out.append(hit)
         return out
 
+    def home_net(self, limit: int = 256) -> List[str]:
+        """Private ranges plus the busiest hosts that received connections:
+        the capture's servers, whatever address plan it uses."""
+        extra = [ip for ip, _ in self.syn_targets.most_common(limit)
+                 if not ip.startswith(("10.", "192.168.", "169.254.", "fe80:", "fc", "fd"))]
+        return PRIVATE_NETS + extra
+
 
 # ------------------------------------------------------------------
 # Suricata
@@ -501,9 +596,12 @@ def _epoch(stamp: str) -> Optional[float]:
         return None
 
 
-def map_alert(signature: str, category: str, mapping: List[Dict[str, Any]]) -> Optional[str]:
+def map_alert(signature: str, category: str, mapping: List[Dict[str, Any]],
+              sid: Optional[int] = None, sid_classes: Optional[Dict[str, Any]] = None) -> Optional[str]:
     """First mapping entry whose prefix or category matches (and whose
     'contains' words, if any, appear in the signature)."""
+    if sid is not None and sid_classes and str(sid) in sid_classes:
+        return sid_classes[str(sid)]                         # an explicit override wins (null = ignore)
     sig, cat = signature or "", (category or "").lower()
     lower = sig.lower()
     for entry in mapping:
@@ -518,8 +616,8 @@ def map_alert(signature: str, category: str, mapping: List[Dict[str, Any]]) -> O
     return None
 
 
-def run_suricata(pcap: Path, out_dir: Path,
-                 config: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def run_suricata(pcap: Path, out_dir: Path, config: Optional[Dict[str, Any]] = None,
+                 home_net: Optional[List[str]] = None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Suricata alerts on the capture as Tier 2 hits, and what happened."""
     cfg = (config or rs.load_config()).get("suricata", {})
     status: Dict[str, Any] = {"ran": False, "alerts": 0, "mapped": 0, "unmapped_signatures": []}
@@ -531,8 +629,9 @@ def run_suricata(pcap: Path, out_dir: Path,
         status["reason"] = ("Suricata is not installed; signature classes rely on the "
                             "scapy checks only.")
         return [], status
+    out_dir = Path(out_dir).resolve()                     # Suricata runs from its own folder
     out_dir.mkdir(parents=True, exist_ok=True)
-    command = [binary, "-r", str(pcap), "-l", str(out_dir), "-k", "none"]
+    command = [binary, "-r", str(Path(pcap).resolve()), "-l", str(out_dir), "-k", "none"]
     config_file = cfg.get("config") or next(
         (str(p) for p in (Path(binary).parent / "suricata.yaml",) if p.is_file()), "")
     if config_file:
@@ -541,6 +640,14 @@ def run_suricata(pcap: Path, out_dir: Path,
     if rules_file:
         command += ["-S", rules_file]
     status["rules_file"] = rules_file or "suricata.yaml default"
+    # HOME_NET must cover the capture's own hosts, or every directional
+    # signature ($EXTERNAL_NET -> $HOME_NET) is skipped; EXTERNAL_NET "any"
+    # keeps attacks between two internal hosts in scope.
+    nets = cfg.get("home_net", "auto")
+    nets = (home_net or PRIVATE_NETS) if nets == "auto" else nets
+    command += ["--set", f"vars.address-groups.HOME_NET=[{','.join(nets)}]",
+                "--set", f"vars.address-groups.EXTERNAL_NET={cfg.get('external_net', 'any')}"]
+    status["home_net"] = f"{len(nets)} ranges/hosts"
     status["binary"] = binary
     try:
         finished = subprocess.run(command, capture_output=True, text=True, cwd=str(Path(binary).parent),
@@ -557,6 +664,26 @@ def run_suricata(pcap: Path, out_dir: Path,
     return parse_eve(eve, cfg, status), status
 
 
+def _weak_tls_event(event, grouped):
+    """A TLS session Suricata saw negotiate SSL 2/3 or TLS 1.0 (the server's
+    choice, which the ClientHello check alone cannot see)."""
+    tls = event.get("tls", {})
+    if tls.get("version") not in WEAK_TLS_LOG:
+        return
+    proto = {"TCP": 6, "UDP": 17}.get(str(event.get("proto", "")).upper(), 0)
+    key = _key(proto, event.get("src_ip", ""), event.get("src_port", 0),
+               event.get("dest_ip", ""), event.get("dest_port", 0))
+    if ("tls", key) in grouped:
+        return
+    hit = _hit("T2-TLS-02", {"class": "TLSSSL", "severity": "medium"},
+               f"Suricata's TLS log: the session from {event.get('src_ip')} to {event.get('dest_ip')}:"
+               f"{event.get('dest_port')} negotiated {tls.get('version')}"
+               + (f" (server name {tls['sni']})" if tls.get("sni") else "") + ".",
+               tls.get("version"), "TLS 1.2", source="suricata")
+    hit["_flows"] = [(key, _epoch(event.get("timestamp", "")))]
+    grouped[("tls", key)] = hit
+
+
 def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Dict[str, Any]]:
     mapping = cfg.get("class_mapping", [])
     worst = int(cfg.get("min_severity", 3))
@@ -569,6 +696,9 @@ def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Di
                 event = json.loads(line)
             except ValueError:
                 continue
+            if event.get("event_type") == "tls":
+                _weak_tls_event(event, grouped)
+                continue
             if event.get("event_type") != "alert":
                 continue
             status["alerts"] += 1
@@ -580,7 +710,8 @@ def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Di
             if any(w.lower() in signature.lower() for w in ignored):
                 status["ignored"] = status.get("ignored", 0) + 1
                 continue
-            cls = map_alert(signature, alert.get("category", ""), mapping)
+            cls = map_alert(signature, alert.get("category", ""), mapping,
+                            int(alert.get("signature_id", 0)), cfg.get("sid_classes"))
             if cls is None:
                 unmapped[signature] += 1
                 continue
@@ -600,10 +731,13 @@ def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Di
             entry["_flows"].append((key, _epoch(event.get("timestamp", ""))))
     hits = []
     for (sid, _), h in grouped.items():
+        if sid == "tls":
+            hits.append(h)
+            continue
         h["evidence"] = (f"Suricata signature {sid} matched {h['measured']} time(s): {h.pop('_sig')} "
                          f"(category {h.pop('_cat') or 'none'}) from {h.pop('_src')} to {h.pop('_dst')}.")
         hits.append(h)
-    status["mapped"] = sum(h["measured"] for h in hits)
+    status["mapped"] = sum(h["measured"] for h in hits if isinstance(h["measured"], int))
     status["unmapped_signatures"] = [s for s, _ in unmapped.most_common(10)]
     return hits
 
@@ -634,6 +768,15 @@ def attach(frame, hits: List[Dict[str, Any]], first_packet_time: Optional[float]
         k = _key(p, a, ap, b, bp)
         keys.append(k)
         index[k].append(i)
+
+    # The quarter-hour estimate can be off by one step when the first flow
+    # starts well after the first packet: keep the neighbouring offset under
+    # which the most hit times fall inside a flow of their own 5-tuple.
+    events = [(k, t) for h in hits for k, t in h.get("_flows", []) if t is not None and len(index.get(k, ())) > 1]
+    if events:
+        def fits(candidate):
+            return sum(any(start[r] - 1 <= t + candidate <= end[r] + 1 for r in index[k]) for k, t in events[:2000])
+        offset = max(dict.fromkeys([offset, offset - 900.0, offset + 900.0, 0.0]), key=fits)
     ports = set(encrypted_ports)
     encrypted = [k in encrypted_keys or k[2] in ports or k[4] in ports for k in keys]
 
@@ -656,8 +799,10 @@ def attach(frame, hits: List[Dict[str, Any]], first_packet_time: Optional[float]
         rows = set()
         if "_ip" in hit:                                  # MITM: traffic to or from the contested address
             since = hit.get("_since", -math.inf) + offset
+            until = hit.get("_until", math.inf) + offset
             rows = {i for i in range(n) if (df.at[i, "src_ip"] == hit["_ip"] or df.at[i, "dst_ip"] == hit["_ip"])
-                    and not (np.isfinite(end[i]) and end[i] < since)}
+                    and not (np.isfinite(end[i]) and end[i] < since)
+                    and not (np.isfinite(start[i]) and start[i] > until)}
         for key, t in hit.get("_flows", []):
             r = row_for(key, t)
             if r is not None:
@@ -684,7 +829,7 @@ def evaluate(pcap: Path, flow_csv: str, findings: List[Dict[str, Any]],
                                "malformed_packets_skipped": inspector.errors}
     hits = inspector.hits()
     suricata_hits, summary["suricata"] = run_suricata(Path(pcap), Path(work_dir) / "suricata",
-                                                      inspector.config)
+                                                      inspector.config, inspector.home_net())
     hits += suricata_hits
     try:
         frame = pd.read_csv(flow_csv, low_memory=False)

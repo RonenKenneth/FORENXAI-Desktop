@@ -118,63 +118,39 @@ and the scapy checks cover Tier 2.
   values: no labelled data was available to tune them.
 - Cases analysed before this branch show "Not in this case" in the rule panel.
 
-## Tier 2: improvements needed
+## Tier 2: improvements
 
-Listed in priority order. File references are to
-`backend/app/services/packet_rule_service.py` and `backend/app/rules/rules.json`
-unless stated otherwise.
+Status of the twelve improvements. Code is in
+`backend/app/services/packet_rule_service.py`, settings in
+`backend/app/rules/rules.json`, tests in `backend/test_packet_rules.py`.
+
+### Done
+
+| # | Improvement | What was done |
+|---|---|---|
+| 3 | Suricata HOME_NET per capture | `suricata.home_net: "auto"` passes the private ranges plus the 256 busiest hosts that received connections; `external_net: "any"` keeps attacks between two internal hosts in scope. On LabActivity2, Suricata went from 0 to 23 class-mapped alerts (ET SCAN, all mapped to PortScan, which is correct for that scan) |
+| 4 | More Suricata output | TLS log events are read: a session that negotiated SSL 2/3 or TLS 1.0 fires T2-TLS-02, the server's choice, which the ClientHello check alone cannot see. HTTP and DNS logs are not used yet |
+| 5 | Alert-to-class mapping | `suricata.sid_classes` maps a signature ID to a class (or `null` to ignore it) before the prefix rules apply; unmapped signatures are listed in the Dashboard |
+| 6 | Stream handling | HTTP requests are rebuilt by TCP sequence number, so out-of-order segments and retransmissions no longer hide or duplicate a match. The request and payload-tail buffers evict the least recently used entry instead of being cleared during floods |
+| 7 | WebBased decoding | In addition to URL decoding, HTML entities, `%uXXXX` and backslash-u escapes, and printable base64 tokens are decoded before matching |
+| 8 | STARTTLS | A flow that sends STARTTLS, AUTH TLS or AUTH SSL is marked encrypted, and content rules stop inspecting it |
+| 9 | MITM coverage | IPv6 neighbour advertisements (several MACs for one address) and more than one DHCP server answering now fire T2-MITM-01. MITM hits mark the contested host's flows only for `attach_window_seconds` (300 s) after the spoof |
+| 10 | Flow matching | Non-first IP fragments take the first fragment's ports. The time offset is chosen among the quarter-hour estimate, one step either side and zero, by how many hit times fall inside a flow with their own 5-tuple. Suricata's input and output paths are resolved to absolute paths (a relative evidence path made Suricata fail) |
+| 12 | Interface | The Dashboard lists capture-level hits with their evidence, and the Suricata signatures that mapped to no class. The whole Dashboard now scrolls |
+
+### Still open (these need data or a long run)
 
 1. **Score Tier 2 on labelled captures.** No Tier 2 rule has a measured
-   precision, recall or benign false-alarm rate yet. TRUSTLab ships flow CSVs
+   precision, recall or benign false-alarm rate. TRUSTLab ships flow CSVs
    only. Candidate data: the CIC-IDS2017 pcaps (Tuesday FTP/SSH brute force,
    Wednesday slow DoS, Thursday web attacks, Friday port scans) with their
-   labelled flow CSVs, or lab captures with one attack per class. Needed
-   before any Tier 2 class can be added to `decision.trust`.
+   labelled flow CSVs, or lab captures with one attack per class. This is
+   needed before any Tier 2 class can be added to `decision.trust`.
 2. **Tune the thresholds.** All Tier 2 values are the design's starting
-   points: API 100 calls or 10 auth failures, 5 failed logins, DNS names over
-   50 characters or label entropy over 4.0 (10 queries), the 4xx sweep (20
-   replies, 10 paths), and NOP runs of 64 bytes. Reuse the Tier 1 method in
-   `backend/tune_rules.py` (choose on even minutes, test on odd minutes,
-   benign false alarms of at most 1%) once item 1 provides data.
-3. **Set Suricata's HOME_NET per capture.** Suricata runs with the default
-   `suricata.yaml`, whose HOME_NET covers only 10/8, 172.16/12 and
-   192.168/16. Captures with other address ranges miss every directional
-   signature ($EXTERNAL_NET -> $HOME_NET). Pass the capture's internal ranges
-   with `--set vars.address-groups.HOME_NET=...` in `run_suricata`.
-4. **Use more of Suricata's output.** Only `alert` events are read. The HTTP,
-   DNS and TLS logs in `eve.json` would give reassembled requests, full query
-   names and certificate details, and could replace the scapy parsing for
-   those protocols when Suricata is installed.
-5. **Refine the alert-to-class mapping.** `suricata.class_mapping` matches
-   signature prefixes and categories. It is coarse (for example, ET POLICY
-   alerts split between Bruteforce, TLSSSL and Exfiltration by keyword), and
-   unmapped signatures are only listed in the case summary. Review the
-   unmapped list on real cases and map by signature ID where prefixes are
-   ambiguous.
-6. **Stream handling in the scapy checks.** Requests are buffered in arrival
-   order, not sequence order, so out-of-order segments and retransmissions can
-   hide or duplicate a match. Buffers are cleared when more than 100,000 open
-   requests or 200,000 payload tails are held (floods), which can drop a real
-   hit. Per-flow LRU eviction and sequence-ordered reassembly would fix both.
-7. **Broaden WebBased detection.** The fallback pattern list is deliberately
-   small and decodes URL encoding twice. It does not decode HTML entities,
-   Unicode escapes or base64. Suricata's ET WEB_SERVER rules cover far more;
-   the scapy list should stay a fallback.
-8. **Encrypted-traffic marking.** Flows count as encrypted on a port list or a
-   TLS/SSH record header. Connections upgraded with STARTTLS (SMTP 587, IMAP
-   143, FTP 21) are not marked after the upgrade, so content rules keep
-   inspecting ciphertext there.
-9. **MITM coverage.** Only ARP is checked (several MACs for one IP,
-   gratuitous-ARP bursts). IPv6 neighbour-discovery spoofing, rogue DHCP and
-   DNS spoofing are not covered. MITM hits are attached to every later flow of
-   the contested address, which can over-mark a busy host.
-10. **Flow matching.** The CICFlowMeter time offset is estimated by rounding
-    to a quarter hour; captures whose first flow starts well after the first
-    packet can be mis-aligned. Hits on packets without ports (non-first IP
-    fragments) stay capture-level. `attach()` in `packet_rule_service.py`.
-11. **Speed on large captures.** The scapy checks run in Python on every
-    packet, and Suricata runs once per case. Neither has been timed on
-    LabActivity3 (183 MB, about 435,000 flows).
-12. **Interface.** Capture-level hits (for example ARP spoofing with no
-    matching flow) appear only as a count in the Dashboard's Tier 2 panel;
-    list them with their evidence.
+   points. Reuse the Tier 1 method in `backend/tune_rules.py` (choose on even
+   minutes, test on odd minutes, benign false alarms of at most 1%) once
+   item 1 provides data.
+11. **Speed on large captures.** Neither the scapy checks nor Suricata have
+    been timed on LabActivity3 (183 MB, about 435,000 flows).
+
+Also not covered yet: DNS spoofing (MITM), and Suricata's HTTP and DNS logs.

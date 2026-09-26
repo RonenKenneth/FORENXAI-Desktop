@@ -253,9 +253,12 @@
       "class": "MITM",
       "enabled": true,
       "severity": "high",
-      "description": "Several MAC addresses claim one IP address in ARP replies, or a burst of gratuitous ARP.",
+      "description": "Several MAC addresses claim one IP (ARP replies or IPv6 neighbour advertisements), a burst of gratuitous ARP, or more than one DHCP server answering.",
       "min_macs_per_ip": 2,
-      "min_gratuitous_arp": 5
+      "min_gratuitous_arp": 5,
+      "min_dhcp_servers": 2,
+      "attach_window_seconds": 300,
+      "attach_note": "Flows of the contested address are marked only from the spoof onwards, for attach_window_seconds, so a busy host is not marked for the whole capture."
     },
     "T2-EVASION-01": {
       "class": "Evasion",
@@ -493,7 +496,12 @@
     "ignore_signatures_containing": [
       "invalid checksum"
     ],
-    "ignore_note": "Captures taken on the sending host carry wrong checksums from NIC offloading; Suricata's checksum signatures then fire on nearly every packet (6,991 of 7,029 alerts on LabActivity2) without any attack."
+    "ignore_note": "Captures taken on the sending host carry wrong checksums from NIC offloading; Suricata's checksum signatures then fire on nearly every packet (6,991 of 7,029 alerts on LabActivity2) without any attack.",
+    "home_net": "auto",
+    "external_net": "any",
+    "home_net_note": "'auto' = private ranges (10/8, 172.16/12, 192.168/16, 100.64/10, 169.254/16, fc00::/7, fe80::/10) plus the 256 busiest hosts that received connections in the capture; or give an explicit list. EXTERNAL_NET 'any' keeps attacks between two internal hosts in scope.",
+    "sid_classes": {},
+    "sid_classes_note": "Per-signature overrides, checked before class_mapping: {\"2012345\": \"WebBased\"} maps a signature ID to a class; null ignores it."
   },
   "decision": {
     "description": "decide(): which detector's class becomes the verdict. trust = 'rule' only where the rule was measured as precise on held-out data (tuning.test_results precision >= 0.9); every other class trusts the model. Confidence thresholds and the out-of-distribution limit come from the model bundle (decision_thresholds.json, ood_stats.json).",

@@ -336,7 +336,18 @@ public partial class DashboardView : UserControl
                 ? string.Empty
                 : $"\nPayload inspectable: {tier2.InspectableShare:P1} of flows"
                   + $" ({tier2.EncryptedFlows ?? 0:N0} encrypted: content rules not applied)";
-            Tier2StatusText.Text = suricata + coverage;
+            // Hits that belong to the capture rather than one flow (for
+            // example ARP spoofing with no matching flow), with evidence.
+            string captureHits = (tier2.CaptureLevelHits?.Count ?? 0) == 0
+                ? string.Empty
+                : "\nCapture-level:\n" + string.Join("\n",
+                    tier2.CaptureLevelHits!.Take(5).Select(
+                        hit => $"• {hit.ClassName}: {hit.Evidence}"));
+            string unmapped = (tier2.Suricata?.UnmappedSignatures.Count ?? 0) == 0
+                ? string.Empty
+                : "\nSuricata alerts with no class: "
+                  + string.Join("; ", tier2.Suricata!.UnmappedSignatures.Take(3));
+            Tier2StatusText.Text = suricata + coverage + captureHits + unmapped;
         }
 
         // Hybrid verdict source

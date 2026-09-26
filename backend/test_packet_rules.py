@@ -18,7 +18,8 @@ from pathlib import Path
 import pandas as pd
 from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import IP, TCP, UDP
-from scapy.layers.inet6 import IPv6
+from scapy.layers.dhcp import BOOTP, DHCP
+from scapy.layers.inet6 import ICMPv6ND_NA, ICMPv6NDOptDstLLAddr, IPv6
 from scapy.layers.l2 import ARP, CookedLinux, Dot1Q, Ether, Loopback
 from scapy.packet import Raw
 from scapy.utils import PcapNgWriter, wrpcap
@@ -142,6 +143,7 @@ def main():
     cut = load.index(b"SELECT") + 3                            # the pattern is split mid-word
     first = tcp(load[:cut], T0)
     second = tcp(load[cut:], T0 + 0.01)
+    second[TCP].seq = cut                                     # real TCP: the next segment's sequence number
     check("WebBased: a pattern split across two TCP segments is found",
           len(fired(inspect([first, second])[1], "T2-WEB-01")) == 1)
     check("WebBased: the first segment alone is not enough", not fired(inspect([first])[1], "T2-WEB-01"))
@@ -214,6 +216,56 @@ def main():
     rows6, _, _ = ps.attach(v6, hits, inspector.first_time, set(), [])
     check("IPv6 hit attaches to its CSV row even with unparseable timestamps",
           [h["rule_id"] for h in rows6[0]] == ["T2-WEB-01"])
+
+    print("\n1d. stream order, STARTTLS, decoding, IPv6/DHCP spoofing, fragments, Suricata settings")
+
+    def seg(data, seq, t):
+        return pkt(Ether() / IP(src=A, dst=S) / TCP(sport=48000, dport=80, flags="PA", seq=seq) / Raw(data), t)
+    a, b, c = load[:20], load[20:45], load[45:]
+    reordered = [seg(a, 1000, T0), seg(c, 1045, T0 + 0.01), seg(b, 1020, T0 + 0.02), seg(b, 1020, T0 + 0.03)]
+    hit = fired(inspect(reordered)[1], "T2-WEB-01")
+    check("WebBased: out-of-order and retransmitted segments reassembled by sequence number",
+          len(hit) == 1 and hit[0]["measured"] == 1)
+    upgraded = [tcp(b"STARTTLS\r\n", T0, dport=25), tcp(load, T0 + 1, dport=25)]
+    inspector, hits = inspect(upgraded)
+    check("STARTTLS: the flow is marked encrypted and not inspected afterwards",
+          not fired(hits, "T2-WEB-01") and len(inspector.encrypted_keys) == 1)
+    entity = tcp(xss[Raw].load.replace(b"%3C", b"&lt;").replace(b"%3E", b"&gt;"), T0)
+    check("WebBased: HTML-entity encoding is decoded", len(fired(inspect([entity])[1], "T2-WEB-01")) == 1)
+    na = [pkt(Ether() / IPv6(src="fe80::1", dst="ff02::1") / ICMPv6ND_NA(tgt="fe80::1")
+              / ICMPv6NDOptDstLLAddr(lladdr=f"aa:aa:aa:aa:aa:0{i}"), T0 + i) for i in (1, 2)]
+    check("MITM: two MACs in IPv6 neighbour advertisements fire",
+          "neighbour" in fired(inspect(na)[1], "T2-MITM-01")[0]["evidence"])
+    offers = [pkt(Ether() / IP(src=f"10.0.0.{i}", dst="255.255.255.255") / UDP(sport=67, dport=68)
+                  / BOOTP(op=2, yiaddr="10.0.0.99")
+                  / DHCP(options=[("message-type", 2), ("server_id", f"10.0.0.{i}"), "end"]), T0 + i)
+              for i in (1, 2)]
+    dhcp_hit = fired(inspect(offers)[1], "T2-MITM-01")
+    check("MITM: two DHCP servers answering fire", dhcp_hit and "DHCP servers" in dhcp_hit[0]["evidence"])
+    check("MITM: one DHCP server does not", not fired(inspect(offers[:1])[1], "T2-MITM-01"))
+    check("MITM: ARP hits carry an attach window", all("_until" in h for h in fired(inspect(arp)[1], "T2-MITM-01")))
+    frag_udp = [pkt(Ether() / IP(src=A, dst=S, id=9, flags="MF", frag=0, proto=17) / UDP(sport=5000, dport=53)
+                    / Raw(b"x" * 56), T0),
+                pkt(Ether() / IP(src=A, dst=S, id=9, frag=4, proto=17) / Raw(b"y" * 64), T0 + 0.1)]
+    frag_hit = fired(inspect(frag_udp)[1], "T2-EVASION-01")
+    check("Evasion: an overlapping fragment is tied to the first fragment's ports",
+          frag_hit and 5000 in frag_hit[0]["_flows"][0][0] and 53 in frag_hit[0]["_flows"][0][0])
+    mapping = rs.load_config()["suricata"]["class_mapping"]
+    check("Suricata: a signature-ID override wins, null ignores",
+          ps.map_alert("ET INFO Something", "Misc activity", mapping, 2000001, {"2000001": "API"}) == "API"
+          and ps.map_alert("ET SCAN Nmap", "", mapping, 2000002, {"2000002": None}) is None)
+    inspector, _ = inspect([pkt(Ether() / IP(src=A, dst="203.0.113.7") / TCP(dport=80, flags="S"), T0)])
+    check("Suricata HOME_NET includes the capture's servers outside private ranges",
+          "203.0.113.7" in inspector.home_net() and "10.0.0.0/8" in inspector.home_net())
+    with tempfile.TemporaryDirectory() as tmp:
+        eve = Path(tmp) / "eve.json"
+        eve.write_text(json.dumps({"timestamp": "2026-09-26T14:00:00.000000+0800", "event_type": "tls",
+                                   "proto": "TCP", "src_ip": A, "src_port": 40000, "dest_ip": S,
+                                   "dest_port": 443, "tls": {"version": "TLSv1", "sni": "lab.local"}}),
+                       encoding="utf-8")
+        tls_hits = ps.parse_eve(eve, rs.load_config()["suricata"], {"alerts": 0, "mapped": 0})
+        check("Suricata TLS log: a negotiated TLS 1.0 session fires T2-TLS-02",
+              [h["rule_id"] for h in tls_hits] == ["T2-TLS-02"] and "TLSv1" in tls_hits[0]["evidence"])
 
     print("\n2. extract_packets feeds the inspector in its single pass")
     with tempfile.TemporaryDirectory() as tmp:

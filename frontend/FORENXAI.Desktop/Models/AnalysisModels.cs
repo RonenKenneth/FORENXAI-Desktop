@@ -122,6 +122,12 @@ public class SuricataStatus
 
     [JsonPropertyName("ignored")]
     public int Ignored { get; set; }
+
+    [JsonPropertyName("home_net")]
+    public string? HomeNet { get; set; }
+
+    [JsonPropertyName("unmapped_signatures")]
+    public List<string> UnmappedSignatures { get; set; } = new();
 }
 
 

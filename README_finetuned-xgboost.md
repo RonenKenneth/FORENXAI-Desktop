@@ -4,8 +4,145 @@ This branch replaces the classifier with the tuned XGBoost model and adds a
 hybrid detection layer (Tier 1 flow rules, Tier 2 packet rules and Suricata),
 a retrieval-grounded recommendation stage and the matching interface.
 
-Compared with `main`: 25 commits, about 95 files. All paths are relative to the
-repository root (`FORENXAI-Desktop/`).
+All paths are relative to the repository root (`FORENXAI-Desktop/`).
+
+---
+
+## Guided update: setup, layout, status and merging
+
+### A. How the parts connect
+
+```
+PCAP / PCAPng (Evidence tab)
+  -> capture intake: SHA-256, format from file header, non-Ethernet link layers re-framed
+       cicflowmeter_service.py
+  -> three readers of the same file
+       CICFlowMeter v4 ......... flow records (CSV, 66 model features)   cicflowmeter_service.py
+       scapy, one pass ......... traffic summary + Tier 2 packet checks  pcap_service.py + packet_rule_service.py
+       Suricata 7.0.10 ......... signature alerts (eve.json)             packet_rule_service.run_suricata
+  -> detection, side by side
+       XGBoost + abstain layer . class, confidence, OOD                 model_service.py
+       Tier 1 flow rules ....... hits on the flow records               rule_service.py (rules.json)
+       Tier 2 rules ............ packet + Suricata hits, matched to flows packet_rule_service.attach
+  -> TreeSHAP explanation ....................................... shap_service.py
+  -> decide(): verdict + source (agree/rule/model/conflict/abstain)  rule_service.decide
+  -> RAG recommendations + AI summary (Qwen, cited sources) ....... recommendation_service.py, narration_service.py, rag/
+  -> analysis.json (backend/cases/<id>/) -> WPF UI: Dashboard (rule charts), XAI view, Reports
+```
+
+`backend/app/api/analysis.py` (`start_analysis`) runs this chain for each case.
+
+### B. Dependencies and how to get them
+
+The base prerequisites (Git, Python 3.11, .NET 10 SDK, JDK 8 + Maven for
+CICFlowMeter, Wireshark with Npcap, CICFlowMeter v4) are in
+`README_FORENXAI.md`. This branch adds or requires:
+
+| Dependency | Needed for | How to get it |
+|---|---|---|
+| Python packages | Backend, including `scapy` (Tier 2), `xgboost`, `shap`, `llama_cpp_python`, `pypdf` | `cd backend` then `python -m venv .venv` and `.venv\Scripts\pip install -r requirements.txt` |
+| Wireshark (`editcap.exe`) + Npcap | PCAPng to PCAP conversion for CICFlowMeter; Npcap is also required by Suricata | `winget install WiresharkFoundation.Wireshark` (Npcap installs with it) |
+| Suricata 7.0.10 | Tier 2 signatures (optional: without it, cases record "Suricata not run") | `winget install --id OISF.Suricata --exact` (one UAC prompt); found at `C:\Program Files\Suricata`, or set `FORENXAI_SURICATA` |
+| Suricata rulesets | 52,964 free signatures | `cd backend` then `.venv\Scripts\python update_suricata_rules.py` (writes `tools/suricata/et-open.rules`; git-ignored; rerun to refresh) |
+| Qwen 2.5 3B GGUF | Recommendations and AI summary | Place `qwen2.5-3b-q4.gguf` in `backend/models/llm/` (git-ignored; see `backend/models/llm/README.md`) |
+| RAG source archive | Cited passages | Copy the 22 source documents into `rag/_sources/` (git-ignored; see `rag/README.md`), then `python rag/config/rag_index.py` to rebuild the index |
+| .NET 10 SDK | Desktop UI | `winget install Microsoft.DotNet.SDK.10` |
+
+Check the install:
+
+```
+cd backend
+.venv\Scripts\python verify_bundle.py
+.venv\Scripts\python test_rules.py
+.venv\Scripts\python test_packet_rules.py
+.venv\Scripts\python test_rag_pipeline.py
+.venv\Scripts\python test_recommendations.py --fast
+cd ..\frontend\FORENXAI.Desktop
+dotnet build
+```
+
+Run: `cd backend` then `.venv\Scripts\python run_backend.py` (port 8000), and
+in a second terminal `cd frontend\FORENXAI.Desktop` then `dotnet run`.
+
+### C. Where the added files are
+
+| Area | Files added by this branch |
+|---|---|
+| Model bundle | `backend/models/forenxai/` (tuned model, `decision_thresholds.json`, `ood_stats.json`, `model_facts.json`, `CHANGES.md`) |
+| Rules | `backend/app/rules/rules.json`, `rules_tuning.json`; `backend/app/services/rule_service.py` (Tier 1, `decide()`), `packet_rule_service.py` (Tier 2, Suricata) |
+| Rule tooling | `backend/tune_rules.py`, `validate_rules.py`, `update_suricata_rules.py` |
+| Tests | `backend/test_rules.py`, `test_packet_rules.py`, `test_rag_pipeline.py`, `test_narration_rag.py`, `test_recommendations*.py` |
+| RAG | `rag/config/*.py`, `rag/knowledge/**`, `rag/_sources/manifest.json` + `SHA256SUMS.txt`, `rag/SOURCES_ACM.md` |
+| UI | `frontend/FORENXAI.Desktop/Views/DashboardView.xaml(.cs)`, `XaiView.xaml(.cs)`, `Models/AnalysisModels.cs` |
+| Docs | this file, `tools/README.md`, `rag/README.md`, `rag/RAG_PIPELINE.md` |
+| Git-ignored (per machine) | `backend/.venv/`, `backend/cases/`, `backend/models/llm/*.gguf`, `rag/_sources/*` (except manifest and checksums), `tools/*` (Suricata rules, JDK) |
+
+### D. Status
+
+| Part | Status |
+|---|---|
+| Tuned 66-feature model, abstain layer | Done, tested |
+| Tier 1 flow rules | Done; tuned and validated (PortScan F1 0.98, DoS 0.96 decide verdicts; DDoS and oversized-packet rules disabled) |
+| Tier 2 packet rules + Suricata | Done, functionally tested; not statistically evaluated (advisory only) |
+| Hybrid `decide()` | Done, tested |
+| Capture intake for any PCAP/PCAPng link layer | Done, tested (10 variants) |
+| RAG recommendations, AI summary | Done, tested; corpus audited to 22 sources |
+| Dashboard rule panel, XAI view | Done, builds; see the merge notes below |
+| Open | Tier 2 scoring and tuning on labelled pcaps; LabActivity3 timing; DNS spoofing; Suricata HTTP/DNS logs; custom API signatures |
+
+### E. Merging into `main`
+
+Checked on 26 Sep 2026: `main` has one commit this branch lacks,
+`a6a85a9` "Improve dashboard scrolling and threat table visibility" (it also
+adds `BackendProcessService.cs`, a data directory in `runtime_paths.py`, and
+`llama_cpp` packaging). A trial merge (`git merge-tree`) gives three
+conflicts; everything else, including `model_service.py`, merges cleanly.
+
+Steps (on a clean working tree, Git Bash or PowerShell):
+
+```
+git checkout finetuned-xgboost
+git pull
+git fetch origin
+git merge origin/main          # stops with the three conflicts below
+```
+
+Resolve:
+
+1. `backend/app/utils/runtime_paths.py`: keep this branch's side
+   (`get_rag_directory`, `get_knowledge_directory`, `get_knowledge_map_path`,
+   `get_toolchain_directory`, `get_java_home`). Main's side of that block is
+   only a blank line.
+2. `frontend/FORENXAI.Desktop/Views/DashboardView.xaml` and
+   `DashboardView.xaml.cs`: both branches rewrote the Dashboard. Take main's
+   version as the base (it has the new scrolling and threat-table layout), then
+   re-add from this branch:
+   - the "RULE-BASED DETECTION" panel (Tier 1 bars, Tier 2 bars, verdict-source
+     bar; the `RuleBarTemplate` resource) as a row above the threat table;
+   - the Rule and Verdict columns of the threat table;
+   - in the code-behind: `tier1Bars` / `tier2Bars` / `verdictLegend`,
+     `LoadRulePanel()`, `ClearRulePanel()`, `FillBars()`, `TopRuleHit()`,
+     the `BarRow` class, `RuleDisplay` / `VerdictDisplay` on `ThreatRow`, and
+     the `LoadThreats()` change that also lists flows only the rules flagged.
+   Drop this branch's outer `ScrollViewer` if main's layout already scrolls.
+3. Build and test, then finish the merge:
+
+```
+cd frontend/FORENXAI.Desktop && dotnet build && cd ../..
+cd backend && .venv/Scripts/python test_rules.py && .venv/Scripts/python test_packet_rules.py && cd ..
+git add -A
+git commit                     # merge commit
+git push
+```
+
+Then open a pull request `finetuned-xgboost` -> `main` on GitHub; with the
+conflicts resolved on the branch, it merges without further conflicts.
+
+After merging, check one packaging point: `packet_rule_service.DEFAULT_RULES_FILE`
+looks for `tools/suricata/et-open.rules` relative to the repository. Main now
+keeps runtime data in `runtime_paths.get_data_directory()` for the packaged
+app, so a packaged build should resolve the rules file through
+`runtime_paths` as well (or set `suricata.rules_file` in `rules.json`).
 
 ---
 

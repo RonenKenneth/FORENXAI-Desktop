@@ -9,7 +9,7 @@ report scripts (14 and 15).
 | `knowledge/` | 31 files: incident-response playbooks, attack profiles, the SHAP caveats note, the 66-feature glossary, the dataset scope note and INDEX.md |
 | `config/knowledge_map.py` | Class-to-document lookup for the 16 classes, the ambiguous-pair rules and the low-confidence class list. It finds `knowledge/` at `../knowledge` |
 | `_sources/manifest.json` | Registers every cited source document |
-| `_sources/SHA256SUMS.txt` | SHA-256 of the 88 files in the source archive |
+| `_sources/SHA256SUMS.txt` | SHA-256 of the files in the source archive (22 documents after the 26 Sep 2026 audit; see SOURCES_ACM.md) |
 
 ## How the recommendation panel uses them
 
@@ -37,7 +37,7 @@ actions, so a report can state where each recommendation came from.
 
 ## Checks
 
-The source archive itself (26 PDFs, HTML pages and text caches, about 98.7 MiB)
+The source archive itself (22 cited documents plus text caches, about 91 MiB)
 is not in Git. It holds third-party publications. Copy the archive to
 `rag/_sources/`, then check it:
 

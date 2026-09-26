@@ -24,6 +24,61 @@ trusted on.
 | `backend/app/services/model_service.py` | Feature count checked against the manifest (no longer fixed at 74); each flow gets `abstained`, `abstain_reason` and `ood_distance` |
 | `backend/verify_bundle.py`, `backend/inspect_bundle.py` | Check the bundle's hashes and contents |
 
+### The 66 model features
+
+The model reads these 66 CICFlowMeter features, in this order: the order is
+fixed by `features.pkl` and `manifest.json` (`feature_order`) and must match
+the scaler. `model_service.py` checks the count against the manifest and the
+names against the feature contract before predicting.
+
+| # | Feature | # | Feature | # | Feature |
+|---|---|---|---|---|---|
+| 1 | ACK Flag Count | 23 | ECE Flag Count | 45 | Fwd Packet Length Std |
+| 2 | Average Packet Size | 24 | FIN Flag Count | 46 | Fwd Packet/Bulk Avg |
+| 3 | Bwd Bulk Rate Avg | 25 | FWD Init Win Bytes | 47 | Fwd Segment Size Avg |
+| 4 | Bwd Bytes/Bulk Avg | 26 | Flow Bytes/s | 48 | Fwd URG Flags |
+| 5 | Bwd Header Length | 27 | Flow Duration | 49 | PSH Flag Count |
+| 6 | Bwd IAT Max | 28 | Flow IAT Max | 50 | Packet Length Max |
+| 7 | Bwd IAT Mean | 29 | Flow IAT Mean | 51 | Packet Length Mean |
+| 8 | Bwd IAT Min | 30 | Flow IAT Min | 52 | Packet Length Min |
+| 9 | Bwd IAT Std | 31 | Flow IAT Std | 53 | Packet Length Std |
+| 10 | Bwd IAT Total | 32 | Flow Packets/s | 54 | Packet Length Variance |
+| 11 | Bwd Init Win Bytes | 33 | Fwd Bulk Rate Avg | 55 | Protocol |
+| 12 | Bwd PSH Flags | 34 | Fwd Bytes/Bulk Avg | 56 | RST Flag Count |
+| 13 | Bwd Packet Length Max | 35 | Fwd Header Length | 57 | SYN Flag Count |
+| 14 | Bwd Packet Length Mean | 36 | Fwd IAT Max | 58 | Subflow Bwd Bytes |
+| 15 | Bwd Packet Length Min | 37 | Fwd IAT Mean | 59 | Subflow Bwd Packets |
+| 16 | Bwd Packet Length Std | 38 | Fwd IAT Min | 60 | Subflow Fwd Bytes |
+| 17 | Bwd Packet/Bulk Avg | 39 | Fwd IAT Std | 61 | Subflow Fwd Packets |
+| 18 | Bwd Segment Size Avg | 40 | Fwd IAT Total | 62 | Total Bwd packets |
+| 19 | Bwd URG Flags | 41 | Fwd PSH Flags | 63 | Total Fwd Packet |
+| 20 | CWR Flag Count | 42 | Fwd Packet Length Max | 64 | Total Length of Bwd Packet |
+| 21 | Down/Up Ratio | 43 | Fwd Packet Length Mean | 65 | Total Length of Fwd Packet |
+| 22 | Dst Port | 44 | Fwd Packet Length Min | 66 | URG Flag Count |
+
+By group:
+
+| Group | Count | Features |
+|---|---|---|
+| Flow totals and duration | 8 | Flow Duration, Total Fwd Packet, Total Bwd packets, Total Length of Fwd Packet, Total Length of Bwd Packet, Flow Bytes/s, Flow Packets/s, Down/Up Ratio |
+| Packet sizes | 16 | Fwd and Bwd Packet Length Max / Min / Mean / Std; Packet Length Max / Min / Mean / Std / Variance; Average Packet Size; Fwd and Bwd Segment Size Avg |
+| Inter-arrival times (IAT) | 14 | Flow IAT Max / Min / Mean / Std; Fwd and Bwd IAT Total / Max / Min / Mean / Std |
+| TCP flags | 12 | FIN, SYN, RST, PSH, ACK, URG, CWR, ECE Flag Counts; Fwd and Bwd PSH Flags; Fwd and Bwd URG Flags |
+| Headers and windows | 4 | Fwd and Bwd Header Length; FWD and Bwd Init Win Bytes |
+| Bulk transfer | 6 | Fwd and Bwd Bytes/Bulk Avg, Packet/Bulk Avg, Bulk Rate Avg |
+| Subflows | 4 | Subflow Fwd / Bwd Packets and Bytes |
+| Service | 2 | Dst Port, Protocol |
+
+**Removed in the 74 -> 66 rebuild:** Active Mean, Active Std, Active Max,
+Active Min, Idle Mean, Idle Std, Idle Max and Idle Min. TRUSTLab exports these
+eight without populating them: four are zero in all 1,400,000 rows, Active
+Max equals Idle Max in every row, Active Mean is exactly half of Active Max,
+and Active Max equals Flow Duration / 1e6. CICFlowMeter fills them properly
+from a real capture, so keeping them would feed the model values it never
+trained on (`EXCLUDED_DEGENERATE_COLUMNS` in `model_service.py`). Identifier
+columns (Flow ID, Src/Dst IP, Src Port, Timestamp, Label) are never model
+inputs.
+
 ## 2. Tier 1 rules: flow records
 
 **Purpose:** behaviour rules that run beside the model on the CICFlowMeter

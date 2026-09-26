@@ -138,6 +138,51 @@ git push
 Then open a pull request `finetuned-xgboost` -> `main` on GitHub; with the
 conflicts resolved on the branch, it merges without further conflicts.
 
+### F. Updated artifacts: location, purpose and connections
+
+Artifacts are the files the system or the thesis is built from, as opposed to
+source code. `BUNDLE` below means
+`C:\Users\HOME PC\Downloads\MULTI_CLASS_FORENXAI\forenxai_pipeline_full\forenxai_binary\new_deploy_gpu\`
+(the frozen training bundle, outside this repository).
+
+**Runtime artifacts (read by the application)**
+
+| Artifact | Location | Purpose | Connected to |
+|---|---|---|---|
+| `XGBoost.pkl`, `scaler.pkl`, `label_encoder.pkl`, `features.pkl` | `backend/models/forenxai/` | Tuned classifier, its scaler, class names and the 66-feature order | Loaded by `model_service.py`; copied from `BUNDLE`; hashes in `manifest.json` |
+| `manifest.json` | `backend/models/forenxai/` | Feature count (66), feature order, file hashes, library versions | Checked by `model_service.verify_model_bundle()` before loading |
+| `decision_thresholds.json`, `ood_stats.json` | `backend/models/forenxai/` | Per-class confidence thresholds and the Mahalanobis OOD limit (554.10) | `model_service.abstain_decisions()`; its `abstained` flag feeds `rule_service.decide()` |
+| `shap_global.json`, `model_facts.json` | `backend/models/forenxai/` | Global SHAP summary; measured per-class figures | `shap_service.py`; quoted by `recommendation_service.py` |
+| `rules.json` | `backend/app/rules/` | Every Tier 1 and Tier 2 threshold, the Suricata class mapping, allowlist, priority order and `decide()` trust table | Read by `rule_service.load_config()` and `packet_rule_service.py`; written by `tune_rules.py --write`; packaged by `FORENXAI.Backend.spec` |
+| `rules_tuning.json` | `backend/app/rules/` | Tier 1 tuning report (candidates, chosen values, held-out results) | Produced by `tune_rules.py`; its test results are copied into `rules.json` |
+| `et-open.rules` (git-ignored) | `tools/suricata/` | 52,964 merged Suricata signatures | Produced by `update_suricata_rules.py`; loaded by `packet_rule_service.run_suricata()` |
+| `qwen2.5-3b-q4.gguf` (git-ignored) | `backend/models/llm/` | Local language model | `llm_provider.py`, used by the recommendation and narration services |
+| Knowledge files | `rag/knowledge/` | Playbooks, attack profiles, glossary, caveats | Mapped per class by `rag/config/knowledge_map.py` |
+| Source archive (git-ignored except `manifest.json`, `SHA256SUMS.txt`) | `rag/_sources/` | The 22 cited documents | Indexed by `rag/config/source_index.py`; references in `rag/SOURCES_ACM.md` |
+| `.rag_index.json` (generated, git-ignored) | `rag/` | Prebuilt retrieval index | Built by `rag/config/rag_index.py`; opened by `recommendation_service.retrieve()` |
+| `analysis.json` (per case, git-ignored) | `backend/cases/<case id>/` | One case's full result: flows, prediction, SHAP, Tier 1/2 hits, verdicts, `rule_analysis`, recommendations | Written by `analysis.py`; read by the Dashboard, XAI view and Reports |
+
+**Thesis artifacts (tables, figures, documents)**
+
+| Artifact | Location | Purpose | Produced by |
+|---|---|---|---|
+| Table 4 `T04_frozen_deployment_bundle_revised.csv` | `BUNDLE\tables\` | Deployment bundle: files, sizes, hashes, contents (19 rows) | Measured from this repository |
+| Table 28 `T28_shap_top6_features_per_class_tuned.csv` | `BUNDLE\tables\` | Six leading SHAP features per class (renamed headers) | `BUNDLE\finetune\19_tuning_report.py` |
+| Tables T17a/b, T24/T24a, T27a, T28b, T30 | `BUNDLE\tables\` | Tuning, decision layer, per-class and SHAP comparison tables | `19_tuning_report.py` |
+| Figure 14 `fig14_system_architecture.png` | `BUNDLE\figures\` | System architecture (black and white) | `forenxai_binary\scripts\fig14_architecture.py` |
+| Conceptual framework `fig_conceptual_framework_ipo.png` | `BUNDLE\figures\` | Input–Process–Output figure (user view, Tier 1 and Tier 2) | `forenxai_binary\scripts\fig_conceptual_framework.py` |
+| `SHA256SUMS.txt`, `SHA256SUMS.txt.sha256` | `BUNDLE\` | Checksums of the frozen bundle; refreshed after the table and figure edits | Verify with `sha256sum -c SHA256SUMS.txt` |
+| Thesis paragraphs `FORENXAI_thesis_additions.md` | `C:\Users\HOME PC\OneDrive\Desktop\Thesis\Final\` | New paragraphs per chapter, with placement and reason | Written for the thesis update |
+| RAG references `SOURCES_ACM.md` | `rag/` | ACM references of the 22 retrieval sources and the list of removed ones | Retrieval audit of 26 Sep 2026 |
+| Hybrid-detection handover page | https://claude.ai/artifact/3TFCNHCBAMkv5jfg2hNKQm | The design specification that Tier 1, Tier 2 and `decide()` implement | Team handover document |
+
+How they connect: the tuning scripts (`tune_rules.py`, `19_tuning_report.py`)
+produce the reports and tables; the chosen values go into the runtime
+artifacts (`rules.json`, the model bundle); the application reads those to
+produce each case's `analysis.json`; and the thesis tables and figures
+describe the same runtime artifacts with their hashes, so Table 4 can be
+checked against the files the app actually loads.
+
 After merging, check one packaging point: `packet_rule_service.DEFAULT_RULES_FILE`
 looks for `tools/suricata/et-open.rules` relative to the repository. Main now
 keeps runtime data in `runtime_paths.get_data_directory()` for the packaged

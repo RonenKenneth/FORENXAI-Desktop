@@ -14,28 +14,17 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from app.utils.runtime_paths import (
+    get_model_directory,
+)
+
 
 # ============================================================
 # PATH CONFIGURATION
 # ============================================================
 
-# This file:
-# backend/app/services/model_service.py
-#
-# parents[0] = services
-# parents[1] = app
-# parents[2] = backend
-
-BACKEND_DIRECTORY = (
-    Path(__file__)
-    .resolve()
-    .parents[2]
-)
-
 MODEL_DIRECTORY = (
-    BACKEND_DIRECTORY
-    / "models"
-    / "forenxai"
+    get_model_directory()
 )
 
 

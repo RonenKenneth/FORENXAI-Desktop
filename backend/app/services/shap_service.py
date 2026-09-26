@@ -5,8 +5,7 @@ import pandas as pd
 import shap
 
 from app.services.model_service import (
-    load_model_bundle,
-    prepare_model_input
+    load_model_bundle
 )
 
 

@@ -93,6 +93,17 @@ pandas_datas, pandas_binaries, pandas_hiddenimports = (
 
 
 # ============================================================
+# LLAMA.CPP / QWEN RUNTIME
+# ============================================================
+
+llama_cpp_datas, llama_cpp_binaries, llama_cpp_hiddenimports = (
+    collect_all(
+        "llama_cpp"
+    )
+)
+
+
+# ============================================================
 # ADD PACKAGE DATA
 # ============================================================
 
@@ -101,6 +112,8 @@ datas += shap_datas
 datas += sklearn_datas
 datas += numpy_datas
 datas += pandas_datas
+
+datas += llama_cpp_datas
 
 
 # ============================================================
@@ -115,6 +128,8 @@ binaries += sklearn_binaries
 binaries += numpy_binaries
 binaries += pandas_binaries
 
+binaries += llama_cpp_binaries
+
 
 # ============================================================
 # ADD PACKAGE HIDDEN IMPORTS
@@ -125,6 +140,8 @@ hiddenimports += shap_hiddenimports
 hiddenimports += sklearn_hiddenimports
 hiddenimports += numpy_hiddenimports
 hiddenimports += pandas_hiddenimports
+
+hiddenimports += llama_cpp_hiddenimports
 
 
 # ============================================================
@@ -190,7 +207,7 @@ exe = EXE(
 
     strip=False,
 
-    upx=True,
+    upx=False,
 
     upx_exclude=[],
 

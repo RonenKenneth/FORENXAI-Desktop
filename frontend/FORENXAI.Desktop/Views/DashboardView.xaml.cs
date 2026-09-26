@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
 
 using FORENXAI.Desktop.Models;
 using FORENXAI.Desktop.Services;
@@ -23,6 +26,7 @@ public partial class DashboardView : UserControl
 
     private readonly ObservableCollection<ThreatRow> threats;
     private readonly ObservableCollection<ShapRow> shapRows;
+    private readonly ObservableCollection<TrafficLegendRow> trafficLegendRows;
 
 
     // =========================================================
@@ -37,9 +41,11 @@ public partial class DashboardView : UserControl
 
         threats = new ObservableCollection<ThreatRow>();
         shapRows = new ObservableCollection<ShapRow>();
+        trafficLegendRows = new ObservableCollection<TrafficLegendRow>();
 
         ThreatDataGrid.ItemsSource = threats;
         ShapDataGrid.ItemsSource = shapRows;
+        TrafficLegendItemsControl.ItemsSource = trafficLegendRows;
 
         OpenXaiButton.IsEnabled = false;
 
@@ -124,6 +130,7 @@ public partial class DashboardView : UserControl
 
 
             LoadSummary();
+            LoadTrafficClassification();
             LoadThreats();
 
 
@@ -187,6 +194,628 @@ public partial class DashboardView : UserControl
         ThreatPercentageText.Text =
             $"{summary.ThreatPercentage:F2}%";
     }
+
+
+    // =========================================================
+    // TRAFFIC CLASSIFICATION CHART
+    // =========================================================
+
+    private void LoadTrafficClassification()
+    {
+        trafficLegendRows.Clear();
+
+        TrafficChartCanvas.Children.Clear();
+
+        TrafficChartTotalText.Text =
+            "0";
+
+
+        if (
+            currentAnalysis?.MlAnalysis?.Summary
+            == null
+            ||
+            currentAnalysis?.MlAnalysis?.Findings
+            == null
+        )
+        {
+            return;
+        }
+
+
+        MlSummary summary =
+            currentAnalysis.MlAnalysis.Summary;
+
+
+        /*
+         * IMPORTANT:
+         *
+         * This chart does not classify or modify traffic.
+         * It only visualizes the predictions that already exist
+         * in the completed FORENXAI analysis.
+         */
+        IEnumerable<MlFinding> findings =
+            currentAnalysis.MlAnalysis.Findings;
+
+
+        Dictionary<string, int> classCounts =
+            findings
+                .GroupBy(
+                    finding =>
+                        string.IsNullOrWhiteSpace(
+                            finding.PredictedClass
+                        )
+                            ? "Unknown"
+                            : finding.PredictedClass.Trim(),
+                    StringComparer.OrdinalIgnoreCase
+                )
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Count(),
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+
+        int chartTotal =
+            classCounts.Values.Sum();
+
+
+        TrafficChartTotalText.Text =
+            chartTotal.ToString();
+
+
+        if (
+            chartTotal <= 0
+        )
+        {
+            return;
+        }
+
+
+        /*
+         * The backend summary and the findings are produced by
+         * the same completed XGBoost analysis. The chart is drawn
+         * from the per-flow findings so every displayed slice
+         * represents an actual predicted class from this case.
+         */
+        List<KeyValuePair<string, int>> orderedClasses =
+            classCounts
+                .OrderByDescending(
+                    pair =>
+                        pair.Key.Equals(
+                            "Benign",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                )
+                .ThenByDescending(
+                    pair => pair.Value
+                )
+                .ThenBy(
+                    pair => pair.Key
+                )
+                .ToList();
+
+
+        for (
+            int index = 0;
+            index < orderedClasses.Count;
+            index++
+        )
+        {
+            KeyValuePair<string, int> item =
+                orderedClasses[index];
+
+
+            double percentage =
+                item.Value
+                / (double)chartTotal
+                * 100.0;
+
+
+            Brush brush =
+                GetTrafficClassBrush(
+                    item.Key,
+                    index
+                );
+
+
+            trafficLegendRows.Add(
+                new TrafficLegendRow
+                {
+                    ClassName =
+                        item.Key,
+
+                    Count =
+                        item.Value,
+
+                    Percentage =
+                        percentage,
+
+                    Brush =
+                        brush
+                }
+            );
+        }
+
+
+        DrawTrafficDonut(
+            trafficLegendRows,
+            chartTotal
+        );
+
+
+        /*
+         * This is intentionally a display-only consistency check.
+         * It does not alter the stored analysis or model results.
+         */
+        if (
+            summary.TotalFlows > 0
+            &&
+            chartTotal != summary.TotalFlows
+        )
+        {
+            TrafficChartTotalText.ToolTip =
+                "Chart total is based on the per-flow findings. " +
+                $"Summary total: {summary.TotalFlows:N0}; " +
+                $"finding total: {chartTotal:N0}.";
+        }
+        else
+        {
+            TrafficChartTotalText.ToolTip =
+                null;
+        }
+    }
+
+
+    // =========================================================
+    // DRAW DONUT CHART
+    // =========================================================
+
+    private void DrawTrafficDonut(
+        IEnumerable<TrafficLegendRow> rows,
+        int total)
+    {
+        TrafficChartCanvas.Children.Clear();
+
+
+        if (
+            total <= 0
+        )
+        {
+            return;
+        }
+
+
+        const double canvasSize =
+            220.0;
+
+        const double center =
+            canvasSize / 2.0;
+
+        const double outerRadius =
+            100.0;
+
+        const double innerRadius =
+            58.0;
+
+
+        List<TrafficLegendRow> slices =
+            rows
+                .Where(
+                    row =>
+                        row.Count > 0
+                )
+                .ToList();
+
+
+        if (
+            slices.Count == 0
+        )
+        {
+            return;
+        }
+
+
+        if (
+            slices.Count == 1
+        )
+        {
+            Ellipse fullRing =
+                new Ellipse
+                {
+                    Width =
+                        outerRadius * 2.0,
+
+                    Height =
+                        outerRadius * 2.0,
+
+                    Stroke =
+                        slices[0].Brush,
+
+                    StrokeThickness =
+                        outerRadius - innerRadius,
+
+                    Fill =
+                        Brushes.Transparent
+                };
+
+
+            Canvas.SetLeft(
+                fullRing,
+                center - outerRadius
+            );
+
+            Canvas.SetTop(
+                fullRing,
+                center - outerRadius
+            );
+
+
+            TrafficChartCanvas.Children.Add(
+                fullRing
+            );
+
+            return;
+        }
+
+
+        double startAngle =
+            -90.0;
+
+
+        foreach (
+            TrafficLegendRow row
+            in slices
+        )
+        {
+            double sweepAngle =
+                row.Count
+                / (double)total
+                * 360.0;
+
+
+            if (
+                sweepAngle <= 0.0
+            )
+            {
+                continue;
+            }
+
+
+            Path segment =
+                CreateDonutSegment(
+                    center,
+                    center,
+                    outerRadius,
+                    innerRadius,
+                    startAngle,
+                    sweepAngle,
+                    row.Brush
+                );
+
+
+            TrafficChartCanvas.Children.Add(
+                segment
+            );
+
+
+            startAngle +=
+                sweepAngle;
+        }
+    }
+
+
+    // =========================================================
+    // CREATE DONUT SEGMENT
+    // =========================================================
+
+    private static Path CreateDonutSegment(
+        double centerX,
+        double centerY,
+        double outerRadius,
+        double innerRadius,
+        double startAngle,
+        double sweepAngle,
+        Brush fill)
+    {
+        double safeSweep =
+            Math.Min(
+                sweepAngle,
+                359.999
+            );
+
+
+        double endAngle =
+            startAngle
+            + safeSweep;
+
+
+        Point outerStart =
+            PointOnCircle(
+                centerX,
+                centerY,
+                outerRadius,
+                startAngle
+            );
+
+
+        Point outerEnd =
+            PointOnCircle(
+                centerX,
+                centerY,
+                outerRadius,
+                endAngle
+            );
+
+
+        Point innerEnd =
+            PointOnCircle(
+                centerX,
+                centerY,
+                innerRadius,
+                endAngle
+            );
+
+
+        Point innerStart =
+            PointOnCircle(
+                centerX,
+                centerY,
+                innerRadius,
+                startAngle
+            );
+
+
+        bool isLargeArc =
+            safeSweep > 180.0;
+
+
+        PathFigure figure =
+            new PathFigure
+            {
+                StartPoint =
+                    outerStart,
+
+                IsClosed =
+                    true,
+
+                IsFilled =
+                    true
+            };
+
+
+        figure.Segments.Add(
+            new ArcSegment
+            {
+                Point =
+                    outerEnd,
+
+                Size =
+                    new Size(
+                        outerRadius,
+                        outerRadius
+                    ),
+
+                SweepDirection =
+                    SweepDirection.Clockwise,
+
+                IsLargeArc =
+                    isLargeArc
+            }
+        );
+
+
+        figure.Segments.Add(
+            new LineSegment(
+                innerEnd,
+                true
+            )
+        );
+
+
+        figure.Segments.Add(
+            new ArcSegment
+            {
+                Point =
+                    innerStart,
+
+                Size =
+                    new Size(
+                        innerRadius,
+                        innerRadius
+                    ),
+
+                SweepDirection =
+                    SweepDirection.Counterclockwise,
+
+                IsLargeArc =
+                    isLargeArc
+            }
+        );
+
+
+        figure.Segments.Add(
+            new LineSegment(
+                outerStart,
+                true
+            )
+        );
+
+
+        PathGeometry geometry =
+            new PathGeometry();
+
+
+        geometry.Figures.Add(
+            figure
+        );
+
+
+        return new Path
+        {
+            Data =
+                geometry,
+
+            Fill =
+                fill,
+
+            Stroke =
+                new SolidColorBrush(
+                    Color.FromRgb(
+                        11,
+                        18,
+                        32
+                    )
+                ),
+
+            StrokeThickness =
+                1.0,
+
+            SnapsToDevicePixels =
+                true
+        };
+    }
+
+
+    // =========================================================
+    // POINT ON CIRCLE
+    // =========================================================
+
+    private static Point PointOnCircle(
+        double centerX,
+        double centerY,
+        double radius,
+        double angleDegrees)
+    {
+        double radians =
+            angleDegrees
+            * Math.PI
+            / 180.0;
+
+
+        return new Point(
+            centerX
+            + radius
+            * Math.Cos(
+                radians
+            ),
+
+            centerY
+            + radius
+            * Math.Sin(
+                radians
+            )
+        );
+    }
+
+
+    // =========================================================
+    // TRAFFIC CLASS COLORS
+    // =========================================================
+
+    private static Brush GetTrafficClassBrush(
+        string className,
+        int fallbackIndex)
+    {
+        string normalized =
+            className
+                .Trim()
+                .Replace(
+                    "-",
+                    string.Empty
+                )
+                .Replace(
+                    "_",
+                    string.Empty
+                )
+                .Replace(
+                    " ",
+                    string.Empty
+                )
+                .ToLowerInvariant();
+
+
+        string colorHex =
+            normalized switch
+            {
+                "benign" =>
+                    "#4ADE80",
+
+                "dos" =>
+                    "#3B82F6",
+
+                "ddos" =>
+                    "#F59E0B",
+
+                "portscan" =>
+                    "#8B5CF6",
+
+                "bruteforce" =>
+                    "#EC4899",
+
+                "slowloris" =>
+                    "#F87171",
+
+                "c2beaconing" =>
+                    "#06B6D4",
+
+                "dns" =>
+                    "#22D3EE",
+
+                "mitm" =>
+                    "#A78BFA",
+
+                "exfiltration" =>
+                    "#FB7185",
+
+                "exploitation" =>
+                    "#F97316",
+
+                "evasion" =>
+                    "#EAB308",
+
+                "webbased" =>
+                    "#14B8A6",
+
+                "api" =>
+                    "#60A5FA",
+
+                "bufferoverflow" =>
+                    "#D946EF",
+
+                "tlsssl" =>
+                    "#2DD4BF",
+
+                _ =>
+                    FallbackTrafficColors[
+                        Math.Abs(
+                            fallbackIndex
+                        )
+                        % FallbackTrafficColors.Length
+                    ]
+            };
+
+
+        return new SolidColorBrush(
+            (Color)
+            ColorConverter.ConvertFromString(
+                colorHex
+            )
+        );
+    }
+
+
+    private static readonly string[]
+        FallbackTrafficColors =
+        {
+            "#64748B",
+            "#38BDF8",
+            "#C084FC",
+            "#FB7185",
+            "#FBBF24",
+            "#34D399",
+            "#818CF8",
+            "#F472B6"
+        };
 
 
     // =========================================================
@@ -551,6 +1180,12 @@ public partial class DashboardView : UserControl
 
         threats.Clear();
         shapRows.Clear();
+        trafficLegendRows.Clear();
+
+        TrafficChartCanvas.Children.Clear();
+
+        TrafficChartTotalText.Text =
+            "0";
 
 
         TotalFlowsText.Text =
@@ -767,6 +1402,31 @@ public partial class DashboardView : UserControl
 
 
         return string.Empty;
+    }
+
+
+    // =========================================================
+    // TRAFFIC LEGEND ROW
+    // =========================================================
+
+    private sealed class TrafficLegendRow
+    {
+        public string ClassName { get; set; }
+            = string.Empty;
+
+
+        public int Count { get; set; }
+
+
+        public double Percentage { get; set; }
+
+
+        public Brush Brush { get; set; }
+            = Brushes.Gray;
+
+
+        public string DisplayValue =>
+            $"{Count:N0} ({Percentage:F1}%)";
     }
 
 

@@ -142,11 +142,11 @@ public partial class EvidenceView : UserControl
 
 
             // =================================================
-            // FIND PROJECT ROOT
+            // GET FORENXAI CASE STORAGE DIRECTORY
             // =================================================
 
-            string projectRoot =
-                GetProjectRoot();
+            string casesDirectory =
+                GetCasesDirectory();
 
 
             // =================================================
@@ -155,9 +155,7 @@ public partial class EvidenceView : UserControl
 
             caseDirectory =
                 Path.Combine(
-                    projectRoot,
-                    "backend",
-                    "cases",
+                    casesDirectory,
                     caseId
                 );
 
@@ -363,51 +361,69 @@ public partial class EvidenceView : UserControl
 
 
     // =========================================================
-    // FIND FORENXAI PROJECT ROOT
+    // GET FORENXAI CASES DIRECTORY
     // =========================================================
 
-    private static string GetProjectRoot()
+    private static string GetCasesDirectory()  
     {
-        string directory =
-            AppContext.BaseDirectory;
-
-
-        DirectoryInfo? current =
-            new DirectoryInfo(
-                directory
+        /*
+         * If FORENXAI_DATA_DIR is configured,
+         * use the same override as the Python backend.
+         */
+        string? configuredDataDirectory =
+            Environment.GetEnvironmentVariable(
+                "FORENXAI_DATA_DIR"
             );
 
 
-        while (
-            current != null
+        string dataDirectory;
+
+
+        if (
+            !string.IsNullOrWhiteSpace(
+                configuredDataDirectory
+            )
         )
         {
-            string backendPath =
-                Path.Combine(
-                    current.FullName,
-                    "backend"
+            dataDirectory =
+                Path.GetFullPath(
+                    configuredDataDirectory
+                );
+        }
+        else
+        {
+            /*
+             * Production/default location:
+             *
+             * %LOCALAPPDATA%\FORENXAI
+             */
+            string localAppData =
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData
                 );
 
 
-            if (
-                Directory.Exists(
-                    backendPath
-                )
-            )
-            {
-                return
-                    current.FullName;
-            }
-
-
-            current =
-                current.Parent;
+            dataDirectory =
+                Path.Combine(
+                    localAppData,
+                    "FORENXAI"
+                );
         }
 
 
-        throw new DirectoryNotFoundException(
-            "Could not locate the FORENXAI project root."
+        string casesDirectory =
+            Path.Combine(
+                dataDirectory,
+                "cases"
+            );
+
+
+        Directory.CreateDirectory(
+            casesDirectory
         );
+
+
+        return casesDirectory;
     }
 
 
@@ -552,18 +568,116 @@ public partial class EvidenceView : UserControl
 
 
             // =================================================
-            // ANALYSIS COMPLETE
+            // DETERMINE CAPTURE QUALITY
             // =================================================
 
-            StatusText.Text =
-                "Analysis complete";
+            bool emptyCapture =
+                response.TotalPackets == 0
+                ||
+                response.TotalFlows == 0;
 
 
-            StatusText.Foreground =
-                new SolidColorBrush(
-                    Colors.LightGreen
+            bool lowFlowCapture =
+                !emptyCapture
+                &&
+                response.TotalFlows < 50;
+
+
+            // =================================================
+            // EMPTY PACKET CAPTURE WARNING
+            // =================================================
+
+            if (
+                emptyCapture
+            )
+            {
+                StatusText.Text =
+                    "Warning: Empty packet capture";
+
+
+                StatusText.Foreground =
+                    new SolidColorBrush(
+                        Colors.Orange
+                    );
+
+
+                MessageBox.Show(
+                    "FORENXAI detected an empty packet capture.\n\n" +
+
+                    $"Total Packets: {response.TotalPackets:N0}\n" +
+                    $"Total Flows: {response.TotalFlows:N0}\n\n" +
+
+                    "No usable network flows were found. " +
+                    "The analysis results may be unavailable " +
+                    "or incomplete.",
+
+                    "FORENXAI Evidence Warning",
+
+                    MessageBoxButton.OK,
+
+                    MessageBoxImage.Warning
                 );
+            }
 
+
+            // =================================================
+            // LOW FLOW COUNT WARNING
+            // =================================================
+
+            else if (
+                lowFlowCapture
+            )
+            {
+                StatusText.Text =
+                    $"Warning: Only {response.TotalFlows:N0} flows detected";
+
+
+                StatusText.Foreground =
+                    new SolidColorBrush(
+                        Colors.Orange
+                    );
+
+
+                MessageBox.Show(
+                    "FORENXAI detected a small packet capture.\n\n" +
+
+                    $"Total Packets: {response.TotalPackets:N0}\n" +
+                    $"Total Flows: {response.TotalFlows:N0}\n\n" +
+
+                    "Fewer than 50 network flows were extracted. " +
+                    "The results can still be analyzed, but the " +
+                    "capture may contain limited traffic for " +
+                    "forensic interpretation.",
+
+                    "FORENXAI Low Flow Warning",
+
+                    MessageBoxButton.OK,
+
+                    MessageBoxImage.Warning
+                );
+            }
+
+
+            // =================================================
+            // NORMAL CAPTURE
+            // =================================================
+
+            else
+            {
+                StatusText.Text =
+                    "Analysis complete";
+
+
+                StatusText.Foreground =
+                    new SolidColorBrush(
+                        Colors.LightGreen
+                    );
+            }
+
+
+            // =================================================
+            // ANALYSIS COMPLETE BUTTON
+            // =================================================
 
             StartAnalysisButton.Content =
                 "ANALYSIS COMPLETE";
@@ -595,6 +709,7 @@ public partial class EvidenceView : UserControl
                 $"Evidence: {response.FileName}\n\n" +
 
                 $"Total Packets: {response.TotalPackets:N0}\n" +
+                $"Total Flows: {response.TotalFlows:N0}\n" +
                 $"Total Bytes: {response.TotalBytes:N0}\n\n" +
 
                 $"ML Flows: {response.MlTotalFlows:N0}\n" +

@@ -3,20 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="#0B1220">
 
-    <Grid Margin="24">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+
+        <Grid Margin="24">
 
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-
-        <!-- ===================================================== -->
         <!-- HEADER -->
-        <!-- ===================================================== -->
-
         <Grid Grid.Row="0"
               Margin="0,0,0,20">
 
@@ -24,7 +23,6 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-
 
             <StackPanel Grid.Column="0">
 
@@ -39,7 +37,6 @@
                            Margin="0,5,0,0"/>
 
             </StackPanel>
-
 
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
@@ -60,11 +57,7 @@
 
         </Grid>
 
-
-        <!-- ===================================================== -->
         <!-- CASE LOADER -->
-        <!-- ===================================================== -->
-
         <Border Grid.Row="1"
                 Background="#151F2F"
                 CornerRadius="10"
@@ -80,14 +73,12 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-
                 <TextBlock Grid.Column="0"
                            Text="Case ID"
                            Foreground="#CBD5E1"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            Margin="0,0,12,0"/>
-
 
                 <TextBox x:Name="CaseIdTextBox"
                          Grid.Column="1"
@@ -97,7 +88,6 @@
                          Foreground="White"
                          BorderBrush="#334155"
                          BorderThickness="1"/>
-
 
                 <Button Grid.Column="2"
                         Content="LOAD CASE"
@@ -111,7 +101,6 @@
                         FontWeight="SemiBold"
                         Cursor="Hand"/>
 
-
                 <TextBlock Grid.Column="3"
                            Text="Load an existing analyzed FORENXAI case."
                            Foreground="#64748B"
@@ -122,11 +111,7 @@
 
         </Border>
 
-
-        <!-- ===================================================== -->
         <!-- SUMMARY CARDS -->
-        <!-- ===================================================== -->
-
         <Grid Grid.Row="2"
               Margin="0,0,0,18">
 
@@ -137,141 +122,101 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-
-            <!-- TOTAL FLOWS -->
-
             <Border Grid.Column="0"
                     Background="#151F2F"
                     CornerRadius="10"
                     Padding="18"
                     Margin="0,0,8,0">
-
                 <StackPanel>
-
                     <TextBlock Text="TOTAL ML FLOWS"
                                Foreground="#94A3B8"
                                FontSize="12"
                                FontWeight="SemiBold"/>
-
                     <TextBlock x:Name="TotalFlowsText"
                                Text="0"
                                Foreground="White"
                                FontSize="28"
                                FontWeight="Bold"
                                Margin="0,7,0,0"/>
-
                     <TextBlock Text="Flows analyzed by XGBoost"
                                Foreground="#64748B"
                                FontSize="11"
                                Margin="0,5,0,0"/>
-
                 </StackPanel>
-
             </Border>
-
-
-            <!-- BENIGN -->
 
             <Border Grid.Column="1"
                     Background="#151F2F"
                     CornerRadius="10"
                     Padding="18"
                     Margin="8,0">
-
                 <StackPanel>
-
                     <TextBlock Text="BENIGN"
                                Foreground="#94A3B8"
                                FontSize="12"
                                FontWeight="SemiBold"/>
-
                     <TextBlock x:Name="BenignFlowsText"
                                Text="0"
                                Foreground="#4ADE80"
                                FontSize="28"
                                FontWeight="Bold"
                                Margin="0,7,0,0"/>
-
                     <TextBlock Text="Flows classified as benign"
                                Foreground="#64748B"
                                FontSize="11"
                                Margin="0,5,0,0"/>
-
                 </StackPanel>
-
             </Border>
-
-
-            <!-- THREATS -->
 
             <Border Grid.Column="2"
                     Background="#151F2F"
                     CornerRadius="10"
                     Padding="18"
                     Margin="8,0">
-
                 <StackPanel>
-
                     <TextBlock Text="THREATS"
                                Foreground="#94A3B8"
                                FontSize="12"
                                FontWeight="SemiBold"/>
-
                     <TextBlock x:Name="ThreatFlowsText"
                                Text="0"
                                Foreground="#F87171"
                                FontSize="28"
                                FontWeight="Bold"
                                Margin="0,7,0,0"/>
-
                     <TextBlock Text="Potential malicious flows"
                                Foreground="#64748B"
                                FontSize="11"
                                Margin="0,5,0,0"/>
-
                 </StackPanel>
-
             </Border>
-
-
-            <!-- THREAT PERCENTAGE -->
 
             <Border Grid.Column="3"
                     Background="#151F2F"
                     CornerRadius="10"
                     Padding="18"
                     Margin="8,0,0,0">
-
                 <StackPanel>
-
                     <TextBlock Text="THREAT PERCENTAGE"
                                Foreground="#94A3B8"
                                FontSize="12"
                                FontWeight="SemiBold"/>
-
                     <TextBlock x:Name="ThreatPercentageText"
                                Text="0.00%"
                                Foreground="#FBBF24"
                                FontSize="28"
                                FontWeight="Bold"
                                Margin="0,7,0,0"/>
-
                     <TextBlock Text="Share of analyzed ML flows"
                                Foreground="#64748B"
                                FontSize="11"
                                Margin="0,5,0,0"/>
-
                 </StackPanel>
-
             </Border>
 
         </Grid>
 
-
-        <!-- ===================================================== -->
         <!-- MAIN DASHBOARD -->
-        <!-- ===================================================== -->
-
         <Grid Grid.Row="3">
 
             <Grid.ColumnDefinitions>
@@ -279,183 +224,271 @@
                 <ColumnDefinition Width="1.35*"/>
             </Grid.ColumnDefinitions>
 
+            <!-- LEFT SIDE -->
+            <Grid Grid.Column="0"
+                  Margin="0,0,10,0">
 
-            <!-- ================================================= -->
-            <!-- LEFT SIDE: THREAT TABLE -->
-            <!-- ================================================= -->
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-            <Border Grid.Column="0"
-                    Background="#151F2F"
-                    CornerRadius="10"
-                    Padding="16"
-                    Margin="0,0,10,0">
+                <!-- TRAFFIC CLASSIFICATION -->
+                <Border Grid.Row="0"
+                        Background="#151F2F"
+                        CornerRadius="10"
+                        Padding="16"
+                        Margin="0,0,0,14">
 
-                <Grid>
+                    <Grid>
 
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
+                        <StackPanel Grid.Row="0"
+                                    Margin="0,0,0,12">
 
-                    <Grid Grid.Row="0"
-                          Margin="0,0,0,12">
-
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-
-                        <StackPanel Grid.Column="0">
-
-                            <TextBlock Text="DETECTED THREATS"
+                            <TextBlock Text="TRAFFIC CLASSIFICATION"
                                        Foreground="White"
                                        FontSize="16"
                                        FontWeight="Bold"/>
 
-                            <TextBlock x:Name="ThreatCountText"
-                                       Text="0 threat flows"
+                            <TextBlock Text="Distribution of analyzed ML flows and detected threat classes"
                                        Foreground="#94A3B8"
                                        FontSize="12"
                                        Margin="0,4,0,0"/>
 
                         </StackPanel>
 
+                        <Grid Grid.Row="1">
+
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="250"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- DONUT -->
+                            <Grid Grid.Column="0"
+                                  Width="230"
+                                  Height="230"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center">
+
+                                <Canvas x:Name="TrafficChartCanvas"
+                                        Width="220"
+                                        Height="220"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"/>
+
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsHitTestVisible="False">
+
+                                    <TextBlock x:Name="TrafficChartTotalText"
+                                               Text="0"
+                                               Foreground="White"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"/>
+
+                                    <TextBlock Text="Total ML Flows"
+                                               Foreground="#94A3B8"
+                                               FontSize="11"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,2,0,0"/>
+
+                                </StackPanel>
+
+                            </Grid>
+
+                            <!-- LEGEND -->
+                            <ScrollViewer Grid.Column="1"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          MaxHeight="230"
+                                          Margin="12,0,0,0">
+
+                                <ItemsControl x:Name="TrafficLegendItemsControl">
+
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+
+                                            <Grid Margin="0,0,0,8">
+
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Ellipse Grid.Column="0"
+                                                         Width="10"
+                                                         Height="10"
+                                                         Fill="{Binding Brush}"
+                                                         VerticalAlignment="Center"
+                                                         Margin="0,0,9,0"/>
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding ClassName}"
+                                                           Foreground="#E2E8F0"
+                                                           FontSize="12"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"/>
+
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding DisplayValue}"
+                                                           Foreground="#CBD5E1"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"
+                                                           Margin="12,0,0,0"/>
+
+                                            </Grid>
+
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+
+                                </ItemsControl>
+
+                            </ScrollViewer>
+
+                        </Grid>
+
                     </Grid>
 
+                </Border>
 
-                    <DataGrid x:Name="ThreatDataGrid"
-                              Grid.Row="1"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              SelectionMode="Single"
-                              SelectionUnit="FullRow"
-                              SelectionChanged="ThreatDataGrid_SelectionChanged"
-                              Background="#0F172A"
-                              Foreground="White"
-                              BorderBrush="#334155"
-                              BorderThickness="1"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#1E293B"
-                              VerticalGridLinesBrush="#1E293B"
-                              RowBackground="#0F172A"
-                              AlternatingRowBackground="#111C2E"
-                              HeadersVisibility="Column">
+                <!-- DETECTED THREATS -->
+                <Border Grid.Row="1"
+                        Background="#151F2F"
+                        CornerRadius="10"
+                        Padding="16">
 
-                        <DataGrid.ColumnHeaderStyle>
+                    <Grid>
 
-                            <Style TargetType="DataGridColumnHeader">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                                <Setter Property="Background"
-                                        Value="#1E293B"/>
+                        <Grid Grid.Row="0"
+                              Margin="0,0,0,12">
 
-                                <Setter Property="Foreground"
-                                        Value="#CBD5E1"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                                <Setter Property="FontWeight"
-                                        Value="SemiBold"/>
+                            <StackPanel Grid.Column="0">
 
-                                <Setter Property="Padding"
-                                        Value="10"/>
+                                <TextBlock Text="DETECTED THREATS"
+                                           Foreground="White"
+                                           FontSize="16"
+                                           FontWeight="Bold"/>
 
-                                <Setter Property="BorderBrush"
-                                        Value="#334155"/>
+                                <TextBlock x:Name="ThreatCountText"
+                                           Text="0 threat flows"
+                                           Foreground="#94A3B8"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"/>
 
-                                <Setter Property="BorderThickness"
-                                        Value="0,0,1,1"/>
+                            </StackPanel>
 
-                            </Style>
+                        </Grid>
 
-                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid x:Name="ThreatDataGrid"
+                                  Grid.Row="1"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  SelectionMode="Single"
+                                  SelectionUnit="FullRow"
+                                  SelectionChanged="ThreatDataGrid_SelectionChanged"
+                                  Background="#0F172A"
+                                  Foreground="White"
+                                  BorderBrush="#334155"
+                                  BorderThickness="1"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#1E293B"
+                                  VerticalGridLinesBrush="#1E293B"
+                                  RowBackground="#0F172A"
+                                  AlternatingRowBackground="#111C2E"
+                                  HeadersVisibility="Column"
+                                  RowHeight="30"
+                                  ColumnHeaderHeight="34"
+                                  MaxHeight="484"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.CanContentScroll="True"
+                                  EnableRowVirtualization="True"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling">
 
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#1E293B"/>
+                                    <Setter Property="Foreground" Value="#CBD5E1"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="10"/>
+                                    <Setter Property="BorderBrush" Value="#334155"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
 
-                        <DataGrid.RowStyle>
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Background" Value="#0F172A"/>
+                                    <Setter Property="BorderBrush" Value="#1E293B"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#1D4ED8"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
 
-                            <Style TargetType="DataGridRow">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Flow"
+                                                    Binding="{Binding FlowIndex}"
+                                                    Width="60"/>
+                                <DataGridTextColumn Header="Source"
+                                                    Binding="{Binding Source}"
+                                                    Width="*"/>
+                                <DataGridTextColumn Header="Destination"
+                                                    Binding="{Binding Destination}"
+                                                    Width="*"/>
+                                <DataGridTextColumn Header="Class"
+                                                    Binding="{Binding PredictedClass}"
+                                                    Width="110"/>
+                                <DataGridTextColumn Header="Confidence"
+                                                    Binding="{Binding ConfidenceDisplay}"
+                                                    Width="100"/>
+                            </DataGrid.Columns>
 
-                                <Setter Property="Foreground"
-                                        Value="White"/>
+                        </DataGrid>
 
-                                <Setter Property="Background"
-                                        Value="#0F172A"/>
+                    </Grid>
 
-                                <Setter Property="BorderBrush"
-                                        Value="#1E293B"/>
+                </Border>
 
-                                <Setter Property="BorderThickness"
-                                        Value="0,0,0,1"/>
+            </Grid>
 
-                                <Style.Triggers>
-
-                                    <Trigger Property="IsSelected"
-                                             Value="True">
-
-                                        <Setter Property="Background"
-                                                Value="#1D4ED8"/>
-
-                                        <Setter Property="Foreground"
-                                                Value="White"/>
-
-                                    </Trigger>
-
-                                </Style.Triggers>
-
-                            </Style>
-
-                        </DataGrid.RowStyle>
-
-
-                        <DataGrid.Columns>
-
-                            <DataGridTextColumn Header="Flow"
-                                                Binding="{Binding FlowIndex}"
-                                                Width="60"/>
-
-                            <DataGridTextColumn Header="Source"
-                                                Binding="{Binding Source}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Destination"
-                                                Binding="{Binding Destination}"
-                                                Width="*"/>
-
-                            <DataGridTextColumn Header="Class"
-                                                Binding="{Binding PredictedClass}"
-                                                Width="110"/>
-
-                            <DataGridTextColumn Header="Confidence"
-                                                Binding="{Binding ConfidenceDisplay}"
-                                                Width="100"/>
-
-                        </DataGrid.Columns>
-
-                    </DataGrid>
-
-                </Grid>
-
-            </Border>
-
-
-            <!-- ================================================= -->
             <!-- RIGHT SIDE -->
-            <!-- ================================================= -->
-
             <Grid Grid.Column="1"
                   Margin="10,0,0,0">
 
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-
-                <!-- ============================================= -->
                 <!-- SELECTED THREAT -->
-                <!-- ============================================= -->
-
                 <Border Grid.Row="0"
                         Background="#151F2F"
                         CornerRadius="10"
@@ -469,16 +502,12 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-
-                        <!-- HEADER + OPEN XAI -->
-
                         <Grid Grid.Row="0">
 
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-
 
                             <StackPanel Grid.Column="0">
 
@@ -495,11 +524,6 @@
                                            Margin="0,6,0,0"/>
 
                             </StackPanel>
-
-
-                            <!-- ================================= -->
-                            <!-- PHASE 15.2: OPEN XAI BUTTON -->
-                            <!-- ================================= -->
 
                             <Button x:Name="OpenXaiButton"
                                     Grid.Column="1"
@@ -518,9 +542,6 @@
 
                         </Grid>
 
-
-                        <!-- SELECTED THREAT DETAILS -->
-
                         <Grid Grid.Row="1"
                               Margin="0,18,0,0">
 
@@ -530,58 +551,40 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-
-                            <!-- FLOW -->
-
                             <StackPanel Grid.Column="0">
-
                                 <TextBlock Text="Flow Index"
                                            Foreground="#64748B"
                                            FontSize="11"/>
-
                                 <TextBlock x:Name="SelectedFlowIndexText"
                                            Text="--"
                                            Foreground="White"
                                            FontSize="15"
                                            FontWeight="SemiBold"
                                            Margin="0,4,0,0"/>
-
                             </StackPanel>
 
-
-                            <!-- CONFIDENCE -->
-
                             <StackPanel Grid.Column="1">
-
                                 <TextBlock Text="Confidence"
                                            Foreground="#64748B"
                                            FontSize="11"/>
-
                                 <TextBlock x:Name="SelectedConfidenceText"
                                            Text="--"
                                            Foreground="#60A5FA"
                                            FontSize="15"
                                            FontWeight="SemiBold"
                                            Margin="0,4,0,0"/>
-
                             </StackPanel>
 
-
-                            <!-- DIRECTION SUMMARY -->
-
                             <StackPanel Grid.Column="2">
-
                                 <TextBlock Text="Explanation"
                                            Foreground="#64748B"
                                            FontSize="11"/>
-
                                 <TextBlock x:Name="SelectedExplanationText"
                                            Text="Select a row below"
                                            Foreground="#CBD5E1"
                                            FontSize="13"
                                            FontWeight="SemiBold"
                                            Margin="0,4,0,0"/>
-
                             </StackPanel>
 
                         </Grid>
@@ -590,11 +593,7 @@
 
                 </Border>
 
-
-                <!-- ============================================= -->
                 <!-- SHAP CONTRIBUTORS -->
-                <!-- ============================================= -->
-
                 <Border Grid.Row="1"
                         Background="#151F2F"
                         CornerRadius="10"
@@ -604,9 +603,8 @@
 
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-
 
                         <StackPanel Grid.Row="0"
                                     Margin="0,0,0,12">
@@ -623,7 +621,6 @@
 
                         </StackPanel>
 
-
                         <DataGrid x:Name="ShapDataGrid"
                                   Grid.Row="1"
                                   AutoGenerateColumns="False"
@@ -639,78 +636,53 @@
                                   GridLinesVisibility="Horizontal"
                                   HorizontalGridLinesBrush="#1E293B"
                                   VerticalGridLinesBrush="#1E293B"
-                                  HeadersVisibility="Column">
+                                  HeadersVisibility="Column"
+                                  RowHeight="30"
+                                  ColumnHeaderHeight="34"
+                                  MaxHeight="484"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.CanContentScroll="True"
+                                  EnableRowVirtualization="True"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling">
 
                             <DataGrid.ColumnHeaderStyle>
-
                                 <Style TargetType="DataGridColumnHeader">
-
-                                    <Setter Property="Background"
-                                            Value="#1E293B"/>
-
-                                    <Setter Property="Foreground"
-                                            Value="#CBD5E1"/>
-
-                                    <Setter Property="FontWeight"
-                                            Value="SemiBold"/>
-
-                                    <Setter Property="Padding"
-                                            Value="10"/>
-
-                                    <Setter Property="BorderBrush"
-                                            Value="#334155"/>
-
-                                    <Setter Property="BorderThickness"
-                                            Value="0,0,1,1"/>
-
+                                    <Setter Property="Background" Value="#1E293B"/>
+                                    <Setter Property="Foreground" Value="#CBD5E1"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Padding" Value="10"/>
+                                    <Setter Property="BorderBrush" Value="#334155"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
                                 </Style>
-
                             </DataGrid.ColumnHeaderStyle>
 
-
                             <DataGrid.RowStyle>
-
                                 <Style TargetType="DataGridRow">
-
-                                    <Setter Property="Foreground"
-                                            Value="White"/>
-
-                                    <Setter Property="Background"
-                                            Value="#0F172A"/>
-
-                                    <Setter Property="BorderBrush"
-                                            Value="#1E293B"/>
-
-                                    <Setter Property="BorderThickness"
-                                            Value="0,0,0,1"/>
-
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Background" Value="#0F172A"/>
+                                    <Setter Property="BorderBrush" Value="#1E293B"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                 </Style>
-
                             </DataGrid.RowStyle>
 
-
                             <DataGrid.Columns>
-
                                 <DataGridTextColumn Header="#"
                                                     Binding="{Binding Rank}"
                                                     Width="45"/>
-
                                 <DataGridTextColumn Header="Feature"
                                                     Binding="{Binding Feature}"
                                                     Width="*"/>
-
                                 <DataGridTextColumn Header="Observed Value"
                                                     Binding="{Binding RawValue}"
                                                     Width="125"/>
-
                                 <DataGridTextColumn Header="SHAP Value"
                                                     Binding="{Binding ShapValue}"
                                                     Width="110"/>
-
                                 <DataGridTextColumn Header="Direction"
                                                     Binding="{Binding DirectionDisplay}"
                                                     Width="155"/>
-
                             </DataGrid.Columns>
 
                         </DataGrid>
@@ -723,6 +695,8 @@
 
         </Grid>
 
-    </Grid>
+        </Grid>
+
+    </ScrollViewer>
 
 </UserControl>

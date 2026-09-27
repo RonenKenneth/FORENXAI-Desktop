@@ -2,6 +2,79 @@
 
 FORENXAI is a Windows desktop application for post-incident network forensic analysis. It accepts PCAP/PCAPNG evidence, extracts flow-level features with CICFlowMeter, classifies network traffic with an XGBoost model, explains model decisions with TreeSHAP, generates grounded local narration with Qwen 2.5 3B, provides deterministic recommendations, supports investigator review, and produces case reports.
 
+## Branch `merge-main-forenxai-v3`: what was merged and added
+
+This branch combines three lines of work into one application. Merge order,
+27 Sep 2026:
+
+1. `main` of RonenKenneth/FORENXAI-Desktop, up to `322bb41`
+2. `main` of codexnii0/ForenXAI-v3, up to `f4f28ed` (merge commit `6bdbdbf`)
+3. `finetuned-xgboost` (merge commit `1f3e892`), then a traffic-summary fix (`68e5f35`)
+
+### What each source contributed
+
+| Source | Added |
+|---|---|
+| `main` (Ronen Kenneth) | Production error handling and logging (`backend/app/services/logging_service.py`, logs under the data directory); warning for an empty PCAP / PCAPng; Dashboard traffic-classification donut chart by attack category; Dashboard scrolling and threat-table layout; backend process management in the desktop app |
+| ForenXAI-v3 (codexnii0) | Analysis progress pop-up with a live elapsed-time display (in the app, not the terminal); PCAP / PCAPng file metadata; Investigation view (packet list, including ARP); PCAPng reader fix; CICFlowMeter fixes (input directory, compile step, error diagnostics) |
+| `finetuned-xgboost` | Tuned 66-feature XGBoost bundle with an abstain layer (confidence thresholds + Mahalanobis out-of-distribution limit); Tier 1 flow rules and Tier 2 packet rules with Suricata; hybrid `decide()` verdict; retrieval-grounded recommendations and AI summary (22 cited sources); capture intake for any link layer; Dashboard rule-based detection panel and Rule / Verdict columns; XAI view evidence. Full detail: `README_finetuned-xgboost.md` |
+
+### How conflicts were resolved
+
+| File | Result |
+|---|---|
+| `backend/app/main.py` | `main`'s logging lifespan plus the RAG warm-up and RAG status in `/health` |
+| `backend/app/services/llm_provider.py` | Tunable Qwen threads, context and GPU offload inside `main`'s load logging |
+| `backend/app/services/narration_service.py` | `finetuned-xgboost`'s fact-restating AI summary |
+| `backend/app/services/model_service.py` | Abstain layer before `main`'s logged model loader |
+| `backend/app/services/cicflowmeter_service.py` | v3's CICFlowMeter fixes and `finetuned-xgboost`'s capture checks inside `_generate_flow_csv_impl()`, wrapped by `main`'s logged `generate_flow_csv()` |
+| `backend/app/utils/runtime_paths.py` | Both sets of helpers (data and logs; RAG and toolchain) |
+| `frontend/.../Views/DashboardView.xaml` (`.cs`) | `main`/v3 layout (donut chart, metadata, scrolling) plus the rule-based detection panel as its own row and Rule / Verdict columns |
+| `backend/app/analysis/traffic_analysis.py` | Fix after merge: top-IP lists count IP packets only, because v3 now keeps ARP frames (with MAC addresses) in the packet list |
+
+### Detection: the two rule tiers and their rule sources
+
+| Tier | Reads | Rules | Source of the rules |
+|---|---|---|---|
+| Machine learning | CICFlowMeter flow records (66 features) | Tuned XGBoost, 16 classes, with abstention | Trained on TRUSTLab |
+| **Tier 1** (flow rules) | CICFlowMeter flow records, 60-second windows | PortScan, DoS, DDoS (off), Slowloris, Bruteforce, C2Beaconing, Exfiltration, DNS amplification, TLS failures, oversized packets (off), allowlist | Behavioural definitions used by signature IDSs (Snort, Zeek); thresholds tuned on TII-SSRC-23 and CSE-CIC-IDS2018 (`backend/app/rules/rules.json`, `rules_tuning.json`). Suricata cannot run here: it reads packets, not flow records |
+| **Tier 2** (packet evidence, advisory) | The PCAP / PCAPng itself | **Suricata 7.0.10 with the Emerging Threats (ET) Open ruleset** (52,483 signatures), plus Positive Technologies Attack Detection, Nmap scan rules and Suricata's own decoder / stream / HTTP / DNS / TLS / SMTP / app-layer event rules: 52,964 signatures in `tools/suricata/et-open.rules`. Alerts are mapped to the 16 classes by `suricata.class_mapping` in `rules.json`. Alongside Suricata, scapy checks cover what signatures cannot: ARP / IPv6 / DHCP spoofing (MITM), illegal TCP flags, overlapping fragments and TTL changes (Evasion), failed-login replies, API bursts, DNS tunnelling, weak TLS versions, NOP sleds | ET Open (Proofpoint), PT Attack Detection, aleksibovellan/nmap, OISF event rules, all free and listed in the OISF ruleset index |
+
+Verified on this branch: Suricata loads 52,956 of the 52,964 signatures and
+maps 30 alerts on LabActivity2 (a port scan) to classes; checksum-offload
+alerts are ignored. Only PortScan and DoS (Tier 1, validated on held-out
+data, F1 0.98 and 0.96) may decide a verdict; Tier 2 is supporting evidence.
+
+### Setup added by this branch
+
+Besides the steps below, install:
+
+```
+winget install --id OISF.Suricata --exact          # Tier 2 signature engine (needs Npcap, installed with Wireshark)
+cd backend
+.venv\Scripts\pip install -r requirements.txt      # includes scapy, llama-cpp-python, pypdf
+.venv\Scripts\python update_suricata_rules.py      # writes tools/suricata/et-open.rules (git-ignored)
+python ..\rag\config\rag_index.py                  # after copying the 22 source documents into rag/_sources/
+```
+
+Place `qwen2.5-3b-q4.gguf` in `backend/models/llm/`. Without Suricata the
+analysis still runs and records "Suricata not run".
+
+### Checks on this branch
+
+| Check | Result |
+|---|---|
+| Backend import (`import app.main`) | OK |
+| `test_rules.py`, `test_packet_rules.py`, `test_rag_pipeline.py`, `test_narration_rag.py`, `test_recommendations.py --fast` | All pass |
+| Desktop build (`dotnet build`) | 0 errors |
+| End-to-end analysis in the desktop app | Not yet run on this branch |
+
+### Next steps
+
+- Run one full analysis in the app to check the combined Dashboard (donut chart and rule panel), the progress pop-up and the Investigation view together.
+- Open a pull request `merge-main-forenxai-v3` → `main`.
+- Open items from `finetuned-xgboost` still apply: Tier 2 statistical validation needs labelled packet captures; DNS spoofing detection, Suricata HTTP / DNS logs and custom API signatures are not yet implemented (see `README_finetuned-xgboost.md`, "Tier 2: improvements" and "Known limitations").
+
 ## Architecture
 
 ```text

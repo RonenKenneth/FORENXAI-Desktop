@@ -168,7 +168,7 @@ def _fmt(value) -> str:
 def _hit(rule_id, rule, evidence, measured, threshold):
     return {"rule_id": rule_id, "class": rule["class"], "tier": 1,
             "evidence": evidence, "measured": measured, "threshold": threshold,
-            "severity": rule.get("severity", "medium")}
+            "severity": rule.get("severity", "medium"), "basis": rule.get("basis", "")}
 
 
 def _grouped(df, keys, aggregations):

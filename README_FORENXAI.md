@@ -2,6 +2,8 @@
 
 FORENXAI is a Windows desktop application for post-incident network forensic analysis. It accepts PCAP/PCAPNG evidence, extracts flow-level features with CICFlowMeter, classifies network traffic with an XGBoost model, explains model decisions with TreeSHAP, generates grounded local narration with Qwen 2.5 3B, provides deterministic recommendations, supports investigator review, and produces case reports.
 
+**Setting up a new machine: follow [`SETUP.md`](SETUP.md).** This file records what changed on the branch and why.
+
 ## Branch `merge-main-forenxai-v3`: what was merged and added
 
 This branch combines three lines of work into one application. Merge order,
@@ -239,6 +241,62 @@ because the capture comes from a different network than TRUSTLab; the capture
 is a port scan, so neither class is right. The Final Verdict is unchanged:
 PortScan, decided by the Tier 1 rule for 2,001 of 2,016 flows.
 
+### Measured values vs fixed text
+
+An audit checked each value shown in the app. Each value either comes from the capture or is fixed text.
+
+**Measured from the capture:**
+- counts and connection totals;
+- Tier 1 measurements;
+- Tier 2 and Suricata hits (the severity comes from each alert);
+- ML class, confidence and SHAP.
+
+**Fixed values from `rules.json`:** thresholds, time window and rule severity. These are labelled as configuration.
+
+Three fixed values had been shown as measurements. They are now either measured or labelled.
+
+- **Flow coverage (Tier 1 and ML input).**
+  - CICFlowMeter writes a flow only when it has more than one packet (`FlowGenerator.java`: `if (flow.packetCount() > 1)`). The training data was built the same way, so the model never saw single-packet flows. CICFlowMeter is left unchanged.
+  - Instead, `packet_store.capture_coverage()` compares the capture's conversations with the flow records and stores the result in `analysis.json` (`capture_coverage`). The Tier 1 card shows it.
+  - On LabActivity2 the flow records hold 2,013 of 6,996 TCP/UDP conversations. The other 4,983 are single-packet, mostly unanswered SYN probes, for example 192.168.50.102 → .1 on 2,000 ports.
+  - Tier 2 (Suricata and the packet rules) and the Packets table read these probes; the ML and Tier 1 do not.
+- **Flow counts.**
+  - The Evidence tab now bases its low-flow warnings on the flows analysed (CICFlowMeter), not on packet conversations. It shows both counts, each labelled.
+  - The PDF's "Custom Flows" row is now "Packet conversations (both directions)".
+- **Class text.**
+  - The recommendation summary is one knowledge-base text per class and is not measured from the capture. The XAI tab now labels it as the class profile.
+  - The Reports tab now shows the recommended action for the ML class.
+  - The per-class F1 in the XAI tab and the AI summary is now labelled as the TRUSTLab test-set figure from training.
+
+### Rule basis, packet filters, setup and training code (28 Sep 2026)
+
+| Area | Change | Files |
+|---|---|---|
+| Tier 1 rules | Every rule in `rules.json` has a `basis`, shown under its evidence in the XAI tab. There are three kinds of basis: (1) tuned and tested on labelled public data (PortScan, DoS, Bruteforce, DDoS), with the held-out figures; (2) matched to an open-source reference: the ET Open signatures run by Suricata (for example sid 2001219 "Potential SSH Scan", 5 SYNs in 120 s; sid 2016016 DNS amplification, 5 in 60 s) and US-CERT TA14-017A (DNS amplification factor 28–54); (3) heuristic, supporting evidence only (Slowloris, C2, Exfiltration, TLS). No threshold comes from the investigator's capture, and only PortScan and DoS decide a verdict | `backend/app/rules/rules.json`, `rule_service.py` |
+| Tier 2 rules | Each scapy check has a basis: RFC 9293 (illegal TCP flags), Ptacek & Newsham 1998 and Handley et al. 2001 (fragment overlap, TTL changes), arpwatch conditions (MITM), ET sid 2002383 (5 failed FTP logins). Suricata hits cite their signature ID. The weak-TLS check now also flags **TLS 1.1**, which RFC 8996 deprecates (was TLS 1.0 and older) | `rules.json`, `packet_rule_service.py`, `test_packet_rules.py` |
+| Flow coverage | `capture_coverage` in `analysis.json`, shown in the Tier 1 card. It records how many of the capture's conversations are in the CICFlowMeter records. On LabActivity2 that is 2,013 of 6,996; the other 4,982 are single-packet conversations, which CICFlowMeter never exports | `packet_store.py`, `analysis.py`, `DashboardView` |
+| Labels | Evidence tab and PDF separate flows analysed (CICFlowMeter) from packet conversations. The XAI tab labels the recommendation summary as the class profile. Reports show the recommended action for the ML class. The per-class F1 is labelled as the TRUSTLab test-set figure from training | `EvidenceView`, `PdfReportService`, `XaiView`, `ReportsView`, `narration_service.py` |
+| Packets filters | The Interface and IP version dropdowns stay enabled when the capture has one value (they looked broken when disabled); tooltips give the counts. Refilling the dropdowns and Clear filters no longer start one reload per box; a slower, older response can no longer replace a newer page. Disabled buttons (for example Previous on page 1) are dimmed instead of white | `DashboardView.xaml(.cs)` |
+| Setup | New `SETUP.md`: software, venv, requirements, files outside Git, checks, run commands, environment variables, common problems. `requirements.txt` accepts llama-cpp-python 0.3.19 or later 0.3.x, so the prebuilt CPU wheel works | `SETUP.md`, `backend/requirements.txt` |
+| Training code | The training pipeline's source, configuration, knowledge base, result tables and bundle documentation (3.8 MB) are copied from `forenxai_pipeline_full/forenxai_binary` into `training/`. Datasets, models and backups stay outside Git | `training/` |
+
+Checked in this round:
+- Coverage matches an independent count: 6,996 / 2,013 / 4,983.
+- All 2,012 rule hits on LabActivity2 carry a basis.
+- Packet filters in the app match counts computed from `packets.json`: eth0 10,584; eth0 + DNS 26; IPv6 11; port 22 13.
+- Next and Previous page through 1,000 rows at a time.
+- After fast edits (port 53, then empty, then 22), the table shows port 22.
+
+Table 17 of the manuscript (the four TreeSHAP equations) was checked against the code:
+- **Eq. 1, the Shapley value:** correct.
+- **Eq. 2, additivity in margin space:** holds on the app's model. The maximum error is 3e-06 (`verify_model.py`).
+- **Eq. 3, the class-conditional mean |SHAP| over R_k:** matches `per_class_own` in `training/scripts/15_explain_shap.py`. The pairwise matrix (Table 16, "All 120 class pairs") uses R = all sampled rows (`per_class`), and the text should say so.
+- **Eq. 4, O(TL2^M) to O(TLD^2):** as in Lundberg et al., 2020.
+
+Two statements in Table 16 describe training only:
+- The app computes SHAP on the CPU (see "Backend crash fix").
+- The app lists the top 10 contributors per flow, not 6.
+
 ### Checks on this branch
 
 | Check | Result |
@@ -389,15 +447,15 @@ The XGBoost model bundle must remain internally consistent. Do not replace only 
 
 ## Model bundle provenance
 
-The bundle in `backend\modelsorenxai\` is the multiclass XGBoost trained on the GPU (NVIDIA GeForce RTX 4050 Laptop GPU, CUDA 12.1) with leakage-safe splits, in which rows with an identical feature vector are kept in the same partition. It was trained on TRUSTLab only (16 classes, 74 features).
+The bundle in `backend\models\forenxai\` is the tuned multiclass XGBoost. It was trained on the GPU (NVIDIA GeForce RTX 4050 Laptop GPU, CUDA 12.1) with leakage-safe splits: rows with an identical feature vector are kept in the same partition. It was trained on TRUSTLab only (16 classes, 66 features) and runs on the CPU in the app. The code that built it is in `training/`.
 
 | File | SHA-256 (first 16) |
 |---|---|
-| XGBoost.pkl | 257f40e37094ccf7 |
-| scaler.pkl | cb7d1b995316fd6e |
+| XGBoost.pkl | 247fb8446ca6144a |
+| scaler.pkl | 7b356febe0212f2d |
 | label_encoder.pkl | 64ed93e1e30701b1 |
-| features.pkl | bff07530c1852f17 |
-| shap_global.json | 8fe52e3537b62577 |
+| features.pkl | 64a7c523e12144dc |
+| shap_global.json | 704dfcec9581d067 |
 
 `manifest.json` carries the full SHA-256 of each file and the backend verifies them at startup. Git is set not to convert line endings in this folder (`.gitattributes`), so the hashes stay valid on every clone.
 

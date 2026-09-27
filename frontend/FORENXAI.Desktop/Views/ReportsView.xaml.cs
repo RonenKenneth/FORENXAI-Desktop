@@ -391,10 +391,12 @@ public partial class ReportsView : UserControl
                 )
             )
             {
+                // A recommended action for the ML class (verified against
+                // its cited standard); the class profile text is not a
+                // description of this flow.
                 recommendationSummary =
-                    finding
-                        .Recommendation
-                        .Summary;
+                    finding.Recommendation.Actions.FirstOrDefault()
+                    ?? $"{finding.PredictedClass} profile: {finding.Recommendation.Summary}";
             }
 
 

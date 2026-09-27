@@ -1,0 +1,26 @@
+﻿data/raw/*
+data/interim/*
+data/processed/*
+artifacts/*
+logs/*
+!**/.gitkeep
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+snapshots/
+deploy/*
+!deploy/README.md
+!deploy/manifest.json
+knowledge/**/*.pdf
+deploy/*.gguf
+results/finetune/*.jsonl
+
+# Assembled deployment bundles and pre-rerun backups. Large binaries (the
+# 1.8 GB language model, the trained models) that are rebuilt from the
+# pipeline, not edited by hand. deploy/ is already covered above.
+deploy_gpu/
+new_deploy_gpu/
+new_deploy_gpu_74feat/
+*_74feat_backup/
+results_phase2_random_cpu_backup/

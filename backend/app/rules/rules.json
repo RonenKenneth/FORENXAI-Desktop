@@ -32,7 +32,8 @@
       "severity": "medium",
       "description": "One source probes many destination ports of one host inside a window, each probe carrying almost no data.",
       "min_distinct_ports": 50,
-      "max_median_fwd_packets": 3
+      "max_median_fwd_packets": 3,
+      "basis": "Tuned on labelled public data (TII-SSRC-23, CSE-CIC-IDS2018 02-20-2018), held-out test: recall 0.9997, precision 0.9636, benign false alarms 0.02%. Comparable open-source signatures: ET Open 'ET SCAN Behavioral Unusual Port' rules (sid 2001580-2001583) alert at 40-70 SYNs per source in 60 s."
     },
     "T1-DDOS-01": {
       "class": "DDoS",
@@ -41,7 +42,8 @@
       "description": "Several sources each flood the same destination service inside a window.",
       "min_flooding_sources": 3,
       "per_source_min_flows": 100,
-      "disabled_reason": "No tested setting keeps benign false alarms at or below 1%: the best flags 6.71% of benign flows on held-out data (recall 0.8162, precision 0.5356). Enable only on a network whose busy services are known; the DoS rule still flags each flooding source individually."
+      "disabled_reason": "No tested setting keeps benign false alarms at or below 1%: the best flags 6.71% of benign flows on held-out data (recall 0.8162, precision 0.5356). Enable only on a network whose busy services are known; the DoS rule still flags each flooding source individually.",
+      "basis": "Tuned on labelled public data; disabled because no setting kept benign false alarms at or below 1% (see disabled_reason)."
     },
     "T1-DOS-01": {
       "class": "DoS",
@@ -57,7 +59,8 @@
         137,
         138,
         5353
-      ]
+      ],
+      "basis": "Tuned on labelled public data (TII-SSRC-23, CSE-CIC-IDS2018 02-20-2018), held-out test: recall 0.9939, precision 0.9268, benign false alarms 0.00%."
     },
     "T1-SLOWLORIS-01": {
       "class": "Slowloris",
@@ -73,7 +76,8 @@
       ],
       "min_duration_seconds": 30,
       "max_fwd_packet_mean_bytes": 60,
-      "min_concurrent_flows": 20
+      "min_concurrent_flows": 20,
+      "basis": "Not tuned: the public datasets with real addresses have no labelled Slowloris flows. Measured on them: benign false alarms 0.01%, but 40,563 flows of other attack classes also match. Heuristic threshold, supporting evidence only (the verdict follows the model). For reference, Apache httpd's mod_reqtimeout default allows 20-40 s for request headers. Tier 2 runs ET Open 'ET SCAN Simple Slowloris Flooder' (sid 2016033) on the packets."
     },
     "T1-BRUTEFORCE-01": {
       "class": "Bruteforce",
@@ -99,7 +103,8 @@
         5900
       ],
       "min_attempts": 20,
-      "max_size_cv": 1.0
+      "max_size_cv": 1.0,
+      "basis": "Tuned on labelled public data, held-out test: recall 0.4633, precision 0.2009, benign false alarms 0.55%. Low precision, so the verdict for this class follows the model. Comparable open-source signatures: ET Open 'ET SCAN Potential SSH Scan' (sid 2001219) alerts at 5 SYNs to port 22 per source in 120 s, and 'Multiple FTP Root Login Attempts' (sid 2010642) at 5 in 60 s; this rule is stricter (20 in 60 s)."
     },
     "T1-C2-01": {
       "class": "C2Beaconing",
@@ -109,7 +114,8 @@
       "min_flows": 6,
       "max_interval_cv": 0.2,
       "min_mean_interval_seconds": 2,
-      "max_mean_bytes": 10000
+      "max_mean_bytes": 10000,
+      "basis": "Not tuned: no labelled beaconing flows with real addresses and timestamps. Measured benign false alarms 0.75%. Heuristic interval-regularity check (the approach of the open-source RITA beacon analysis), supporting evidence only (the verdict follows the model). Tier 2 runs ET Open CnC signatures on the packets."
     },
     "T1-EXFIL-01": {
       "class": "Exfiltration",
@@ -117,7 +123,8 @@
       "severity": "high",
       "description": "A flow sends far more data out than it receives.",
       "min_fwd_bytes": 10000000,
-      "max_down_up_ratio": 0.1
+      "max_down_up_ratio": 0.1,
+      "basis": "Not tuned: no labelled exfiltration flows with real addresses. Measured benign false alarms below 0.001%. Heuristic volume/ratio check, supporting evidence only (the verdict follows the model)."
     },
     "T1-DNS-01": {
       "class": "DNS",
@@ -125,7 +132,8 @@
       "severity": "high",
       "description": "Many DNS flows between one host and one resolver inside a window whose replies are many times the size of the queries (amplification / reflection).",
       "min_flows": 20,
-      "min_reply_ratio": 10
+      "min_reply_ratio": 10,
+      "basis": "Not tuned on labelled data. The reply/query ratio of 10 is below the DNS amplification factors documented by US-CERT TA14-017A (28-54) and Rossow, NDSS 2014, so real amplification exceeds it. Comparable open-source signature: ET Open 'ET DOS DNS Amplification Attack Inbound' (sid 2016016), 5 per destination in 60 s. Supporting evidence only (the verdict follows the model)."
     },
     "T1-TLS-01": {
       "class": "TLSSSL",
@@ -142,7 +150,8 @@
         8443
       ],
       "max_packets": 8,
-      "min_failed_handshakes": 10
+      "min_failed_handshakes": 10,
+      "basis": "Not tuned on labelled data. Heuristic count of short TLS connections ending in a reset, supporting evidence only (the verdict follows the model). Tier 2 runs Suricata's TLS protocol checks and ET Open TLS signatures on the packets."
     },
     "T1-BOF-01": {
       "class": "BufferOverflow",
@@ -160,7 +169,8 @@
         "22": 1602.0
       },
       "default_limit_bytes": 7306.0,
-      "disabled_reason": "Measured on the TRUSTLab test split (baseline fitted on the training split only): 0 of 16,000 BufferOverflow flows exceed their port's baseline at p99, p99.9 or the maximum, while 5,424 Exfiltration and 427 PortScan flows do. Packet size does not separate overflow payloads in this data; the Tier 2 NOP-sled check and Suricata's ET SHELLCODE rules cover the class instead."
+      "disabled_reason": "Measured on the TRUSTLab test split (baseline fitted on the training split only): 0 of 16,000 BufferOverflow flows exceed their port's baseline at p99, p99.9 or the maximum, while 5,424 Exfiltration and 427 PortScan flows do. Packet size does not separate overflow payloads in this data; the Tier 2 NOP-sled check and Suricata's ET SHELLCODE rules cover the class instead.",
+      "basis": "Baseline fitted on TRUSTLab benign training flows; disabled because it does not separate overflow payloads (see disabled_reason)."
     }
   },
   "tuning": {
@@ -258,7 +268,8 @@
       "min_gratuitous_arp": 5,
       "min_dhcp_servers": 2,
       "attach_window_seconds": 300,
-      "attach_note": "Flows of the contested address are marked only from the spoof onwards, for attach_window_seconds, so a busy host is not marked for the whole capture."
+      "attach_note": "Flows of the contested address are marked only from the spoof onwards, for attach_window_seconds, so a busy host is not marked for the whole capture.",
+      "basis": "Definitional: two MAC addresses claiming one IP is a conflicting ARP binding, the condition the open-source arpwatch reports as a changed Ethernet address; more than one DHCP server answering is a rogue-DHCP condition. Gratuitous-ARP burst size is a heuristic."
     },
     "T2-EVASION-01": {
       "class": "Evasion",
@@ -267,7 +278,8 @@
       "description": "Illegal TCP flag sets (NULL, XMAS, SYN+FIN), overlapping IP fragments, or TTL changes inside one flow.",
       "min_illegal_flag_packets": 1,
       "min_overlapping_fragments": 1,
-      "min_ttl_changes": 3
+      "min_ttl_changes": 3,
+      "basis": "NULL, XMAS and SYN+FIN flag sets are not valid TCP (RFC 9293). Overlapping fragments and TTL changes are the insertion/evasion techniques of Ptacek & Newsham (1998) and Handley et al., USENIX Security 2001. Suricata's decoder events cover the same conditions."
     },
     "T2-WEB-01": {
       "class": "WebBased",
@@ -277,7 +289,8 @@
       "min_matches": 1,
       "min_error_replies": 20,
       "min_distinct_paths": 10,
-      "error_note": "The design's starting value was 3 error replies; ordinary browsing produces a few 404s (favicon, robots.txt), so a sweep is required instead: at least 20 4xx replies covering at least 10 distinct paths in one window."
+      "error_note": "The design's starting value was 3 error replies; ordinary browsing produces a few 404s (favicon, robots.txt), so a sweep is required instead: at least 20 4xx replies covering at least 10 distinct paths in one window.",
+      "basis": "Fallback only: Suricata's ET Open WEB_SERVER signatures are the primary source for this class. The 4xx sweep counts are heuristics."
     },
     "T2-API-01": {
       "class": "API",
@@ -293,14 +306,16 @@
         "/rest/"
       ],
       "min_calls": 100,
-      "min_auth_failures": 10
+      "min_auth_failures": 10,
+      "basis": "Heuristic rate and authorisation-failure counts (OWASP API Security Top 10 2023: API2 Broken Authentication, API4 Unrestricted Resource Consumption). Not validated on labelled data."
     },
     "T2-BRUTEFORCE-01": {
       "class": "Bruteforce",
       "enabled": true,
       "severity": "medium",
       "description": "Failed-login replies to one client inside a window: FTP 530, SMTP 535, POP3 -ERR, HTTP 401.",
-      "min_failed_logins": 5
+      "min_failed_logins": 5,
+      "basis": "Matches the open-source ET Open signature 'ET SCAN Potential FTP Brute-Force attempt response' (sid 2002383): 5 failed-login (530) replies to one client."
     },
     "T2-DNS-01": {
       "class": "DNS",
@@ -309,14 +324,16 @@
       "description": "One client sends many DNS queries with long or random-looking names inside a window (tunnelling).",
       "min_name_length": 50,
       "min_label_entropy": 4.0,
-      "min_queries": 10
+      "min_queries": 10,
+      "basis": "Heuristic name-length and label-entropy limits for DNS tunnelling. Not validated on labelled data."
     },
     "T2-TLS-01": {
       "class": "TLSSSL",
       "enabled": true,
       "severity": "medium",
-      "description": "A TLS ClientHello offers SSL 2.0, SSL 3.0 or TLS 1.0 as its highest version. The handshake is sent in the clear, so this works on encrypted traffic.",
-      "max_weak_version": "0x0301"
+      "description": "A TLS ClientHello offers SSL 2.0, SSL 3.0, TLS 1.0 or TLS 1.1 as its highest version. The handshake is sent in the clear, so this works on encrypted traffic.",
+      "max_weak_version": "0x0302",
+      "basis": "RFC 8996 (2021) deprecates TLS 1.0 and 1.1 (SSL 2.0 and 3.0 by RFC 6176 and RFC 7568); NIST SP 800-52r2 requires TLS 1.2 or later."
     },
     "T2-BOF-01": {
       "class": "BufferOverflow",
@@ -330,7 +347,8 @@
         "0x42",
         "0x43",
         "0x90"
-      ]
+      ],
+      "basis": "Heuristic NOP-sled / filler-run lengths; Suricata's ET Open SHELLCODE signatures are the primary source for this class."
     }
   },
   "suricata": {

@@ -537,7 +537,7 @@
                                             Binding="{Binding ReviewDecision}"
                                             Width="130"/>
 
-                        <DataGridTextColumn Header="Recommendation"
+                        <DataGridTextColumn Header="Recommended action (for the ML class)"
                                             Binding="{Binding RecommendationSummary}"
                                             Width="*"/>
 

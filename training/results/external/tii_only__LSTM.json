@@ -1,0 +1,158 @@
+{
+  "arm": "tii_only",
+  "model": "LSTM",
+  "threshold": 0.445,
+  "accuracy_native_prevalence": 0.5000143114591087,
+  "accuracy_native_excluding_truncated": 0.49957887272028245,
+  "truncated_classes": [
+    "PortScan"
+  ],
+  "external_validation": {
+    "accuracy": 0.4213208333333333,
+    "precision": 0.933528659598675,
+    "recall": 0.4120844444444444,
+    "f1": 0.5717730273401969,
+    "f2": 0.46390999488652795,
+    "benign_recall": 0.5598666666666666,
+    "attack_recall": 0.4120844444444444,
+    "false_alarm_rate": 0.4401333333333333,
+    "miss_rate": 0.5879155555555555,
+    "confusion": {
+      "tn": 16796,
+      "fp": 13204,
+      "fn": 264562,
+      "tp": 185438
+    },
+    "roc_auc": 0.4776123844074074,
+    "pr_auc": 0.9313646494709377
+  },
+  "external_validation_native_prevalence": {
+    "accuracy": 0.5000143114591087,
+    "precision": 0.41726889456631266,
+    "recall": 0.4202116675469607,
+    "f1": 0.4187351108394356,
+    "f2": 0.4196197970208333,
+    "benign_recall": 0.5598666666666036,
+    "attack_recall": 0.42021166754717615,
+    "false_alarm_rate": 0.44013333333339644,
+    "miss_rate": 0.5797883324528239,
+    "confusion": {
+      "tn": 1440194,
+      "fp": 1132194,
+      "fn": 1118587,
+      "tp": 810716
+    },
+    "roc_auc": 0.4802605968884498,
+    "pr_auc": 0.43758574436339814
+  },
+  "external_validation_native_excluding_truncated": {
+    "accuracy": 0.49957887272028245,
+    "precision": 0.40006848898672814,
+    "recall": 0.41444874450427477,
+    "f1": 0.40713167544810025,
+    "f2": 0.4114905811582405,
+    "benign_recall": 0.5598666666666036,
+    "attack_recall": 0.41444874450446567,
+    "false_alarm_rate": 0.44013333333339644,
+    "miss_rate": 0.5855512554955344,
+    "confusion": {
+      "tn": 1440194,
+      "fp": 1132194,
+      "fn": 1066713,
+      "tp": 755011
+    },
+    "roc_auc": 0.4656883917254918,
+    "pr_auc": 0.3981070706662539
+  },
+  "baseline": {
+    "accuracy": 0.8963,
+    "f2": 0.935,
+    "roc_auc": 0.9676,
+    "attack_precision": 0.8802,
+    "attack_recall": 0.9498,
+    "benign_recall": 0.8229,
+    "threshold": 0.445,
+    "source": "Villafranca, A., Tasic, I. & Cano, M.-D. (2026). TRUSTLab dataset. Frontiers in Computer Science 8:1803271, Table 2.",
+    "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
+  },
+  "delta_vs_baseline": {
+    "accuracy": -0.475,
+    "f2": -0.4711,
+    "roc_auc": -0.49,
+    "attack_recall": -0.5377,
+    "benign_recall": -0.263
+  },
+  "delta_vs_baseline_native_prevalence": {
+    "accuracy": -0.3963,
+    "f2": -0.5154,
+    "roc_auc": -0.4873,
+    "attack_recall": -0.5296,
+    "benign_recall": -0.263
+  },
+  "per_class_accuracy": {
+    "API": {
+      "n": 30000,
+      "accuracy": 0.2825
+    },
+    "Benign": {
+      "n": 30000,
+      "accuracy": 0.5599
+    },
+    "Bruteforce": {
+      "n": 30000,
+      "accuracy": 0.374
+    },
+    "BufferOverflow": {
+      "n": 30000,
+      "accuracy": 0.4137
+    },
+    "C2Beaconing": {
+      "n": 30000,
+      "accuracy": 0.3349
+    },
+    "DDoS": {
+      "n": 30000,
+      "accuracy": 0.4005
+    },
+    "DNS": {
+      "n": 30000,
+      "accuracy": 0.9836
+    },
+    "DoS": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "Evasion": {
+      "n": 30000,
+      "accuracy": 0.3075
+    },
+    "Exfiltration": {
+      "n": 30000,
+      "accuracy": 0.8293
+    },
+    "Exploitation": {
+      "n": 30000,
+      "accuracy": 0.5094
+    },
+    "MITM": {
+      "n": 30000,
+      "accuracy": 0.2653
+    },
+    "PortScan": {
+      "n": 30000,
+      "accuracy": 0.5178
+    },
+    "Slowloris": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "TLSSSL": {
+      "n": 30000,
+      "accuracy": 0.6601
+    },
+    "WebBased": {
+      "n": 30000,
+      "accuracy": 0.3026
+    }
+  }
+}

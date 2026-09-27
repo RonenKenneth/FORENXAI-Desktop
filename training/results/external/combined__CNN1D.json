@@ -1,0 +1,158 @@
+{
+  "arm": "combined",
+  "model": "CNN1D",
+  "threshold": 0.445,
+  "accuracy_native_prevalence": 0.4729612826528224,
+  "accuracy_native_excluding_truncated": 0.47203489493819606,
+  "truncated_classes": [
+    "PortScan"
+  ],
+  "external_validation": {
+    "accuracy": 0.41402916666666667,
+    "precision": 0.9281024194203134,
+    "recall": 0.4064511111111111,
+    "f1": 0.5653250333811384,
+    "f2": 0.4579279064550502,
+    "benign_recall": 0.5277,
+    "attack_recall": 0.4064511111111111,
+    "false_alarm_rate": 0.4723,
+    "miss_rate": 0.5935488888888889,
+    "confusion": {
+      "tn": 15831,
+      "fp": 14169,
+      "fn": 267097,
+      "tp": 182903
+    },
+    "roc_auc": 0.49081246833333336,
+    "pr_auc": 0.9391408641631567
+  },
+  "external_validation_native_prevalence": {
+    "accuracy": 0.4729612826528224,
+    "precision": 0.3884377713343715,
+    "recall": 0.3999767801458018,
+    "f1": 0.39412283493156763,
+    "f2": 0.39761445749482793,
+    "benign_recall": 0.5276999999999707,
+    "attack_recall": 0.3999767801459656,
+    "false_alarm_rate": 0.4723000000000292,
+    "miss_rate": 0.6000232198540344,
+    "confusion": {
+      "tn": 1357449,
+      "fp": 1214939,
+      "fn": 1157627,
+      "tp": 771676
+    },
+    "roc_auc": 0.479291291484997,
+    "pr_auc": 0.42850336661637684
+  },
+  "external_validation_native_excluding_truncated": {
+    "accuracy": 0.47203489493819606,
+    "precision": 0.3710402458058897,
+    "recall": 0.3934322919749122,
+    "f1": 0.3819083279200875,
+    "f2": 0.3887402459590596,
+    "benign_recall": 0.5276999999999707,
+    "attack_recall": 0.39343229197501356,
+    "false_alarm_rate": 0.4723000000000292,
+    "miss_rate": 0.6065677080249864,
+    "confusion": {
+      "tn": 1357449,
+      "fp": 1214939,
+      "fn": 1104999,
+      "tp": 716725
+    },
+    "roc_auc": 0.47577841556429756,
+    "pr_auc": 0.41387676006083823
+  },
+  "baseline": {
+    "accuracy": 0.8963,
+    "f2": 0.935,
+    "roc_auc": 0.9676,
+    "attack_precision": 0.8802,
+    "attack_recall": 0.9498,
+    "benign_recall": 0.8229,
+    "threshold": 0.445,
+    "source": "Villafranca, A., Tasic, I. & Cano, M.-D. (2026). TRUSTLab dataset. Frontiers in Computer Science 8:1803271, Table 2.",
+    "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
+  },
+  "delta_vs_baseline": {
+    "accuracy": -0.4823,
+    "f2": -0.4771,
+    "roc_auc": -0.4768,
+    "attack_recall": -0.5433,
+    "benign_recall": -0.2952
+  },
+  "delta_vs_baseline_native_prevalence": {
+    "accuracy": -0.4233,
+    "f2": -0.5374,
+    "roc_auc": -0.4883,
+    "attack_recall": -0.5498,
+    "benign_recall": -0.2952
+  },
+  "per_class_accuracy": {
+    "API": {
+      "n": 30000,
+      "accuracy": 0.134
+    },
+    "Benign": {
+      "n": 30000,
+      "accuracy": 0.5277
+    },
+    "Bruteforce": {
+      "n": 30000,
+      "accuracy": 0.45
+    },
+    "BufferOverflow": {
+      "n": 30000,
+      "accuracy": 0.6345
+    },
+    "C2Beaconing": {
+      "n": 30000,
+      "accuracy": 0.4542
+    },
+    "DDoS": {
+      "n": 30000,
+      "accuracy": 0.6548
+    },
+    "DNS": {
+      "n": 30000,
+      "accuracy": 0.0495
+    },
+    "DoS": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "Evasion": {
+      "n": 30000,
+      "accuracy": 0.7511
+    },
+    "Exfiltration": {
+      "n": 30000,
+      "accuracy": 0.379
+    },
+    "Exploitation": {
+      "n": 30000,
+      "accuracy": 0.6591
+    },
+    "MITM": {
+      "n": 30000,
+      "accuracy": 0.0066
+    },
+    "PortScan": {
+      "n": 30000,
+      "accuracy": 0.5108
+    },
+    "Slowloris": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "TLSSSL": {
+      "n": 30000,
+      "accuracy": 0.6469
+    },
+    "WebBased": {
+      "n": 30000,
+      "accuracy": 0.7663
+    }
+  }
+}

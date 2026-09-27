@@ -1,0 +1,67 @@
+feature,family,in_top12_of_any_class
+Bwd Bulk Rate Avg,Bulk transfer,True
+Bwd Bytes/Bulk Avg,Bulk transfer,True
+Bwd Packet/Bulk Avg,Bulk transfer,True
+Fwd Bulk Rate Avg,Bulk transfer,True
+Fwd Bytes/Bulk Avg,Bulk transfer,True
+Fwd Packet/Bulk Avg,Bulk transfer,True
+Bwd Segment Size Avg,Directional volume,True
+Fwd Segment Size Avg,Directional volume,True
+Total Bwd packets,Directional volume,True
+Total Fwd Packet,Directional volume,False
+Total Length of Bwd Packet,Directional volume,True
+Total Length of Fwd Packet,Directional volume,True
+Flow Bytes/s,Flow rate and duration,True
+Flow Duration,Flow rate and duration,False
+Flow Packets/s,Flow rate and duration,True
+Bwd Header Length,Header length,True
+Fwd Header Length,Header length,True
+Bwd Init Win Bytes,Initial window,True
+FWD Init Win Bytes,Initial window,False
+Bwd IAT Max,Inter-arrival time,False
+Bwd IAT Mean,Inter-arrival time,True
+Bwd IAT Min,Inter-arrival time,True
+Bwd IAT Std,Inter-arrival time,False
+Bwd IAT Total,Inter-arrival time,False
+Flow IAT Max,Inter-arrival time,False
+Flow IAT Mean,Inter-arrival time,False
+Flow IAT Min,Inter-arrival time,True
+Flow IAT Std,Inter-arrival time,False
+Fwd IAT Max,Inter-arrival time,False
+Fwd IAT Mean,Inter-arrival time,False
+Fwd IAT Min,Inter-arrival time,True
+Fwd IAT Std,Inter-arrival time,False
+Fwd IAT Total,Inter-arrival time,False
+Average Packet Size,Other,True
+Down/Up Ratio,Other,True
+Dst Port,Other,True
+Protocol,Other,True
+Bwd Packet Length Max,Packet length,True
+Bwd Packet Length Mean,Packet length,True
+Bwd Packet Length Min,Packet length,True
+Bwd Packet Length Std,Packet length,True
+Fwd Packet Length Max,Packet length,True
+Fwd Packet Length Mean,Packet length,True
+Fwd Packet Length Min,Packet length,True
+Fwd Packet Length Std,Packet length,True
+Packet Length Max,Packet length,True
+Packet Length Mean,Packet length,True
+Packet Length Min,Packet length,True
+Packet Length Std,Packet length,False
+Packet Length Variance,Packet length,True
+Subflow Bwd Bytes,Subflow,True
+Subflow Bwd Packets,Subflow,True
+Subflow Fwd Bytes,Subflow,True
+Subflow Fwd Packets,Subflow,True
+ACK Flag Count,TCP flags,True
+Bwd PSH Flags,TCP flags,True
+Bwd URG Flags,TCP flags,False
+CWR Flag Count,TCP flags,False
+ECE Flag Count,TCP flags,False
+FIN Flag Count,TCP flags,True
+Fwd PSH Flags,TCP flags,True
+Fwd URG Flags,TCP flags,False
+PSH Flag Count,TCP flags,True
+RST Flag Count,TCP flags,True
+SYN Flag Count,TCP flags,True
+URG Flag Count,TCP flags,False

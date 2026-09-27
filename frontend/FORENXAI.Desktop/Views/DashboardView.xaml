@@ -34,6 +34,38 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- Dark buttons: the default template paints disabled buttons
+             white (e.g. "Previous" on the first page). -->
+        <Style TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#60A5FA"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="#E2E8F0"/>
@@ -337,6 +369,8 @@
                         <StackPanel>
                             <TextBlock Text="TIER 1 · FLOW RULES" Foreground="#FDE68A" FontSize="12" FontWeight="Bold"/>
                             <TextBlock x:Name="Tier1SummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
+                            <TextBlock x:Name="Tier1CoverageText" Foreground="#64748B" FontSize="11"
+                                       TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <ScrollViewer Padding="0,0,12,0" MaxHeight="120" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="Tier1Bars">
                 <ItemsControl.ItemTemplate>

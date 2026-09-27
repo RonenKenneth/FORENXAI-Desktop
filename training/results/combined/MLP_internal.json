@@ -1,0 +1,26 @@
+{
+  "arm": "combined",
+  "model": "MLP",
+  "train_seconds": 251.5,
+  "n_train": 679999,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.9831168073599387,
+    "precision": 0.9917627118644068,
+    "recall": 0.9743564125620275,
+    "f1": 0.9829825121373494,
+    "f2": 0.977788620929362,
+    "benign_recall": 0.9918928386741622,
+    "attack_recall": 0.9743564125620275,
+    "false_alarm_rate": 0.008107161325837824,
+    "miss_rate": 0.02564358743797249,
+    "confusion": {
+      "tn": 59461,
+      "fp": 486,
+      "fn": 1540,
+      "tp": 58514
+    },
+    "roc_auc": 0.9933544189486695,
+    "pr_auc": 0.9952875224889782
+  }
+}

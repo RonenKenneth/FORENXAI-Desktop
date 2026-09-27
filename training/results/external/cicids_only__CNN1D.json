@@ -1,0 +1,158 @@
+{
+  "arm": "cicids_only",
+  "model": "CNN1D",
+  "threshold": 0.445,
+  "accuracy_native_prevalence": 0.5449256834672427,
+  "accuracy_native_excluding_truncated": 0.5582521559608253,
+  "truncated_classes": [
+    "PortScan"
+  ],
+  "external_validation": {
+    "accuracy": 0.12912916666666666,
+    "precision": 0.9242769965508092,
+    "recall": 0.07741333333333333,
+    "f1": 0.1428612438229203,
+    "f2": 0.09478203614320152,
+    "benign_recall": 0.9048666666666667,
+    "attack_recall": 0.07741333333333333,
+    "false_alarm_rate": 0.09513333333333333,
+    "miss_rate": 0.9225866666666667,
+    "confusion": {
+      "tn": 27146,
+      "fp": 2854,
+      "fn": 415164,
+      "tp": 34836
+    },
+    "roc_auc": 0.4187884552592593,
+    "pr_auc": 0.9304679863781299
+  },
+  "external_validation_native_prevalence": {
+    "accuracy": 0.5449256834672427,
+    "precision": 0.3388429205539139,
+    "recall": 0.0650073575793361,
+    "f1": 0.10908638221814954,
+    "f2": 0.0775401575302538,
+    "benign_recall": 0.9048666666666448,
+    "attack_recall": 0.06500735757935362,
+    "false_alarm_rate": 0.09513333333335514,
+    "miss_rate": 0.9349926424206464,
+    "confusion": {
+      "tn": 2327668,
+      "fp": 244720,
+      "fn": 1803884,
+      "tp": 125419
+    },
+    "roc_auc": 0.42263493475077973,
+    "pr_auc": 0.3988361132891251
+  },
+  "external_validation_native_excluding_truncated": {
+    "accuracy": 0.5582521559608253,
+    "precision": 0.3387276032151421,
+    "recall": 0.06881083116867712,
+    "f1": 0.11438493133659254,
+    "f2": 0.08185636062802547,
+    "benign_recall": 0.9048666666666448,
+    "attack_recall": 0.06881083116869756,
+    "false_alarm_rate": 0.09513333333335514,
+    "miss_rate": 0.9311891688313024,
+    "confusion": {
+      "tn": 2327668,
+      "fp": 244720,
+      "fn": 1696370,
+      "tp": 125354
+    },
+    "roc_auc": 0.4044161139994681,
+    "pr_auc": 0.3805950268008422
+  },
+  "baseline": {
+    "accuracy": 0.8963,
+    "f2": 0.935,
+    "roc_auc": 0.9676,
+    "attack_precision": 0.8802,
+    "attack_recall": 0.9498,
+    "benign_recall": 0.8229,
+    "threshold": 0.445,
+    "source": "Villafranca, A., Tasic, I. & Cano, M.-D. (2026). TRUSTLab dataset. Frontiers in Computer Science 8:1803271, Table 2.",
+    "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
+  },
+  "delta_vs_baseline": {
+    "accuracy": -0.7672,
+    "f2": -0.8402,
+    "roc_auc": -0.5488,
+    "attack_recall": -0.8724,
+    "benign_recall": 0.082
+  },
+  "delta_vs_baseline_native_prevalence": {
+    "accuracy": -0.3514,
+    "f2": -0.8575,
+    "roc_auc": -0.545,
+    "attack_recall": -0.8848,
+    "benign_recall": 0.082
+  },
+  "per_class_accuracy": {
+    "API": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "Benign": {
+      "n": 30000,
+      "accuracy": 0.9049
+    },
+    "Bruteforce": {
+      "n": 30000,
+      "accuracy": 0.0013
+    },
+    "BufferOverflow": {
+      "n": 30000,
+      "accuracy": 0.0011
+    },
+    "C2Beaconing": {
+      "n": 30000,
+      "accuracy": 0.1813
+    },
+    "DDoS": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "DNS": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "DoS": {
+      "n": 30000,
+      "accuracy": 0.0001
+    },
+    "Evasion": {
+      "n": 30000,
+      "accuracy": 0.0067
+    },
+    "Exfiltration": {
+      "n": 30000,
+      "accuracy": 0.0073
+    },
+    "Exploitation": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "MITM": {
+      "n": 30000,
+      "accuracy": 0.9629
+    },
+    "PortScan": {
+      "n": 30000,
+      "accuracy": 0.0006
+    },
+    "Slowloris": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "TLSSSL": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "WebBased": {
+      "n": 30000,
+      "accuracy": 0.0
+    }
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "results": [
+    {
+      "provider": "ollama",
+      "model": "qwen2.5:3b",
+      "scores": {
+        "refusal": 1.0,
+        "citation_real": 1.0,
+        "no_fabrication": 1.0,
+        "reliability": 0.5,
+        "ambiguity": 1.0,
+        "no_percentage": 1.0,
+        "numbers_supported": 1.0,
+        "no_timeout_claim": 1.0,
+        "no_field_names": 1.0,
+        "timeout_warned": 1.0,
+        "schema_valid": 1.0,
+        "no_invented_features": 1.0,
+        "readings_usable": 1.0
+      },
+      "overall": 0.944,
+      "gate_passed": true,
+      "failed_gates": [],
+      "cases": [
+        {
+          "case": "no_docs_must_refuse",
+          "checks": {
+            "refusal": {
+              "pass": true,
+              "detail": null
+            },
+            "citation_real": {
+              "pass": true,
+              "detail": []
+            },
+            "no_fabrication": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "Not covered by the available documentation"
+        },
+        {
+          "case": "one_doc_cite_only_it",
+          "checks": {
+            "citation_real": {
+              "pass": true,
+              "detail": []
+            },
+            "no_fabrication": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "RECOMMENDED ACTIONS:\n1. From the document section \"3.1 Scanning activity\", record the source address and the ports contacted, and confirm whether the source is an authorised scanner before taking any blocking action.\n2. If the source is unauthorised, apply rate limiting at the perimeter and monitor for follow-on connection attempts."
+        },
+        {
+          "case": "weak_class_must_hedge",
+          "checks": {
+            "reliability": {
+              "pass": false,
+              "detail": null
+            }
+          },
+          "output": "HOW CONFIDENT TO BE: The model's test F1 score for the DoS class is 0.6703, which is below the threshold of 0.94. This indicates that the model's reliability for the DoS class is below average, but not extremely weak. Given that the confidence for this specific finding is 0.64, it suggests that while the model is somewhat confident in the DoS class, it is not as strongly confident as the model's overall reliability suggests. Therefore, the confidence in this specific DoS finding should be interpreted with a degree of caution, acknowledging both the model's overall reliability and the specific finding's confidence."
+        },
+        {
+          "case": "ambiguous_pair_must_say_so",
+          "checks": {
+            "ambiguity": {
+              "pass": true,
+              "detail": null
+            },
+            "reliability": {
+              "pass": true,
+              "detail": null
+            }
+          },
+          "output": "WHAT WAS FOUND: The model identified 165 flows as Slowloris attacks, with a mean SHAP contribution confidence of 0.66.\n\nHOW CONFIDENT TO BE: The model's confidence in distinguishing Slowloris from DoS attacks is low, as the SHAP importance correlates at 0.90, and six of the top ten features are shared between the two classes."
+        },
+        {
+          "case": "shap_units_not_percent",
+          "checks": {
+            "no_percentage": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "The decision to classify a network traffic as a \"PortScan\" is based on the model's confidence, which is very high at 99%. This means the model is very certain that the traffic is a PortScan.\n\nThe SHAP (SHapley Additive exPlanations) attributions help us understand which features of the traffic contributed to the model's decision. Here are the key features:\n\n- **Bwd Packet Length Max**: This feature measures the maximum length of packets sent from the destination to the source. The positive SHAP value of +4.4090 means that when this feature is higher than usual, it supports the model's decision that the traffic is a PortScan. In other words, longer backward packet lengths are associated with the model's prediction of a PortScan.\n\n- **Dst Port**: This feature indicates the destination port number. The positive SHAP value of +1.1550 means that when the destination port number is higher than usual, it also supports the model's decision that the traffic is a PortScan. Higher destination port numbers are associated with the model's prediction of a PortScan.\n\nIn summary, both the maximum length of backward packets and the destination port number are contributing positively to the model's decision that the traffic is a PortScan."
+        },
+        {
+          "case": "panel1_no_timeout_flag",
+          "checks": {
+            "numbers_supported": {
+              "pass": true,
+              "detail": []
+            },
+            "no_timeout_claim": {
+              "pass": true,
+              "detail": null
+            },
+            "no_field_names": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "This network capture contains data from 400 flows, with 350 identified as attacks and 50 as benign. The Slowloris attack class dominates, accounting for 87.5% of all flows. The capture has a mean confidence of 0.8164, with no flows below this threshold. The longest flow duration is 12,792.6 seconds, and the median flow duration is 2.518 seconds. The total flow duration is 13,799.4 seconds, indicating a significant amount of data. The capture's shape suggests a mix of short and long flows, with a notable outlier for the longest flow. This mix of short and long flows, along with the outlier, merits further investigation to understand the underlying network behavior and potential anomalies."
+        },
+        {
+          "case": "panel1_timeout_flag_set",
+          "checks": {
+            "numbers_supported": {
+              "pass": true,
+              "detail": []
+            },
+            "timeout_warned": {
+              "pass": true,
+              "detail": null
+            },
+            "no_field_names": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "The capture contains 400 flows, with 350 identified as attacks and 50 as benign. The Slowloris attack class dominates the attack flows. The total flow duration is 1126.8 seconds, with the longest flow lasting 120 seconds. The mean confidence is 0.8164, and there are no low-confidence flows. The median flow duration is 2.518 seconds. The capture was likely extracted with a 120-second timeout, which does not match the model's training data, and thus the results should not be trusted until the capture is re-examined."
+        },
+        {
+          "case": "panel2_readings_grounded",
+          "checks": {
+            "schema_valid": {
+              "pass": true,
+              "detail": null
+            },
+            "no_invented_features": {
+              "pass": true,
+              "detail": []
+            },
+            "readings_usable": {
+              "pass": true,
+              "detail": "1 readings kept, 5 dropped"
+            }
+          },
+          "output": "{\n  \"decisions\": [\n    {\n      \"row\": 79,\n      \"summary\": \"Slowloris detected based on short gaps between packets and typical service port usage.\",\n      \"readings\": [\n        {\n          \"feature\": \"Flow IAT Min\",\n          \"reading\": \"The shortest gap between any two packets is 119,873,400 microseconds, indicating a very idle connection.\"\n        },\n        {\n          \"feature\": \"Subflow Bwd Bytes\",\n          \"reading\": \"The average bytes per inbound burst is 120 bytes, suggesting a low volume of data being received.\"\n        },\n        {\n          \"feature\": \"Dst Port\",\n          \"reading\": \"The destination port is 59,692, which is a common port for SSH (Secure Shell) services.\"\n        }\n      ]\n    },\n    {\n      \"row\": 785,\n      \"summary\": \"Slowloris detected based on the largest outbound packet and low bulk transfer rate.\",\n      \"readings\": [\n        {\n          \"feature\": \"Fwd Packet Length Max\",\n          \"reading\": \"The largest outbound packet is 0 bytes, indicating a potential slowloris attack where the client sends a series of small packets.\"\n        },\n        {\n          \"feature\": \"Bwd Bulk Rate Avg\",\n          \"reading\": \"The average rate of data moved by the server during sustained bursts is 0 bytes per second, suggesting no significant data transfer.\"\n        }\n      ]\n    }\n  ]\n}"
+        }
+      ]
+    },
+    {
+      "provider": "llamacpp",
+      "model": "qwen2.5-3b-q4.gguf",
+      "scores": {
+        "refusal": 1.0,
+        "citation_real": 1.0,
+        "no_fabrication": 1.0,
+        "reliability": 1.0,
+        "ambiguity": 0.0,
+        "no_percentage": 1.0,
+        "numbers_supported": 1.0,
+        "no_timeout_claim": 1.0,
+        "no_field_names": 1.0,
+        "timeout_warned": 1.0,
+        "schema_valid": 1.0,
+        "no_invented_features": 1.0,
+        "readings_usable": 1.0
+      },
+      "overall": 0.944,
+      "gate_passed": true,
+      "failed_gates": [],
+      "cases": [
+        {
+          "case": "no_docs_must_refuse",
+          "checks": {
+            "refusal": {
+              "pass": true,
+              "detail": null
+            },
+            "citation_real": {
+              "pass": true,
+              "detail": []
+            },
+            "no_fabrication": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "Not covered by the available documentation"
+        },
+        {
+          "case": "one_doc_cite_only_it",
+          "checks": {
+            "citation_real": {
+              "pass": true,
+              "detail": []
+            },
+            "no_fabrication": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "RECOMMENDED ACTIONS:\n1. From the document section \"3.1 Scanning activity\", record the source address and the ports contacted, and confirm whether the source is an authorised scanner before taking any blocking action.\n2. From the document section \"3.1 Scanning activity\", if the source is unauthorised, apply rate limiting at the perimeter and monitor for follow-on connection attempts."
+        },
+        {
+          "case": "weak_class_must_hedge",
+          "checks": {
+            "reliability": {
+              "pass": true,
+              "detail": null
+            }
+          },
+          "output": "HOW CONFIDENT TO BE: The model reliability for the DoS class, measured by the test F1 score, is 0.6703. This score indicates that the model's ability to separate DoS flows across the entire test set is below 0.94, suggesting the model is not very reliable for this class. Given this reliability score, the confidence in this finding should be considered low."
+        },
+        {
+          "case": "ambiguous_pair_must_say_so",
+          "checks": {
+            "ambiguity": {
+              "pass": false,
+              "detail": null
+            },
+            "reliability": {
+              "pass": true,
+              "detail": null
+            }
+          },
+          "output": "WHAT WAS FOUND: The model identified 165 flows as potentially related to the Slowloris attack, with a mean SHAP contribution confidence of 0.66.\n\nHOW CONFIDENT TO BE: Not covered by the available documentation."
+        },
+        {
+          "case": "shap_units_not_percent",
+          "checks": {
+            "no_percentage": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "The decision to predict \"PortScan\" with a confidence of 0.99 suggests that the model strongly believes a PortScan attack occurred. \n\nThe attribution for \"Bwd Packet Length Max\" is +4.4090, which means that if this feature's value increased, the model's prediction for \"PortScan\" would become even more confident. The positive value indicates that this feature supports the model's prediction.\n\nThe attribution for \"Dst Port\" is +1.1550, meaning that if this feature's value increased, the model's prediction for \"PortScan\" would also become more confident. Again, the positive value shows support for the model's prediction.\n\nIn simpler terms, the model thinks that both the maximum length of packets coming from the sender and the destination port number are unusual, and these unusualities support the idea that a PortScan attack is happening."
+        },
+        {
+          "case": "panel1_no_timeout_flag",
+          "checks": {
+            "numbers_supported": {
+              "pass": true,
+              "detail": []
+            },
+            "no_timeout_claim": {
+              "pass": true,
+              "detail": null
+            },
+            "no_field_names": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "This capture contains data from 400 flows, with 50 benign and 350 attack flows, representing 87.5% of the total flows. The Slowloris attack class dominates, accounting for all attack flows. The capture has a mean confidence of 0.8164 and a median flow duration of 2.518 seconds, with the longest flow lasting 12792.6 seconds. The shape of the data, with a significant number of short flows and one very long flow, warrants a closer look to understand the context and potential implications of the long flow."
+        },
+        {
+          "case": "panel1_timeout_flag_set",
+          "checks": {
+            "numbers_supported": {
+              "pass": true,
+              "detail": []
+            },
+            "timeout_warned": {
+              "pass": true,
+              "detail": null
+            },
+            "no_field_names": {
+              "pass": true,
+              "detail": []
+            }
+          },
+          "output": "The capture contains 400 flows, with 50 benign and 350 attack flows, representing 87.5% of the total. The primary attack class is Slowloris, accounting for all attack flows. The mean confidence is 0.8164, and there are no low-confidence flows. The longest flow duration is 120 seconds, and the median flow duration is 2.518 seconds. The capture was likely extracted with a 120-second timeout, which does not match the model's training data, and thus the results should not be trusted until the capture is re-extracted."
+        },
+        {
+          "case": "panel2_readings_grounded",
+          "checks": {
+            "schema_valid": {
+              "pass": true,
+              "detail": null
+            },
+            "no_invented_features": {
+              "pass": true,
+              "detail": []
+            },
+            "readings_usable": {
+              "pass": true,
+              "detail": "1 readings kept, 4 dropped"
+            }
+          },
+          "output": "{\"decisions\": [{\"row\": 79, \"summary\": \"Detected Slowloris attack with high confidence\", \"readings\": [{\"feature\": \"Flow IAT Min\", \"reading\": \"The shortest gap between any two packets is very short, indicating idle time between transmissions\"}, {\"feature\": \"Subflow Bwd Bytes\", \"reading\": \"The average bytes per inbound burst is low, suggesting the server is sending small amounts of data\"}, {\"feature\": \"Dst Port\", \"reading\": \"The destination port is 59692, which is not a common service port\"}]}, {\"row\": 785, \"summary\": \"Detected Slowloris attack with moderate confidence\", \"readings\": [{\"feature\": \"Fwd Packet Length Max\", \"reading\": \"The largest outbound packet is 0 bytes, indicating no data is being sent\"}, {\"feature\": \"Bwd Bulk Rate Avg\", \"reading\": \"The average rate of data sent by the server during sustained bursts is low, suggesting no significant data transfer\"}]}]}"
+        }
+      ]
+    }
+  ]
+}

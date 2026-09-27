@@ -1,0 +1,14 @@
+{
+  "arm": "combined",
+  "rows": 800000,
+  "benign": 400000,
+  "attack": 400000,
+  "source_composition": {
+    "CICIDS2018": 598932,
+    "TII-SSRC-23": 201068
+  },
+  "source_share": {
+    "CICIDS2018": 0.7487,
+    "TII-SSRC-23": 0.2513
+  }
+}

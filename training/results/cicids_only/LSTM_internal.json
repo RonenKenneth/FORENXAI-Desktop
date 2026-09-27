@@ -1,0 +1,26 @@
+{
+  "arm": "cicids_only",
+  "model": "LSTM",
+  "train_seconds": 1158.9,
+  "n_train": 680000,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.967975,
+    "precision": 0.9878345498783455,
+    "recall": 0.9476018205158128,
+    "f1": 0.9673000178688427,
+    "f2": 0.9553840361445783,
+    "benign_recall": 0.9883366379525801,
+    "attack_recall": 0.9476018205158128,
+    "false_alarm_rate": 0.011663362047419898,
+    "miss_rate": 0.052398179484187186,
+    "confusion": {
+      "tn": 59317,
+      "fp": 700,
+      "fn": 3143,
+      "tp": 56840
+    },
+    "roc_auc": 0.9845039787560138,
+    "pr_auc": 0.9888083690284414
+  }
+}

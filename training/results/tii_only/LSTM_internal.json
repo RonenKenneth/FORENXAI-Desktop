@@ -1,0 +1,26 @@
+{
+  "arm": "tii_only",
+  "model": "LSTM",
+  "train_seconds": 125.3,
+  "n_train": 341106,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.8385912451200266,
+    "precision": 0.9995033178368499,
+    "recall": 0.8384833333333334,
+    "f1": 0.9119401091232077,
+    "f2": 0.8663986994289335,
+    "benign_recall": 0.8717948717948718,
+    "attack_recall": 0.8384833333333334,
+    "false_alarm_rate": 0.1282051282051282,
+    "miss_rate": 0.16151666666666667,
+    "confusion": {
+      "tn": 170,
+      "fp": 25,
+      "fn": 9691,
+      "tp": 50309
+    },
+    "roc_auc": 0.9455747863247864,
+    "pr_auc": 0.9997891305402314
+  }
+}

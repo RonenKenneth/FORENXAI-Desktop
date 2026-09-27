@@ -1,0 +1,81 @@
+{
+  "n_features": 66,
+  "arms": {
+    "combined": {
+      "over_3sd": 17,
+      "over_10sd": 10,
+      "constant_in_training": [
+        "Bwd PSH Flags",
+        "Bwd URG Flags",
+        "Fwd Bulk Rate Avg",
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Packet/Bulk Avg"
+      ],
+      "worst": {
+        "Fwd Bytes/Bulk Avg": 28223.5,
+        "Fwd Packet/Bulk Avg": 945.8,
+        "Bwd IAT Max": 20.9,
+        "Bwd IAT Total": 15.3
+      }
+    },
+    "cicids_only": {
+      "over_3sd": 25,
+      "over_10sd": 17,
+      "constant_in_training": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Bytes/Bulk Avg",
+        "Bwd PSH Flags",
+        "Bwd Packet/Bulk Avg",
+        "Bwd URG Flags",
+        "Fwd Bulk Rate Avg",
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Packet/Bulk Avg"
+      ],
+      "worst": {
+        "Bwd Bytes/Bulk Avg": 98061.0,
+        "Fwd Bytes/Bulk Avg": 28223.5,
+        "Fwd Packet/Bulk Avg": 945.8,
+        "Bwd Packet/Bulk Avg": 422.3
+      }
+    },
+    "tii_only": {
+      "over_3sd": 21,
+      "over_10sd": 15,
+      "constant_in_training": [
+        "Bwd PSH Flags",
+        "Bwd URG Flags",
+        "Fwd Bulk Rate Avg",
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Packet/Bulk Avg"
+      ],
+      "worst": {
+        "Fwd Bytes/Bulk Avg": 28223.5,
+        "Fwd Packet/Bulk Avg": 945.8,
+        "Bwd IAT Max": 191.7,
+        "Bwd IAT Total": 110.5
+      }
+    }
+  },
+  "failure_shape": {
+    "corr_benign_vs_attack": -0.917,
+    "seen_families_mean": 0.2757,
+    "unseen_families_mean": 0.2896
+  },
+  "domain_gap": {
+    "n_features": 66,
+    "domain_classifier_auc": 1.0,
+    "proxy_a_distance": 2.0,
+    "top_features": {
+      "Packet Length Min": 0.8262182474136353,
+      "Dst Port": 0.12052088975906372,
+      "Bwd Init Win Bytes": 0.03978034108877182,
+      "Fwd Packet Length Min": 0.004341074265539646,
+      "Subflow Bwd Bytes": 0.0010585958370938897,
+      "Packet Length Max": 0.0010205113794654608,
+      "Average Packet Size": 0.0007472485303878784,
+      "Fwd Packet Length Std": 0.0006649831775575876,
+      "Total Length of Fwd Packet": 0.0006136565934866667,
+      "Flow Packets/s": 0.0005534478113986552
+    }
+  }
+}

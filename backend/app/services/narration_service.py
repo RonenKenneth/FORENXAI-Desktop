@@ -180,7 +180,8 @@ def _facts(finding: dict, features: List[dict]) -> List[str]:
 
     f1 = model_facts.class_f1(cls) if model_facts.available() else None
     if f1 is not None:
-        facts.append(f"On held-out test data the classifier's F1 score for {cls} is {f1:.3f}.")
+        facts.append(f"On the TRUSTLab held-out test set (a training-time figure, not this capture) "
+                     f"the classifier's F1 score for {cls} is {f1:.3f}.")
 
     probabilities = finding.get("probabilities") or {}
     others = sorted(((c, p) for c, p in probabilities.items() if c != cls),

@@ -1,0 +1,158 @@
+{
+  "arm": "cicids_only",
+  "model": "CNN_BiLSTM",
+  "threshold": 0.445,
+  "accuracy_native_prevalence": 0.5655232420809573,
+  "accuracy_native_excluding_truncated": 0.579338489414926,
+  "truncated_classes": [
+    "PortScan"
+  ],
+  "external_validation": {
+    "accuracy": 0.06622916666666667,
+    "precision": 0.8305022156573116,
+    "recall": 0.004997777777777778,
+    "f1": 0.009935764333742722,
+    "f2": 0.0062378377418860955,
+    "benign_recall": 0.9847,
+    "attack_recall": 0.004997777777777778,
+    "false_alarm_rate": 0.0153,
+    "miss_rate": 0.9950022222222222,
+    "confusion": {
+      "tn": 29541,
+      "fp": 459,
+      "fn": 447751,
+      "tp": 2249
+    },
+    "roc_auc": 0.5800739471481482,
+    "pr_auc": 0.9423938624026482
+  },
+  "external_validation_native_prevalence": {
+    "accuracy": 0.5655232420809573,
+    "precision": 0.245127064514665,
+    "recall": 0.006624374484800149,
+    "f1": 0.012900132592357153,
+    "f2": 0.008224900171322295,
+    "benign_recall": 0.9846999999999976,
+    "attack_recall": 0.006624374484800211,
+    "false_alarm_rate": 0.015300000000002386,
+    "miss_rate": 0.9933756255151998,
+    "confusion": {
+      "tn": 2533030,
+      "fp": 39358,
+      "fn": 1916523,
+      "tp": 12780
+    },
+    "roc_auc": 0.5646812633870081,
+    "pr_auc": 0.45466160978364195
+  },
+  "external_validation_native_excluding_truncated": {
+    "accuracy": 0.579338489414926,
+    "precision": 0.24320116165432004,
+    "recall": 0.0069427338059914944,
+    "f1": 0.013500077014206,
+    "f2": 0.008616919832663347,
+    "benign_recall": 0.9846999999999976,
+    "attack_recall": 0.006942733805991583,
+    "false_alarm_rate": 0.015300000000002386,
+    "miss_rate": 0.9930572661940084,
+    "confusion": {
+      "tn": 2533030,
+      "fp": 39358,
+      "fn": 1809076,
+      "tp": 12648
+    },
+    "roc_auc": 0.565847122885917,
+    "pr_auc": 0.4354928884923891
+  },
+  "baseline": {
+    "accuracy": 0.8963,
+    "f2": 0.935,
+    "roc_auc": 0.9676,
+    "attack_precision": 0.8802,
+    "attack_recall": 0.9498,
+    "benign_recall": 0.8229,
+    "threshold": 0.445,
+    "source": "Villafranca, A., Tasic, I. & Cano, M.-D. (2026). TRUSTLab dataset. Frontiers in Computer Science 8:1803271, Table 2.",
+    "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
+  },
+  "delta_vs_baseline": {
+    "accuracy": -0.8301,
+    "f2": -0.9288,
+    "roc_auc": -0.3875,
+    "attack_recall": -0.9448,
+    "benign_recall": 0.1618
+  },
+  "delta_vs_baseline_native_prevalence": {
+    "accuracy": -0.3308,
+    "f2": -0.9268,
+    "roc_auc": -0.4029,
+    "attack_recall": -0.9432,
+    "benign_recall": 0.1618
+  },
+  "per_class_accuracy": {
+    "API": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "Benign": {
+      "n": 30000,
+      "accuracy": 0.9847
+    },
+    "Bruteforce": {
+      "n": 30000,
+      "accuracy": 0.0001
+    },
+    "BufferOverflow": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "C2Beaconing": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "DDoS": {
+      "n": 30000,
+      "accuracy": 0.0487
+    },
+    "DNS": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "DoS": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "Evasion": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "Exfiltration": {
+      "n": 30000,
+      "accuracy": 0.009
+    },
+    "Exploitation": {
+      "n": 30000,
+      "accuracy": 0.0017
+    },
+    "MITM": {
+      "n": 30000,
+      "accuracy": 0.0002
+    },
+    "PortScan": {
+      "n": 30000,
+      "accuracy": 0.0012
+    },
+    "Slowloris": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "TLSSSL": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "WebBased": {
+      "n": 30000,
+      "accuracy": 0.0141
+    }
+  }
+}

@@ -35,6 +35,11 @@ public partial class DashboardView : UserControl
     private readonly System.Windows.Threading.DispatcherTimer packetSearchDelay =
         new() { Interval = TimeSpan.FromMilliseconds(350) };
     private const string AllOption = "All";
+
+    // Programmatic filter changes (refill, Clear) must not each start a
+    // reload; and only the newest request may fill the table.
+    private bool suppressPacketEvents;
+    private int packetRequest;
     private readonly ObservableCollection<TrafficLegendRow> trafficLegendRows;
 
     private readonly ObservableCollection<BarRow> tier1Bars = new();
@@ -282,6 +287,7 @@ public partial class DashboardView : UserControl
         VerdictBar.ColumnDefinitions.Clear();
         EvidencePieCanvas.Children.Clear();
         EvidencePieTotalText.Text = "0";
+        Tier1CoverageText.Text = string.Empty;
         EvidenceNoteText.Text = string.Empty;
         attackLegend.Clear();
         Tier1SummaryText.Text = "--";
@@ -423,6 +429,20 @@ public partial class DashboardView : UserControl
             Tier2DetailsToggle.IsChecked = false;
             UpdateTier2DetailsHeader();
         }
+
+        // What the flow records (Tier 1 and ML input) cover, measured from
+        // the packets: CICFlowMeter drops single-packet conversations.
+        CaptureCoverage? coverage = currentAnalysis?.CaptureCoverage;
+        Tier1CoverageText.Text = coverage == null
+            ? string.Empty
+            : $"Flow records cover {coverage.InFlowRecords:N0} of {coverage.PacketConversations:N0} TCP/UDP conversations in the capture."
+              + (coverage.NotInFlowRecords == 0 ? string.Empty
+                 : $" Not in them: {coverage.NotInFlowRecords:N0} ({coverage.SinglePacketNotExported:N0} single-packet; "
+                   + "CICFlowMeter exports flows of 2+ packets only, as in the training data)."
+                   + (coverage.UnansweredSynProbes.Count == 0 ? string.Empty
+                      : " Unanswered SYN probes: " + string.Join("; ", coverage.UnansweredSynProbes.Take(4)
+                            .Select(p => $"{p.Source} → {p.Destination} {p.Ports:N0} ports"))
+                        + ". Tier 2 and the Packets table still read them."));
 
         // Hybrid source: one stacked line of rule / model / uncertain.
         int decided = rules.VerdictSources.Values.Sum();
@@ -1443,6 +1463,7 @@ public partial class DashboardView : UserControl
             packetOffset = 0;
         }
 
+        int request = ++packetRequest;
         PacketFilterStatusText.Text = "Loading packets...";
         try
         {
@@ -1461,6 +1482,10 @@ public partial class DashboardView : UserControl
                     MaxLength = int.TryParse(PacketMaxLengthFilter.Text, out int max) ? max : null,
                     Text = PacketSearchBox.Text.Trim(),
                 });
+            if (request != packetRequest)
+            {
+                return;     // a newer filter change superseded this page
+            }
             double firstTime = page.FirstTime ?? 0;
 
             packetRows.Clear();
@@ -1511,13 +1536,17 @@ public partial class DashboardView : UserControl
             packetMatched = page.Matched;
             if (refreshOptions)
             {
+                suppressPacketEvents = true;
                 FillFilter(PacketProtocolFilter, "All", page.Protocols.Keys);
                 FillFilter(PacketFlagFilter, "All", page.Flags.Keys);
                 FillFilter(PacketSourceFilter, "All", page.Sources.Keys);
                 FillFilter(PacketDestinationFilter, "All", page.Destinations.Keys);
                 FillFilter(PacketIpVersionFilter, "All", page.IpVersions.Keys);
                 FillFilter(PacketInterfaceFilter, "All", page.Interfaces.Keys);
+                suppressPacketEvents = false;
                 ShowPacketColumns(page.Columns);
+                PacketInterfaceFilter.ToolTip = string.Join("\n", page.Interfaces.Select(i => $"{i.Key}: {i.Value:N0} packets"));
+                PacketIpVersionFilter.ToolTip = string.Join("\n", page.IpVersions.Select(v => $"{v.Key}: {v.Value:N0} packets"));
                 PacketCountText.Text =
                     $"{page.Total:N0} packets in the capture · "
                     + string.Join(", ", page.Protocols.OrderByDescending(p => p.Value).Select(p => $"{p.Key} {p.Value:N0}"));
@@ -1531,7 +1560,11 @@ public partial class DashboardView : UserControl
         }
         catch (Exception ex)
         {
-            PacketFilterStatusText.Text = "Could not load packets: " + ex.Message;
+            suppressPacketEvents = false;
+            if (request == packetRequest)
+            {
+                PacketFilterStatusText.Text = "Could not load packets: " + ex.Message;
+            }
         }
     }
 
@@ -1617,9 +1650,10 @@ public partial class DashboardView : UserControl
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
-        // One interface or one IP version: nothing to choose, so no filter.
-        PacketInterfaceFilter.IsEnabled = PacketInterfaceFilter.Items.Count > 2;
-        PacketIpVersionFilter.IsEnabled = PacketIpVersionFilter.Items.Count > 2;
+        // Filters stay enabled even with one value (e.g. one interface), so
+        // the dropdown shows what the capture recorded; empty ones are off.
+        PacketInterfaceFilter.IsEnabled = PacketInterfaceFilter.Items.Count > 1;
+        PacketIpVersionFilter.IsEnabled = PacketIpVersionFilter.Items.Count > 1;
     }
 
     private void ThreatClearFilters_Click(object sender, RoutedEventArgs e)
@@ -1636,6 +1670,7 @@ public partial class DashboardView : UserControl
 
     private async void PacketClearFilters_Click(object sender, RoutedEventArgs e)
     {
+        suppressPacketEvents = true;
         foreach (ComboBox box in new[] { PacketProtocolFilter, PacketFlagFilter, PacketSourceFilter, PacketDestinationFilter,
                                          PacketIpVersionFilter, PacketInterfaceFilter })
         {
@@ -1645,6 +1680,7 @@ public partial class DashboardView : UserControl
         {
             box.Clear();
         }
+        suppressPacketEvents = false;
         packetSearchDelay.Stop();
         await LoadPacketPageAsync(resetOffset: true);
     }
@@ -1701,7 +1737,7 @@ public partial class DashboardView : UserControl
     // Drop-downs reload at once; typing waits for a short pause.
     private async void PacketFilter_Changed(object sender, RoutedEventArgs e)
     {
-        if (!IsLoaded || currentAnalysis == null)
+        if (!IsLoaded || currentAnalysis == null || suppressPacketEvents)
         {
             return;
         }

@@ -129,6 +129,8 @@ def main():
     old = tcp(hello(0x0301), T0, dport=443)
     check("TLSSSL: TLS 1.0 ClientHello fires",
           "TLS 1.0" in fired(inspect([old])[1], "T2-TLS-01")[0]["evidence"])
+    check("TLSSSL: TLS 1.1 ClientHello fires (RFC 8996)",
+          "TLS 1.1" in fired(inspect([tcp(hello(0x0302), T0, dport=443)])[1], "T2-TLS-01")[0]["evidence"])
     check("TLSSSL: TLS 1.2 ClientHello does not",
           not fired(inspect([tcp(hello(0x0303), T0, dport=443)])[1], "T2-TLS-01"))
 

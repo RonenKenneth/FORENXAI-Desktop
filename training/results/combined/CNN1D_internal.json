@@ -1,0 +1,26 @@
+{
+  "arm": "combined",
+  "model": "CNN1D",
+  "train_seconds": 317.5,
+  "n_train": 679999,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.9852417896517529,
+    "precision": 0.9926961637952897,
+    "recall": 0.9777034002730876,
+    "f1": 0.9851427420910899,
+    "f2": 0.9806656133189472,
+    "benign_recall": 0.992793634377033,
+    "attack_recall": 0.9777034002730876,
+    "false_alarm_rate": 0.007206365622966954,
+    "miss_rate": 0.022296599726912447,
+    "confusion": {
+      "tn": 59515,
+      "fp": 432,
+      "fn": 1339,
+      "tp": 58715
+    },
+    "roc_auc": 0.9941191818106082,
+    "pr_auc": 0.995766853785846
+  }
+}

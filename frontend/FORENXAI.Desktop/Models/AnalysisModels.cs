@@ -44,6 +44,10 @@ public class AnalysisDocument
     /// a page at a time (GET /analysis/{case_id}/packets).</summary>
     [JsonPropertyName("packet_count")]
     public int PacketCount { get; set; }
+
+    /// <summary>How much of the capture the flow records cover.</summary>
+    [JsonPropertyName("capture_coverage")]
+    public CaptureCoverage? CaptureCoverage { get; set; }
 }
 
 
@@ -283,6 +287,24 @@ public class MlFinding
 // FLOW METADATA
 // ============================================================
 
+public class CaptureCoverage
+{
+    [JsonPropertyName("packet_conversations")] public int PacketConversations { get; set; }
+    [JsonPropertyName("in_flow_records")] public int InFlowRecords { get; set; }
+    [JsonPropertyName("not_in_flow_records")] public int NotInFlowRecords { get; set; }
+    [JsonPropertyName("single_packet_not_exported")] public int SinglePacketNotExported { get; set; }
+    [JsonPropertyName("packets_without_ports")] public int PacketsWithoutPorts { get; set; }
+    [JsonPropertyName("unanswered_syn_probes")] public List<UnansweredProbes> UnansweredSynProbes { get; set; } = new();
+    [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
+}
+
+public class UnansweredProbes
+{
+    [JsonPropertyName("source")] public string Source { get; set; } = string.Empty;
+    [JsonPropertyName("destination")] public string Destination { get; set; } = string.Empty;
+    [JsonPropertyName("ports")] public int Ports { get; set; }
+}
+
 public class FlowConnection
 {
     [JsonPropertyName("bytes")]
@@ -506,6 +528,10 @@ public class RuleHit
 
     [JsonPropertyName("severity")]
     public string Severity { get; set; } = string.Empty;
+
+    /// <summary>Where the rule's threshold comes from (rules.json).</summary>
+    [JsonPropertyName("basis")]
+    public string Basis { get; set; } = string.Empty;
 }
 
 

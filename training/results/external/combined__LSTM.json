@@ -1,0 +1,158 @@
+{
+  "arm": "combined",
+  "model": "LSTM",
+  "threshold": 0.445,
+  "accuracy_native_prevalence": 0.45459450708633714,
+  "accuracy_native_excluding_truncated": 0.44191241957419397,
+  "truncated_classes": [
+    "PortScan"
+  ],
+  "external_validation": {
+    "accuracy": 0.6656916666666667,
+    "precision": 0.933026633803154,
+    "recall": 0.69316,
+    "f1": 0.7954028498862697,
+    "f2": 0.7307319642114181,
+    "benign_recall": 0.25366666666666665,
+    "attack_recall": 0.69316,
+    "false_alarm_rate": 0.7463333333333333,
+    "miss_rate": 0.30684,
+    "confusion": {
+      "tn": 7610,
+      "fp": 22390,
+      "fn": 138078,
+      "tp": 311922
+    },
+    "roc_auc": 0.5118935026666667,
+    "pr_auc": 0.9454789902065108
+  },
+  "external_validation_native_prevalence": {
+    "accuracy": 0.45459450708633714,
+    "precision": 0.4206427434457331,
+    "recall": 0.7224966279882333,
+    "f1": 0.5317163791603643,
+    "f2": 0.631817923752852,
+    "benign_recall": 0.25366666666677035,
+    "attack_recall": 0.7224966279880448,
+    "false_alarm_rate": 0.7463333333332297,
+    "miss_rate": 0.2775033720119551,
+    "confusion": {
+      "tn": 652529,
+      "fp": 1919859,
+      "fn": 535388,
+      "tp": 1393915
+    },
+    "roc_auc": 0.533102676223223,
+    "pr_auc": 0.4966075210654165
+  },
+  "external_validation_native_excluding_truncated": {
+    "accuracy": 0.44191241957419397,
+    "precision": 0.4017532975359433,
+    "recall": 0.7077271729786188,
+    "f1": 0.5125493112430934,
+    "f2": 0.6141762809121522,
+    "benign_recall": 0.25366666666677035,
+    "attack_recall": 0.7077271729784662,
+    "false_alarm_rate": 0.7463333333332297,
+    "miss_rate": 0.29227282702153373,
+    "confusion": {
+      "tn": 652529,
+      "fp": 1919859,
+      "fn": 532440,
+      "tp": 1289284
+    },
+    "roc_auc": 0.5276935765481329,
+    "pr_auc": 0.48370705379955475
+  },
+  "baseline": {
+    "accuracy": 0.8963,
+    "f2": 0.935,
+    "roc_auc": 0.9676,
+    "attack_precision": 0.8802,
+    "attack_recall": 0.9498,
+    "benign_recall": 0.8229,
+    "threshold": 0.445,
+    "source": "Villafranca, A., Tasic, I. & Cano, M.-D. (2026). TRUSTLab dataset. Frontiers in Computer Science 8:1803271, Table 2.",
+    "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
+  },
+  "delta_vs_baseline": {
+    "accuracy": -0.2306,
+    "f2": -0.2043,
+    "roc_auc": -0.4557,
+    "attack_recall": -0.2566,
+    "benign_recall": -0.5692
+  },
+  "delta_vs_baseline_native_prevalence": {
+    "accuracy": -0.4417,
+    "f2": -0.3032,
+    "roc_auc": -0.4345,
+    "attack_recall": -0.2273,
+    "benign_recall": -0.5692
+  },
+  "per_class_accuracy": {
+    "API": {
+      "n": 30000,
+      "accuracy": 0.9557
+    },
+    "Benign": {
+      "n": 30000,
+      "accuracy": 0.2537
+    },
+    "Bruteforce": {
+      "n": 30000,
+      "accuracy": 0.9042
+    },
+    "BufferOverflow": {
+      "n": 30000,
+      "accuracy": 0.7582
+    },
+    "C2Beaconing": {
+      "n": 30000,
+      "accuracy": 0.7677
+    },
+    "DDoS": {
+      "n": 30000,
+      "accuracy": 0.9999
+    },
+    "DNS": {
+      "n": 30000,
+      "accuracy": 0.987
+    },
+    "DoS": {
+      "n": 30000,
+      "accuracy": 0.0016
+    },
+    "Evasion": {
+      "n": 30000,
+      "accuracy": 0.1805
+    },
+    "Exfiltration": {
+      "n": 30000,
+      "accuracy": 0.8844
+    },
+    "Exploitation": {
+      "n": 30000,
+      "accuracy": 0.715
+    },
+    "MITM": {
+      "n": 30000,
+      "accuracy": 0.2997
+    },
+    "PortScan": {
+      "n": 30000,
+      "accuracy": 0.9726
+    },
+    "Slowloris": {
+      "n": 30000,
+      "accuracy": 0.0
+    },
+    "TLSSSL": {
+      "n": 30000,
+      "accuracy": 0.9997
+    },
+    "WebBased": {
+      "n": 30000,
+      "accuracy": 0.9713
+    }
+  }
+}

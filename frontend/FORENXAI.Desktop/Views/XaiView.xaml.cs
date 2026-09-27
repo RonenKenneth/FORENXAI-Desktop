@@ -838,8 +838,10 @@ public partial class XaiView : UserControl
         }
         else
         {
+            // Knowledge-base description of the predicted class; the same
+            // for every flow of that class, not measured from this capture.
             RecommendationSummaryText.Text =
-                recommendation.Summary;
+                $"{recommendation.PredictedClass} profile (knowledge base, not measured): {recommendation.Summary}";
         }
 
 
@@ -958,6 +960,7 @@ public partial class XaiView : UserControl
                     rules.Hits.Select(
                         hit =>
                             $"Tier {hit.Tier}, {hit.RuleId} ({hit.ClassName}): {hit.Evidence}"
+                            + (string.IsNullOrEmpty(hit.Basis) ? string.Empty : $"\n   Basis: {hit.Basis}")
                     )
                 );
         }
@@ -1107,7 +1110,7 @@ public partial class XaiView : UserControl
             && measured.ClassF1 != null)
         {
             verification +=
-                $" Classifier test F1 for this class is "
+                $" Classifier F1 for this class on the TRUSTLab test set (training-time) is "
                 + $"{measured.ClassF1:F4}; treat the class itself as "
                 + "uncertain.";
         }

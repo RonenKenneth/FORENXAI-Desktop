@@ -831,16 +831,18 @@ public partial class EvidenceView : UserControl
             // DETERMINE CAPTURE QUALITY
             // =================================================
 
+            // The model and Tier 1 analyse CICFlowMeter's flows
+            // (MlTotalFlows); TotalFlows counts packet conversations.
             bool emptyCapture =
                 response.TotalPackets == 0
                 ||
-                response.TotalFlows == 0;
+                response.MlTotalFlows == 0;
 
 
             bool lowFlowCapture =
                 !emptyCapture
                 &&
-                response.TotalFlows < 50;
+                response.MlTotalFlows < 50;
 
 
             // =================================================
@@ -865,7 +867,8 @@ public partial class EvidenceView : UserControl
                     "FORENXAI detected an empty packet capture.\n\n" +
 
                     $"Total Packets: {response.TotalPackets:N0}\n" +
-                    $"Total Flows: {response.TotalFlows:N0}\n\n" +
+                    $"Flows analysed (CICFlowMeter, 2+ packets): {response.MlTotalFlows:N0}\n" +
+                    $"Packet conversations: {response.TotalFlows:N0}\n\n" +
 
                     "No usable network flows were found. " +
                     "The analysis results may be unavailable " +
@@ -889,7 +892,7 @@ public partial class EvidenceView : UserControl
             )
             {
                 StatusText.Text =
-                    $"Warning: Only {response.TotalFlows:N0} flows detected";
+                    $"Warning: Only {response.MlTotalFlows:N0} flows analysed";
 
 
                 StatusText.Foreground =
@@ -902,7 +905,8 @@ public partial class EvidenceView : UserControl
                     "FORENXAI detected a small packet capture.\n\n" +
 
                     $"Total Packets: {response.TotalPackets:N0}\n" +
-                    $"Total Flows: {response.TotalFlows:N0}\n\n" +
+                    $"Flows analysed (CICFlowMeter, 2+ packets): {response.MlTotalFlows:N0}\n" +
+                    $"Packet conversations: {response.TotalFlows:N0}\n\n" +
 
                     "Fewer than 50 network flows were extracted. " +
                     "The results can still be analyzed, but the " +

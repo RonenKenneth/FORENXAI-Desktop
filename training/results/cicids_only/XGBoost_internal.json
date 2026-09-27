@@ -1,0 +1,26 @@
+{
+  "arm": "cicids_only",
+  "model": "XGBoost",
+  "train_seconds": 4.0,
+  "n_train": 680000,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.9743166666666667,
+    "precision": 0.9934097570281473,
+    "recall": 0.9549539036060217,
+    "f1": 0.9738023188602903,
+    "f2": 0.9624050296881983,
+    "benign_recall": 0.9936684606028292,
+    "attack_recall": 0.9549539036060217,
+    "false_alarm_rate": 0.006331539397170801,
+    "miss_rate": 0.045046096393978295,
+    "confusion": {
+      "tn": 59637,
+      "fp": 380,
+      "fn": 2702,
+      "tp": 57281
+    },
+    "roc_auc": 0.9911736242914382,
+    "pr_auc": 0.9932220314804704
+  }
+}

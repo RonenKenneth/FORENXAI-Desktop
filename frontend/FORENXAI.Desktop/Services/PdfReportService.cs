@@ -253,7 +253,7 @@ public static class PdfReportService
 
                                                 AddInfoRow(
                                                     table,
-                                                    "Custom Flows",
+                                                    "Packet conversations (both directions)",
                                                     report
                                                         .FlowSummary
                                                         .TotalFlows

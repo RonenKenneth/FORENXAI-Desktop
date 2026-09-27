@@ -63,6 +63,52 @@ def attach_connection_stats(findings: List[Dict[str, Any]], stats: Dict[str, Dic
                                      "flags": sorted(s["flags"]), "first_time": s["first_time"]}
 
 
+def capture_coverage(packets: List[Dict[str, Any]], findings: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """How much of the capture the flow records (CICFlowMeter, the ML and
+    Tier 1 input) contain, measured from the packets.
+
+    CICFlowMeter writes a flow only when it has more than one packet
+    (FlowGenerator.java: `if (flow.packetCount() > 1)`), as it did for the
+    training data. Single-packet conversations -- typically probes that got
+    no reply -- therefore never reach the model or Tier 1; Tier 2 and
+    Suricata still read them. This reports them instead of hiding them."""
+    conversations: Dict[str, Dict[str, Any]] = {}
+    non_port = 0
+    for p in packets:
+        if p.get("source_port") is None:
+            non_port += 1
+            continue
+        key = connection_key(p["protocol"], p["source_ip"], p["source_port"], p["destination_ip"], p["destination_port"])
+        c = conversations.get(key)
+        if c is None:
+            conversations[key] = {"packets": 1, "source": p["source_ip"], "destination": p["destination_ip"],
+                                  "port": p["destination_port"], "flags": p.get("tcp_flags", "")}
+        else:
+            c["packets"] += 1
+    in_flows = set()
+    for f in findings:
+        m = f.get("metadata") or {}
+        protocol = PROTOCOL_NAMES.get(int(m.get("Protocol") or 0), "OTHER")
+        in_flows.add(connection_key(protocol, m.get("Src IP"), m.get("Src Port"), m.get("Dst IP"), m.get("Dst Port")))
+    missing = [c for k, c in conversations.items() if k not in in_flows]
+    probes: Dict[tuple, set] = defaultdict(set)
+    for c in missing:
+        if c["packets"] == 1 and c["flags"] == "S":
+            probes[(c["source"], c["destination"])].add(c["port"])
+    return {
+        "packet_conversations": len(conversations),
+        "in_flow_records": len(conversations) - len(missing),
+        "not_in_flow_records": len(missing),
+        "single_packet_not_exported": sum(c["packets"] == 1 for c in missing),
+        "packets_without_ports": non_port,
+        "unanswered_syn_probes": [
+            {"source": s, "destination": d, "ports": len(ports)}
+            for (s, d), ports in sorted(probes.items(), key=lambda kv: -len(kv[1]))[:10]
+        ],
+        "reason": "CICFlowMeter exports only flows with more than one packet (as for the training data).",
+    }
+
+
 def write_packets(case_directory: Path, packets: List[Dict[str, Any]]) -> None:
     temporary = case_directory / (PACKETS_FILE + ".tmp")
     with temporary.open("w", encoding="utf-8") as file:
@@ -190,4 +236,9 @@ if __name__ == "__main__":
     page = query_packets(pk, offset=1, limit=1)
     assert page["matched"] == 3 and [r["packet_number"] for r in page["rows"]] == [2]
     assert "tcp_flags" in page["columns"] and page["ports"] == {"5000": 2, "80": 2}
+    probe = dict(pk[0], packet_number=4, source_port=5001, destination_port=443)   # unanswered SYN
+    cov = capture_coverage(pk + [probe], [finding])
+    assert (cov["packet_conversations"], cov["in_flow_records"], cov["single_packet_not_exported"]) == (2, 1, 1)
+    assert cov["packets_without_ports"] == 1
+    assert cov["unanswered_syn_probes"] == [{"source": "10.0.0.1", "destination": "10.0.0.2", "ports": 1}]
     print("ALL CHECKS PASSED")

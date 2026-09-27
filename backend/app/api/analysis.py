@@ -839,7 +839,12 @@ def start_analysis(
             # Packets live in packets.json, served a page at a time by
             # GET /analysis/{case_id}/packets.
             "packet_count":
-                len(packets)
+                len(packets),
+
+            # Share of the capture's conversations in the flow records
+            # (ML / Tier 1 input), measured from the packets.
+            "capture_coverage":
+                packet_store.capture_coverage(packets, ml_findings)
         }
 
 

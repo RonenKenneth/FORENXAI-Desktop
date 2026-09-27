@@ -90,7 +90,7 @@ MAX_TAILS = 200_000
 # Always part of HOME_NET when rules.json asks for "auto".
 PRIVATE_NETS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10",
                 "169.254.0.0/16", "fc00::/7", "fe80::/10"]
-WEAK_TLS_LOG = {"SSLv2", "SSLv3", "TLSv1"}             # Suricata's names for SSL 2/3 and TLS 1.0
+WEAK_TLS_LOG = {"SSLv2", "SSLv3", "TLSv1", "TLS 1.1"}  # Suricata's names for SSL 2/3, TLS 1.0 and 1.1 (RFC 8996)
 STARTTLS = (b"STARTTLS", b"AUTH TLS", b"AUTH SSL")
 
 
@@ -119,7 +119,7 @@ def _touch(store: "OrderedDict", key, value, cap: int):
         store.popitem(last=False)
 
 
-TLS_VERSIONS = {0x0002: "SSL 2.0", 0x0300: "SSL 3.0", 0x0301: "TLS 1.0"}
+TLS_VERSIONS = {0x0002: "SSL 2.0", 0x0300: "SSL 3.0", 0x0301: "TLS 1.0", 0x0302: "TLS 1.1"}
 
 
 def _key(proto, a_ip, a_port, b_ip, b_port):
@@ -137,7 +137,7 @@ def _entropy(text: str) -> float:
 def _hit(rule_id, rule, evidence, measured, threshold, source="scapy"):
     return {"rule_id": rule_id, "class": rule["class"], "tier": 2, "source": source,
             "evidence": evidence, "measured": measured, "threshold": threshold,
-            "severity": rule.get("severity", "medium")}
+            "severity": rule.get("severity", "medium"), "basis": rule.get("basis", "")}
 
 
 # ------------------------------------------------------------------
@@ -315,7 +315,7 @@ class PacketInspector:
             return False
         rule = self.rules.get("T2-TLS-01", {})
         if version is not None and self._on("T2-TLS-01") \
-                and version <= int(str(rule.get("max_weak_version", "0x0301")), 16) \
+                and version <= int(str(rule.get("max_weak_version", "0x0302")), 16) \
                 and key not in self.tls_weak:
             self.tls_weak[key] = (t, TLS_VERSIONS.get(version, f"0x{version:04x}"), src, dst)
         return True
@@ -680,7 +680,8 @@ def _weak_tls_event(event, grouped):
                event.get("dest_ip", ""), event.get("dest_port", 0))
     if ("tls", key) in grouped:
         return
-    hit = _hit("T2-TLS-02", {"class": "TLSSSL", "severity": "medium"},
+    hit = _hit("T2-TLS-02", {"class": "TLSSSL", "severity": "medium",
+                      "basis": "RFC 8996 deprecates TLS 1.0 and 1.1; NIST SP 800-52r2 requires TLS 1.2 or later."},
                f"Suricata's TLS log: the session from {event.get('src_ip')} to {event.get('dest_ip')}:"
                f"{event.get('dest_port')} negotiated {tls.get('version')}"
                + (f" (server name {tls['sni']})" if tls.get("sni") else "") + ".",
@@ -726,7 +727,8 @@ def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Di
             sid = int(alert.get("signature_id", 0))
             entry = grouped.get((sid, key))
             if entry is None:
-                rule = {"class": cls, "severity": {1: "high", 2: "medium"}.get(severity, "low")}
+                rule = {"class": cls, "severity": {1: "high", 2: "medium"}.get(severity, "low"),
+                        "basis": f"Signature {sid} of the Emerging Threats Open ruleset, run by Suricata; severity is the alert's own priority."}
                 entry = _hit(f"T2-SURICATA-{sid}", rule, "", 0, 1, source="suricata")
                 entry.update(_flows=[], _sig=signature, _cat=alert.get("category", ""),
                              _src=f"{event.get('src_ip')}:{event.get('src_port', '')}",

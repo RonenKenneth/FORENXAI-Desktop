@@ -573,7 +573,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.ColumnSpan="3" Margin="0,0,0,18">
-                        <TextBlock Text="SELECTED THREAT" Foreground="#94A3B8" FontSize="12" FontWeight="SemiBold"/>
+                        <TextBlock Text="SELECTED THREAT · ML PREDICTION" Foreground="#94A3B8" FontSize="12" FontWeight="SemiBold"/>
                         <TextBlock x:Name="SelectedThreatClassText" Text="Select a threat flow"
                                    Foreground="#F87171" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"/>
                     </StackPanel>
@@ -584,12 +584,12 @@
                                    FontWeight="SemiBold" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,12,16">
-                        <TextBlock Text="Confidence" Foreground="#64748B" FontSize="11"/>
+                        <TextBlock Text="ML Confidence" Foreground="#64748B" FontSize="11"/>
                         <TextBlock x:Name="SelectedConfidenceText" Text="--" Foreground="#60A5FA" FontSize="15"
                                    FontWeight="SemiBold" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,12,16">
-                        <TextBlock Text="Verdict" Foreground="#64748B" FontSize="11"/>
+                        <TextBlock Text="Final Verdict" Foreground="#64748B" FontSize="11"/>
                         <TextBlock x:Name="SelectedVerdictText" Text="--" Foreground="White" FontSize="15"
                                    FontWeight="SemiBold" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
@@ -650,6 +650,12 @@
                                        Foreground="#94A3B8"
                                        FontSize="12"
                                        Margin="0,4,0,0"/>
+
+                            <TextBlock Foreground="#64748B"
+                                       FontSize="11"
+                                       Margin="0,4,0,0"
+                                       TextWrapping="Wrap"
+                                       Text="ML Prediction and ML Confidence: the XGBoost model's class and its probability. Rule Hit: the strongest Tier 1 (flow) or Tier 2 (packet) rule that matched. Final Verdict: the hybrid decision and who made it (rule, model or uncertain)."/>
 
                         </StackPanel>
 
@@ -721,18 +727,18 @@
                             <DataGridTextColumn Header="Destination"
                                                 Binding="{Binding Destination}"
                                                 Width="1.6*"/>
-                            <DataGridTextColumn Header="Class"
+                            <DataGridTextColumn Header="ML Prediction"
                                                 Binding="{Binding PredictedClass}"
                                                 Width="*"/>
-                            <DataGridTextColumn Header="Confidence"
+                            <DataGridTextColumn Header="ML Confidence"
                                                 Binding="{Binding ConfidenceDisplay}"
                                                 Width="0.8*"/>
 
-                            <DataGridTextColumn Header="Rule"
+                            <DataGridTextColumn Header="Rule Hit"
                                                 Binding="{Binding RuleDisplay}"
                                                 Width="*"/>
 
-                            <DataGridTextColumn Header="Verdict"
+                            <DataGridTextColumn Header="Final Verdict"
                                                 Binding="{Binding VerdictDisplay}"
                                                 Width="*"/>
                         </DataGrid.Columns>

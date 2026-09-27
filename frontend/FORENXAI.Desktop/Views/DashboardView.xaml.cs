@@ -1237,6 +1237,18 @@ public partial class DashboardView : UserControl
             $"{threats.Count - byModel} by rules only)";
 
 
+        flowByConnection = new Dictionary<string, int>();
+        foreach (MlFinding finding in currentAnalysis.MlAnalysis.Findings)
+        {
+            FlowMetadata? m = finding.Metadata;
+            if (m != null)
+            {
+                flowByConnection.TryAdd(
+                    ConnectionKey(m.SrcIp, m.SrcPort, m.DstIp, m.DstPort, ProtocolName(m.Protocol)),
+                    finding.FlowIndex);
+            }
+        }
+
         FillFilter(ThreatProtocolFilter, "All protocols", threats.Select(t => t.Protocol));
         FillFilter(ThreatClassFilter, "All ML predictions", threats.Select(t => t.PredictedClass));
         ApplyThreatFilter();
@@ -1343,6 +1355,10 @@ public partial class DashboardView : UserControl
     // =========================================================
 
     private Dictionary<string, Connection> connections = new();
+
+    // Connection -> flow index of the first analysed flow on it, so a
+    // double-clicked packet can open its flow in XAI.
+    private Dictionary<string, int> flowByConnection = new();
 
     private static string ConnectionKey(string? a, int? aPort, string? b, int? bPort, string protocol)
     {
@@ -1468,6 +1484,39 @@ public partial class DashboardView : UserControl
     private void ThreatFilter_Changed(object sender, RoutedEventArgs e)
     {
         if (IsLoaded) ApplyThreatFilter();
+    }
+
+    private void PacketDataGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (PacketDataGrid.SelectedItem is not PacketRow packet)
+        {
+            return;
+        }
+
+        int? sourcePort = int.TryParse(packet.SourcePort, out int sp) ? sp : null;
+        int? destinationPort = int.TryParse(packet.DestinationPort, out int dp) ? dp : null;
+        string key = ConnectionKey(packet.Source, sourcePort, packet.Destination, destinationPort, packet.Protocol);
+
+        if (!flowByConnection.TryGetValue(key, out int flowIndex))
+        {
+            MessageBox.Show(
+                $"Packet {packet.Number} ({packet.Protocol}) is not part of an analysed flow, so it has no ML prediction or SHAP explanation.",
+                "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!threats.Any(t => t.FlowIndex == flowIndex))
+        {
+            MessageBox.Show(
+                $"Packet {packet.Number} belongs to flow {flowIndex}, which the model classified as benign. The XAI tab lists detected threats only.",
+                "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (Window.GetWindow(this) is FORENXAI.Desktop.MainWindow mainWindow)
+        {
+            mainWindow.ShowXai(CaseIdTextBox.Text.Trim(), flowIndex);
+        }
     }
 
     private void PacketFilter_Changed(object sender, RoutedEventArgs e)

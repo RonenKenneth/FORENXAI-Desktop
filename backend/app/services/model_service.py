@@ -542,6 +542,14 @@ def _load_model_bundle_impl() -> dict[str, Any]:
         MODEL_FILE
     )
 
+    # The bundle was trained on a GPU and saved with device="cuda". Left
+    # that way, TreeSHAP runs on CUDA inside xgboost.dll and the process
+    # later dies with 0xC0000409 (reproduced 3 of 3 runs; 0 of 3 on CPU):
+    # the backend "stopping out of nowhere". The desktop app is CPU-only,
+    # so pin inference and SHAP to the CPU. Same trees, same predictions.
+    if hasattr(model, "set_params"):
+        model.set_params(device="cpu")
+
     scaler = joblib.load(
         SCALER_FILE
     )

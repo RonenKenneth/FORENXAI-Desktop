@@ -762,16 +762,16 @@
                         </DataGrid.RowStyle>
 
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Flow" Binding="{Binding FlowIndex}" Width="55"/>
-                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="1.55*"/>
-                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="1.3*"/>
-                            <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="1.3*"/>
-                            <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="0.6*"/>
-                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="0.6*"/>
-                            <DataGridTextColumn Header="ML Prediction" Binding="{Binding PredictedClass}" Width="0.85*"/>
-                            <DataGridTextColumn Header="ML Confidence" Binding="{Binding ConfidenceDisplay}" Width="0.95*"/>
-                            <DataGridTextColumn Header="Supporting Evidence" Binding="{Binding VerdictDisplay}" Width="1.4*"/>
-                            <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="1.6*"/>
+                            <DataGridTextColumn Header="Flow" Binding="{Binding FlowIndex}" Width="60"/>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="190"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="180"/>
+                            <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="180"/>
+                            <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="85"/>
+                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="80"/>
+                            <DataGridTextColumn Header="ML Prediction" Binding="{Binding PredictedClass}" Width="120"/>
+                            <DataGridTextColumn Header="ML Confidence" Binding="{Binding ConfidenceDisplay}" Width="125"/>
+                            <DataGridTextColumn Header="Supporting Evidence" Binding="{Binding VerdictDisplay}" Width="230"/>
+                            <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="320"/>
                         </DataGrid.Columns>
 
                     </DataGrid>
@@ -795,6 +795,8 @@
                     <StackPanel Margin="0,0,0,12">
                         <TextBlock Text="PACKETS" Foreground="White" FontSize="16" FontWeight="Bold"/>
                         <TextBlock x:Name="PacketCountText" Text="0 packets" Foreground="#94A3B8" FontSize="12" Margin="0,4,0,0"/>
+                        <TextBlock Text="Double-click a packet to open its flow in XAI, with that flow's SHAP explanation."
+                                   Foreground="#64748B" FontSize="11" Margin="0,4,0,0"/>
                     </StackPanel>
                     <WrapPanel Grid.Row="1" Margin="0,0,0,10">
                         <ComboBox x:Name="PacketProtocolFilter" Width="130" SelectionChanged="PacketFilter_Changed"/>
@@ -805,6 +807,7 @@
                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                     </WrapPanel>
                     <DataGrid x:Name="PacketDataGrid"
+                              MouseDoubleClick="PacketDataGrid_MouseDoubleClick"
                               Grid.Row="2"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
@@ -840,15 +843,15 @@
                         </DataGrid.ColumnHeaderStyle>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="No." Binding="{Binding Number}" Width="70"/>
-                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="1.3*"/>
-                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="1.3*"/>
-                            <DataGridTextColumn Header="Src Port" Binding="{Binding SourcePort}" Width="0.6*"/>
-                            <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="1.3*"/>
-                            <DataGridTextColumn Header="Dst Port" Binding="{Binding DestinationPort}" Width="0.6*"/>
-                            <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="0.6*"/>
-                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="0.6*"/>
-                            <DataGridTextColumn Header="TCP Flags" Binding="{Binding Flags}" Width="0.7*"/>
-                            <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="1.6*"/>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="190"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="180"/>
+                            <DataGridTextColumn Header="Src Port" Binding="{Binding SourcePort}" Width="85"/>
+                            <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="180"/>
+                            <DataGridTextColumn Header="Dst Port" Binding="{Binding DestinationPort}" Width="85"/>
+                            <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="85"/>
+                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="75"/>
+                            <DataGridTextColumn Header="TCP Flags" Binding="{Binding Flags}" Width="120"/>
+                            <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="420"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

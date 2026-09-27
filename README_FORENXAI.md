@@ -75,6 +75,7 @@ Found while running the merged app end to end and fixed on this branch:
 | XAI tab | Right panel content kept clear of its scrollbar (the Confidence value was under it); inner scroll areas have a gutter; SHAP table fits without a second scrollbar, values to 4 decimals, text centred in rows | `Views/XaiView.xaml` |
 | Dashboard, second round | Top row: Traffic classification (ML attack types; benign counted in the subtitle, not charted) beside Rule-based detected attacks (attack types backed by a Tier 1 / Tier 2 rule, with the tier). Rule panel's third card: Hybrid source as one stacked line (rule / model / uncertain, with counts and meanings). "Rule Hit" column removed; "Supporting Evidence" names the class and the rule tier. Detected threats gain Time, Protocol, Length and Info (per connection, from the packets) and filters (protocol, ML prediction, text). The Selected threat card and SHAP table were replaced by a filterable, scrollable Packets table (all parsed packets). Double-click a threat to open it in XAI | `Views/DashboardView.xaml(.cs)`, `Models/AnalysisModels.cs` |
 | Reports, XAI, Evidence, pop-up | Reports label ML results ("ML Prediction", "ML Confidence", "ML Benign", "ML Threats") and add Supporting Evidence; MITRE ATT&CK IDs removed from the XAI recommendation text (unreviewed static map, not used in detection); Evidence wording "Select a network capture…", "PCAP or PCAPng • up to 100 MB", "BROWSE FILE"; the progress pop-up has a working minimize button (minimized: app usable; restored: locked again) | `Views/ReportsView.xaml(.cs)`, `backend/app/services/report_service.py`, `Views/XaiView.xaml.cs`, `Views/EvidenceView.xaml(.cs)` |
+| Third round | Reports: summary numbers coloured by meaning (flows blue, benign green, threats red, confirmed orange, rejected teal, inconclusive amber). Dashboard: fixed column widths so both tables scroll horizontally as well as vertically; double-click a packet to open its flow in XAI, highlighted with its SHAP explanation (packets not in an analysed flow, or in a benign flow, say so) | `Views/ReportsView.xaml`, `Views/DashboardView.xaml(.cs)` |
 | Backend stability | The backend process crashed three times inside `xgboost.dll` (Windows error 0xC0000409) minutes after an analysis, with no request running; cause not yet found. `python run_backend.py --supervise` now restarts the server 3 s after a crash, and the app re-checks the backend before each analysis (restarting a packaged backend, or waiting up to 30 s for a supervised one) | `backend/run_backend.py`, `Services/BackendProcessService.cs`, `App.xaml.cs` |
 
 Running from source, start the backend with the app's data folder and the supervisor:
@@ -86,6 +87,20 @@ set FORENXAI_DATA_DIR=%LOCALAPPDATA%\FORENXAI
 ```
 
 Without `FORENXAI_DATA_DIR` a source-run backend looks for cases in `backend/cases` and the app's analysis fails with "Case directory not found".
+
+### Backend crash fix: model pinned to the CPU
+
+The `xgboost.dll` crash (Windows error 0xC0000409) that stopped the backend
+"out of nowhere" is found and fixed. The bundle was trained on a GPU and saved
+with `device="cuda"`; TreeSHAP then ran on CUDA inside `xgboost.dll`, and the
+process died later or on exit: 3 of 3 runs crashed with `device="cuda"`, 0 of
+3 with `device="cpu"`. `_load_model_bundle_impl()` now sets `device="cpu"`
+(the app is CPU-only). The held-out test figures are unchanged (0.9351 /
+0.9305; with the abstain layer 0.9374 / 0.9332), SHAP additivity holds (max
+error 2.4e-06), and `test_model_preprocessing.py` fails if the model is not on
+the CPU. Qwen was checked separately: six narration requests sent at once all
+succeeded, served one at a time by `generation_lock`, and the server process
+never changed.
 
 ### Model input fix: float32 before scaling
 
@@ -118,7 +133,6 @@ PortScan, decided by the Tier 1 rule for 2,001 of 2,016 flows.
 ### Next steps
 
 - Measure the real capture-size limit (time and memory on a larger capture such as the 183 MB LabActivity3) and set `MaxEvidenceMegabytes` from it.
-- Find the cause of the `xgboost.dll` crash (0xC0000409); the supervisor only recovers from it.
 - Open a pull request `merge-main-forenxai-v3` → `main`.
 - Open items from `finetuned-xgboost` still apply: Tier 2 statistical validation needs labelled packet captures; DNS spoofing detection, Suricata HTTP / DNS logs and custom API signatures are not yet implemented (see `README_finetuned-xgboost.md`, "Tier 2: improvements" and "Known limitations").
 

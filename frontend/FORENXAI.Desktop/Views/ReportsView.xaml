@@ -302,7 +302,8 @@
                 <StackPanel>
                     <TextBlock x:Name="TotalFlowsText"
                                Text="0"
-                               Style="{StaticResource SummaryNumberStyle}"/>
+                               Style="{StaticResource SummaryNumberStyle}"
+                               Foreground="#60A5FA"/>
                     <TextBlock Text="ML Flows"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
@@ -314,7 +315,8 @@
                 <StackPanel>
                     <TextBlock x:Name="BenignFlowsText"
                                Text="0"
-                               Style="{StaticResource SummaryNumberStyle}"/>
+                               Style="{StaticResource SummaryNumberStyle}"
+                               Foreground="#4ADE80"/>
                     <TextBlock Text="ML Benign"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
@@ -326,7 +328,8 @@
                 <StackPanel>
                     <TextBlock x:Name="ThreatFlowsText"
                                Text="0"
-                               Style="{StaticResource SummaryNumberStyle}"/>
+                               Style="{StaticResource SummaryNumberStyle}"
+                               Foreground="#F87171"/>
                     <TextBlock Text="ML Threats"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
@@ -338,7 +341,8 @@
                 <StackPanel>
                     <TextBlock x:Name="ConfirmedReviewsText"
                                Text="0"
-                               Style="{StaticResource SummaryNumberStyle}"/>
+                               Style="{StaticResource SummaryNumberStyle}"
+                               Foreground="#FB923C"/>
                     <TextBlock Text="Confirmed"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
@@ -350,7 +354,8 @@
                 <StackPanel>
                     <TextBlock x:Name="RejectedReviewsText"
                                Text="0"
-                               Style="{StaticResource SummaryNumberStyle}"/>
+                               Style="{StaticResource SummaryNumberStyle}"
+                               Foreground="#2DD4BF"/>
                     <TextBlock Text="Rejected"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
@@ -362,7 +367,8 @@
                 <StackPanel>
                     <TextBlock x:Name="InconclusiveReviewsText"
                                Text="0"
-                               Style="{StaticResource SummaryNumberStyle}"/>
+                               Style="{StaticResource SummaryNumberStyle}"
+                               Foreground="#FBBF24"/>
                     <TextBlock Text="Inconclusive"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>

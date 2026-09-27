@@ -340,6 +340,73 @@ CSV. Every threshold lives in one file.
 | `backend/app/rules/rules_tuning.json`, `backend/tune_rules.py`, `backend/validate_rules.py` | Tuning without leakage: flows in even-numbered minutes choose the thresholds and flows in odd-numbered minutes test them, on TII-SSRC-23 and CSE-CIC-IDS2018 |
 | `backend/test_rules.py` | Tier 1 tests, including the tuned thresholds |
 
+### Basis of the Tier 1 rules (PortScan and DoS)
+
+**Definitions.** The rules follow the behavioral definitions of scanning and
+flooding used by signature-based intrusion detection systems: a port scan is
+one source touching many ports of a host with almost no data each, and a DoS
+flood is one source opening a very large number of connections to one
+service. Counting distinct ports per source, or connections per service,
+inside a time window is the approach of Snort's port-scan detector and Zeek's
+scan-detection policy. The 60-second window and the starting values (20 ports,
+100 flows) come from the hybrid-detection design document
+(https://claude.ai/artifact/3TFCNHCBAMkv5jfg2hNKQm).
+
+| Rule | Fires when | Grouped by |
+|---|---|---|
+| T1-PORTSCAN-01 | ≥ 50 distinct destination ports from one source to one host within 60 s, median ≤ 3 forward packets per flow | source, destination host, window |
+| T1-DOS-01 | ≥ 800 flows from one source to the same destination and port within 60 s (DNS, DHCP, NTP, NetBIOS ports excluded) | source, destination host, port, window |
+
+**How it runs.** `rule_service.py` reads the CICFlowMeter CSV, places each flow
+in the 60-second window it started in, groups the flows as above, counts
+distinct ports (PortScan) or flows (DoS), and marks every flow of a group that
+reaches the threshold with a hit whose evidence states the count and the
+threshold. `decide()` then uses the hit: PortScan and DoS are rule-trusted
+classes, so their hits set the verdict.
+
+**Tuning.** `tune_rules.py` chose the thresholds on TII-SSRC-23 and
+CSE-CIC-IDS2018, the labelled datasets that keep real IP addresses and
+timestamps. Flows in even-numbered minutes chose; flows in odd-numbered
+minutes tested. The selection rule was the best F1 on the rule's class with
+benign false alarms of at most 1%. Candidates: PortScan 10, 15, 20, 30, 50
+ports (50 chosen); DoS 50, 100, 200, 400, 800 flows (800 chosen). The
+sensitivity setting scales both (high ×0.7: 35 ports / 560 flows; low ×1.5:
+75 ports / 1,200 flows).
+
+**Held-out results** (`rules_tuning.json`):
+
+| Rule | Recall | Precision | F1 | Benign false alarms |
+|---|---|---|---|---|
+| PortScan | 0.9997 | 0.9636 | 0.9813 | 0.02% |
+| DoS | 0.9939 | 0.9268 | 0.9592 | 0.00% |
+
+**Port scan vs DoS.** The rules measure different things, so a normal port
+scan cannot meet the DoS condition: a scan spreads a few flows over many
+ports, while a flood puts many flows on one port. The PortScan/DoS confusion
+comes from the classifier, which judges one flow at a time; Tier 1 judges the
+pattern across flows. On LabActivity2 (a port scan, 2,016 flows) the classifier
+labelled 1,704 scan flows DoS and 248 Slowloris; the PortScan rule flagged
+2,000 flows and the DoS rule none, so the verdict for those 2,000 flows is
+PortScan (source `rule`). If both rules fired on one flow, the priority order
+in `rules.json` would put DoS first; that requires the same source to also
+send ≥ 800 flows to a single port within a minute.
+
+**Limits.** Slow or distributed scans (under 50 ports per minute per source)
+and low-rate floods (under 800 flows per minute) are not detected; attacks
+split across two windows can fall below the threshold in each; thresholds are
+network-dependent, hence adjustable in `rules.json`; the rules could not be
+validated on TRUSTLab, whose addresses and timestamps are anonymised.
+
+**Sources.** M. Roesch, "Snort: Lightweight intrusion detection for networks,"
+LISA 1999; V. Paxson, "Bro: A system for detecting network intruders in
+real-time," *Computer Networks* 31 (1999); H. Asad, S. Adhikari and I. Gashi,
+"A perspective–retrospective analysis of diversity in signature-based
+open-source network intrusion detection systems," *Int. J. Inf. Secur.* 23
+(2024), doi:10.1007/s10207-023-00794-9; A. Khraisat et al., "Survey of
+intrusion detection systems," *Cybersecurity* 2 (2019),
+doi:10.1186/s42400-019-0038-7. Zeek's scan-detection defaults should be
+checked against the current Zeek documentation before citing.
+
 ## 3. Tier 2 rules: packets and Suricata
 
 **Purpose:** detect what flow records cannot show: ARP spoofing, header

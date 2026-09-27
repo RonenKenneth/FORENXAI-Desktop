@@ -1172,8 +1172,15 @@ def prepare_model_input(
     # warn that the feature names are unrecognised. Column ORDER is
     # what the scaler actually relies on, and that was fixed and
     # checked above -- the names were never carrying the contract.
+    #
+    # float32, not float64: training cast the features to float32 before
+    # scaling (clean_features() in the pipeline's src/common.py), so the
+    # trees' split points were learned on float32-scaled values. Scaling in
+    # float64 changed 3,004 of the 280,063 TRUSTLab test predictions and
+    # cost 0.5 points of accuracy (0.9304 against the reported 0.9351);
+    # with float32 the reported test figures reproduce exactly.
     scaled_matrix = scaler.transform(
-        feature_frame.to_numpy()
+        feature_frame.to_numpy(dtype=np.float32)
     )
 
 

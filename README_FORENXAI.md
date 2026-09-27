@@ -85,6 +85,21 @@ set FORENXAI_DATA_DIR=%LOCALAPPDATA%\FORENXAI
 
 Without `FORENXAI_DATA_DIR` a source-run backend looks for cases in `backend/cases` and the app's analysis fails with "Case directory not found".
 
+### Model input fix: float32 before scaling
+
+The check above first failed: through the app, test accuracy was 0.9304, not
+0.9351. Training casts the 66 features to float32 before the scaler
+(`clean_features()` in the pipeline's `src/common.py`); the app scaled in
+float64, which changed 3,004 of the 280,063 test predictions. The app now
+scales from float32 (`prepare_model_input()` in `model_service.py`), and the
+reported test figures reproduce exactly.
+
+On LabActivity2 the fix moved most flows' ML class from DoS / Slowloris to
+DDoS. Those flows sit on the model's decision boundaries (confidence 39-50%)
+because the capture comes from a different network than TRUSTLab; the capture
+is a port scan, so neither class is right. The Final Verdict is unchanged:
+PortScan, decided by the Tier 1 rule for 2,001 of 2,016 flows.
+
 ### Checks on this branch
 
 | Check | Result |
@@ -95,6 +110,8 @@ Without `FORENXAI_DATA_DIR` a source-run backend looks for cases in `backend/cas
 | Desktop build (`dotnet build`) | 0 errors, 0 warnings |
 | End-to-end in the app, LabActivity2 (1.04 MB, 10,584 packets, 2,016 ML flows) | Pass: 100 MB limit (183 MB capture refused), evidence intake, progress pop-up with live step and X button, Dashboard (rule panel, Tier 2 toggle, donut, Selected threat, tables, row selection), double-click to XAI, XAI, Investigation, Reports |
 | Backend supervisor | Pass: server killed on purpose, back and healthy within about 20 s |
+| Model, abstain layer, TreeSHAP (independent recomputation from the raw CSV and bundle files) | Pass, 25/25: bundle SHA-256 = manifest; 66 features in one order across `features.pkl`, manifest and OOD stats; 16 classes; class and confidence (max softmax) identical for every flow; Mahalanobis distance and abstain decisions identical; SHAP additivity (base + sum = model margin, max error 3e-06); top-10 contributors, SHAP values, observed values and base values identical; dashboard counts and threat percentage correct |
+| Held-out TRUSTLab test (280,063 flows) through the app's own code | Reproduces the reported figures exactly: accuracy 0.9351, macro F1 0.9305; with the abstain layer 0.9374 / 0.9332, abstention 1.54%, error rate 6.26% kept vs 21.6% abstained (`test_model_preprocessing.py` guards the fix below) |
 
 ### Next steps
 

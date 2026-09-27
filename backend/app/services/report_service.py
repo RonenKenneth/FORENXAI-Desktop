@@ -303,6 +303,22 @@ def _build_case_report_impl(
                     "recommendation"
                 ),
 
+            # Supporting evidence (rule tiers), shown beside the ML result.
+            "verdict":
+                finding.get(
+                    "verdict"
+                ),
+
+            "verdict_source":
+                finding.get(
+                    "verdict_source"
+                ),
+
+            "rule_findings":
+                finding.get(
+                    "rule_findings"
+                ),
+
             "shap_explanation":
                 shap_lookup.get(
                     flow_index

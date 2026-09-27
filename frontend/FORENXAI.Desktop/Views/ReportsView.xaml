@@ -315,7 +315,7 @@
                     <TextBlock x:Name="BenignFlowsText"
                                Text="0"
                                Style="{StaticResource SummaryNumberStyle}"/>
-                    <TextBlock Text="Benign"
+                    <TextBlock Text="ML Benign"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
             </Border>
@@ -327,7 +327,7 @@
                     <TextBlock x:Name="ThreatFlowsText"
                                Text="0"
                                Style="{StaticResource SummaryNumberStyle}"/>
-                    <TextBlock Text="Threats"
+                    <TextBlock Text="ML Threats"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>
             </Border>
@@ -515,13 +515,17 @@
                                             Binding="{Binding FlowIndex}"
                                             Width="80"/>
 
-                        <DataGridTextColumn Header="Prediction"
+                        <DataGridTextColumn Header="ML Prediction"
                                             Binding="{Binding PredictedClass}"
-                                            Width="160"/>
+                                            Width="140"/>
 
-                        <DataGridTextColumn Header="Confidence"
+                        <DataGridTextColumn Header="ML Confidence"
                                             Binding="{Binding ConfidenceDisplay}"
                                             Width="120"/>
+
+                        <DataGridTextColumn Header="Supporting Evidence"
+                                            Binding="{Binding EvidenceDisplay}"
+                                            Width="200"/>
 
                         <DataGridTextColumn Header="Review"
                                             Binding="{Binding ReviewDecision}"

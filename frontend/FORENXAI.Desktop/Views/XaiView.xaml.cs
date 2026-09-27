@@ -983,11 +983,11 @@ public partial class XaiView : UserControl
             (label, background, foreground) =
                 finding.VerdictSource switch
                 {
-                    "agree" => ($"Verdict {finding.Verdict}: rules agree", "#14532D", "#BBF7D0"),
-                    "rule" => ($"Verdict {finding.Verdict}: rule decided", "#78350F", "#FDE68A"),
-                    "conflict" => ($"Verdict {finding.Verdict}: rules disagree", "#7F1D1D", "#FECACA"),
+                    "agree" => ($"Supporting evidence: {finding.Verdict} (rules agree)", "#14532D", "#BBF7D0"),
+                    "rule" => ($"Supporting evidence: {finding.Verdict} (rule)", "#78350F", "#FDE68A"),
+                    "conflict" => ($"Supporting evidence: {finding.Verdict} (rules disagree)", "#7F1D1D", "#FECACA"),
                     "abstain" => ("Uncertain: analyst review", "#1E293B", "#CBD5E1"),
-                    _ => ($"Verdict {finding.Verdict}: model only", "#1E3A5F", "#BFDBFE"),
+                    _ => ($"Supporting evidence: {finding.Verdict} (model only)", "#1E3A5F", "#BFDBFE"),
                 };
         }
 
@@ -1176,15 +1176,9 @@ public partial class XaiView : UserControl
             );
         }
 
-        if (recommendation.Mitre != null
-            && recommendation.Mitre.Count > 0)
-        {
-            lines.Add(
-                "MITRE ATT&CK: "
-                + string.Join(", ", recommendation.Mitre)
-                + "  (mappings need review)"
-            );
-        }
+        // MITRE ATT&CK IDs are not shown: they come from an unreviewed
+        // static map (rag/config/knowledge_map.py) and play no part in
+        // detection.
 
         if (measured != null
             && measured.Notes.Count > 0)

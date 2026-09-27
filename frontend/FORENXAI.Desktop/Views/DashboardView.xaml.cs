@@ -26,7 +26,11 @@ public partial class DashboardView : UserControl
     private AnalysisDocument? currentAnalysis;
 
     private readonly ObservableCollection<ThreatRow> threats;
-    private readonly ObservableCollection<ShapRow> shapRows;
+    private readonly ObservableCollection<PacketRow> packetRows = new();
+    private readonly ObservableCollection<BarRow> attackLegend = new();
+    private System.ComponentModel.ICollectionView? threatView;
+    private System.ComponentModel.ICollectionView? packetView;
+    private const string AllOption = "All";
     private readonly ObservableCollection<TrafficLegendRow> trafficLegendRows;
 
     private readonly ObservableCollection<BarRow> tier1Bars = new();
@@ -45,11 +49,15 @@ public partial class DashboardView : UserControl
         backendApi = new BackendApiService();
 
         threats = new ObservableCollection<ThreatRow>();
-        shapRows = new ObservableCollection<ShapRow>();
         trafficLegendRows = new ObservableCollection<TrafficLegendRow>();
 
         ThreatDataGrid.ItemsSource = threats;
-        ShapDataGrid.ItemsSource = shapRows;
+        PacketDataGrid.ItemsSource = packetRows;
+        AttackEvidenceLegend.ItemsSource = attackLegend;
+        threatView = System.Windows.Data.CollectionViewSource.GetDefaultView(threats);
+        threatView.Filter = item => ThreatMatches((ThreatRow)item);
+        packetView = System.Windows.Data.CollectionViewSource.GetDefaultView(packetRows);
+        packetView.Filter = item => PacketMatches((PacketRow)item);
         TrafficLegendItemsControl.ItemsSource = trafficLegendRows;
 
         Tier1Bars.ItemsSource = tier1Bars;
@@ -118,7 +126,6 @@ public partial class DashboardView : UserControl
 
 
             threats.Clear();
-            shapRows.Clear();
 
             currentAnalysis =
                 await backendApi.GetAnalysisAsync(
@@ -144,6 +151,7 @@ public partial class DashboardView : UserControl
             LoadSummary();
             LoadTrafficClassification();
             LoadRulePanel();
+            LoadPackets();
             LoadThreats();
 
 
@@ -265,6 +273,10 @@ public partial class DashboardView : UserControl
         verdictLegend.Clear();
         VerdictBar.Children.Clear();
         VerdictBar.ColumnDefinitions.Clear();
+        EvidencePieCanvas.Children.Clear();
+        EvidencePieTotalText.Text = "0";
+        EvidenceNoteText.Text = string.Empty;
+        attackLegend.Clear();
         Tier1SummaryText.Text = "--";
         Tier2SummaryText.Text = "--";
         Tier2StatusText.Text = string.Empty;
@@ -405,12 +417,11 @@ public partial class DashboardView : UserControl
             UpdateTier2DetailsHeader();
         }
 
-        // Hybrid verdict source
+        // Hybrid source: one stacked line of rule / model / uncertain.
         int decided = rules.VerdictSources.Values.Sum();
         VerdictSummaryText.Text = decided == 0
-            ? "No verdicts in this case."
+            ? "No flows in this case."
             : $"{decided:N0} flows";
-
         foreach (var (key, label, colour, meaning) in VerdictSources)
         {
             int count = rules.VerdictSources.GetValueOrDefault(key);
@@ -421,23 +432,92 @@ public partial class DashboardView : UserControl
 
             VerdictBar.ColumnDefinitions.Add(
                 new ColumnDefinition { Width = new GridLength(count, GridUnitType.Star) });
-            var segment = new Border
-            {
-                Background = ToBrush(colour),
-                ToolTip = $"{label}: {count:N0} flows ({(double)count / decided:P1}). {meaning}.",
-            };
+            var segment = new Border { Background = ToBrush(colour), ToolTip = meaning };
             Grid.SetColumn(segment, VerdictBar.ColumnDefinitions.Count - 1);
             VerdictBar.Children.Add(segment);
 
             verdictLegend.Add(new BarRow
             {
-                Label = label,
+                Label = $"{label} · {count:N0} ({(double)count / decided:P1}): {meaning}",
                 Count = count,
                 Brush = ToBrush(colour),
                 Tooltip = meaning,
             });
         }
+
+        LoadAttackEvidencePie();
     }
+
+    // Pie beside Traffic classification: the attack types (of the 15)
+    // that the rule evidence supports, with the source behind each.
+    private void LoadAttackEvidencePie()
+    {
+        var findings = currentAnalysis?.MlAnalysis?.Findings ?? new List<MlFinding>();
+        var attacks = findings
+            .Where(f => !string.IsNullOrEmpty(f.VerdictSource)
+                        && f.VerdictSource != "abstain"
+                        && f.VerdictSource != "ml"
+                        && f.Verdict != "Benign"
+                        && ClassColours.ContainsKey(f.Verdict ?? ""))
+            .GroupBy(f => f.Verdict!)
+            .OrderByDescending(g => g.Count())
+            .ToList();
+        int ruleBacked = attacks.Sum(g => g.Count());
+        EvidencePieTotalText.Text = ruleBacked.ToString("N0");
+        AttackEvidenceSubtitleText.Text = ruleBacked == 0
+            ? "No attack type is supported by a Tier 1 or Tier 2 rule."
+            : $"Attack types supported by Tier 1 / Tier 2 rules · {ruleBacked:N0} of {findings.Count:N0} flows";
+
+        int modelOnly = findings.Count(f => f.VerdictSource == "ml" && f.Verdict != "Benign");
+        int uncertain = findings.Count(f => f.VerdictSource == "abstain");
+        var notCharted = new List<string>();
+        if (modelOnly > 0) notCharted.Add($"{modelOnly:N0} backed by the model only");
+        if (uncertain > 0) notCharted.Add($"{uncertain:N0} uncertain (analyst review)");
+        EvidenceNoteText.Text = notCharted.Count == 0 ? "" : "Not charted: " + string.Join(", ", notCharted) + ".";
+
+        double start = -90.0;
+        foreach (var group in attacks)
+        {
+            int count = group.Count();
+            var sources = group.GroupBy(EvidenceSourceOf).OrderByDescending(x => x.Count()).ToList();
+            string source = sources.Count == 1
+                ? EvidenceSource(sources[0].Key)
+                : string.Join(" + ", sources.Select(x => $"{EvidenceSource(x.Key)} {x.Count():N0}"));
+            Brush brush = ToBrush(ClassColours[group.Key]);
+            double sweep = count * 360.0 / ruleBacked;
+            Path slice = attacks.Count == 1
+                ? CreateDonutSegment(110, 110, 100, 58, -90, 359.999, brush)
+                : CreateDonutSegment(110, 110, 100, 58, start, sweep, brush);
+            slice.ToolTip = $"{group.Key}: {count:N0} flows, {source}";
+            EvidencePieCanvas.Children.Add(slice);
+            start += sweep;
+
+            attackLegend.Add(new BarRow
+            {
+                Label = $"{group.Key}  ({(double)count / ruleBacked:P1})",
+                Count = count,
+                Brush = brush,
+                Tooltip = source,
+            });
+        }
+    }
+
+    // Source key of the evidence for one flow: "T1"/"T2" when a rule
+    // decided, otherwise the verdict source (agree, ml, conflict).
+    internal static string EvidenceSourceOf(MlFinding finding) =>
+        finding.VerdictSource == "rule" && TopRuleHit(finding) is RuleHit hit
+            ? $"T{hit.Tier}"
+            : finding.VerdictSource ?? "";
+
+    internal static string EvidenceSource(string key) => key switch
+    {
+        "T1" => "Tier 1 flow rule",
+        "T2" => "Tier 2 packet rule",
+        "agree" => "rule and model agree",
+        "conflict" => "rule and model disagree",
+        "ml" => "model only",
+        _ => "rule",
+    };
 
     // =========================================================
     // TRAFFIC CLASSIFICATION CHART
@@ -480,8 +560,17 @@ public partial class DashboardView : UserControl
             currentAnalysis.MlAnalysis.Findings;
 
 
+        // Only the 15 attack types are charted; benign flows are counted
+        // in the subtitle instead.
+        int benignFlows = findings.Count(finding =>
+            string.Equals(finding.PredictedClass?.Trim(), "Benign", StringComparison.OrdinalIgnoreCase));
+        TrafficChartSubtitleText.Text = benignFlows == 0
+            ? "Attack types predicted by the ML model"
+            : $"Attack types predicted by the ML model · {benignFlows:N0} benign flow{(benignFlows == 1 ? "" : "s")} not charted";
+
         Dictionary<string, int> classCounts =
             findings
+                .Where(finding => !string.Equals(finding.PredictedClass?.Trim(), "Benign", StringComparison.OrdinalIgnoreCase))
                 .GroupBy(
                     finding =>
                         string.IsNullOrWhiteSpace(
@@ -1068,9 +1157,6 @@ public partial class DashboardView : UserControl
     private void LoadThreats()
     {
         threats.Clear();
-        shapRows.Clear();
-
-        ClearSelectedThreat();
 
 
         if (
@@ -1120,6 +1206,11 @@ public partial class DashboardView : UserControl
                     Confidence =
                         finding.Confidence,
 
+                    Time = ConnectionOf(finding.Metadata)?.FirstTime ?? finding.Metadata?.Timestamp ?? "",
+                    Protocol = ProtocolName(finding.Metadata?.Protocol ?? 0),
+                    Length = ConnectionOf(finding.Metadata)?.Bytes ?? 0,
+                    Info = ConnectionOf(finding.Metadata)?.Info(finding.Metadata!) ?? "",
+
                     RuleDisplay =
                         topHit == null
                             ? (finding.RuleFindings == null ? "not run" : "--")
@@ -1128,7 +1219,9 @@ public partial class DashboardView : UserControl
                     VerdictDisplay =
                         string.IsNullOrEmpty(finding.VerdictSource)
                             ? "--"
-                            : $"{finding.Verdict} · {finding.VerdictSource}"
+                            : finding.VerdictSource == "abstain"
+                                ? "Uncertain · analyst review"
+                                : $"{finding.Verdict} · {EvidenceSource(EvidenceSourceOf(finding))}"
                 }
             );
         }
@@ -1144,176 +1237,9 @@ public partial class DashboardView : UserControl
             $"{threats.Count - byModel} by rules only)";
 
 
-        // Automatically select the first threat
-        // so the Dashboard is immediately useful.
-        if (threats.Count > 0)
-        {
-            ThreatDataGrid.SelectedIndex = 0;
-        }
-    }
-
-
-    // =========================================================
-    // THREAT SELECTION CHANGED
-    // =========================================================
-
-    private void ThreatDataGrid_SelectionChanged(
-        object sender,
-        SelectionChangedEventArgs e)
-    {
-        if (
-            ThreatDataGrid.SelectedItem
-            is not ThreatRow selectedThreat
-        )
-        {
-
-            ClearSelectedThreat();
-
-            return;
-        }
-
-
-
-
-        SelectedThreatClassText.Text =
-            selectedThreat.PredictedClass;
-
-
-        SelectedFlowIndexText.Text =
-            selectedThreat.FlowIndex.ToString();
-
-
-        SelectedConfidenceText.Text =
-            selectedThreat.ConfidenceDisplay;
-
-        SelectedVerdictText.Text = selectedThreat.VerdictDisplay;
-        SelectedSourceText.Text = selectedThreat.Source;
-        SelectedDestinationText.Text = selectedThreat.Destination;
-
-
-        LoadShapExplanation(
-            selectedThreat.FlowIndex
-        );
-    }
-
-
-    // =========================================================
-    // LOAD SHAP EXPLANATION
-    // =========================================================
-
-    private void LoadShapExplanation(
-        int flowIndex)
-    {
-        shapRows.Clear();
-
-
-        if (
-            currentAnalysis?.ShapAnalysis?.Explanations
-            == null
-        )
-        {
-            SelectedExplanationText.Text =
-                "SHAP unavailable";
-
-            return;
-        }
-
-
-        ShapExplanation? explanation =
-            currentAnalysis
-            .ShapAnalysis
-            .Explanations
-            .FirstOrDefault(
-                item =>
-                    item.FlowIndex == flowIndex
-            );
-
-
-        if (explanation == null)
-        {
-            SelectedExplanationText.Text =
-                "No explanation found";
-
-            return;
-        }
-
-
-        if (
-            explanation.Contributors == null
-            ||
-            explanation.Contributors.Count == 0
-        )
-        {
-            SelectedExplanationText.Text =
-                "No contributors";
-
-            return;
-        }
-
-
-        foreach (
-            ShapContributor contributor
-            in explanation.Contributors
-        )
-        {
-            shapRows.Add(
-                new ShapRow
-                {
-                    Rank =
-                        contributor.Rank,
-
-                    Feature =
-                        contributor.Feature,
-
-                    RawValue =
-                        contributor.RawValue,
-
-                    ShapValue =
-                        contributor.ShapValue,
-
-                    Direction =
-                        contributor.Direction
-                }
-            );
-        }
-
-
-        ShapContributor? strongest =
-            explanation
-            .Contributors
-            .OrderByDescending(
-                contributor =>
-                    Math.Abs(
-                        contributor.ShapValue
-                    )
-            )
-            .FirstOrDefault();
-
-
-        if (strongest == null)
-        {
-            SelectedExplanationText.Text =
-                "Explanation available";
-
-            return;
-        }
-
-
-        SelectedExplanationText.Text =
-            strongest.Direction switch
-            {
-                "supports_prediction" =>
-                    "Top feature supports prediction",
-
-                "opposes_prediction" =>
-                    "Top feature opposes prediction",
-
-                "neutral" =>
-                    "Top feature is neutral",
-
-                _ =>
-                    "SHAP explanation available"
-            };
+        FillFilter(ThreatProtocolFilter, "All protocols", threats.Select(t => t.Protocol));
+        FillFilter(ThreatClassFilter, "All ML predictions", threats.Select(t => t.PredictedClass));
+        ApplyThreatFilter();
     }
 
 
@@ -1407,32 +1333,173 @@ public partial class DashboardView : UserControl
 
 
     // =========================================================
-    // CLEAR SELECTED THREAT
+    // PACKETS, CONNECTIONS AND FILTERS
+    //
+    // Length and Info for a detected flow come from the packets of
+    // its connection (same addresses, ports and protocol, both
+    // directions), the way Wireshark's conversation view counts them.
+    // ponytail: keyed by 5-tuple, so a connection that CICFlowMeter
+    // split into several flows shows the whole connection's totals.
     // =========================================================
 
-    private void ClearSelectedThreat()
+    private Dictionary<string, Connection> connections = new();
+
+    private static string ConnectionKey(string? a, int? aPort, string? b, int? bPort, string protocol)
     {
-        SelectedThreatClassText.Text =
-            "Select a threat flow";
+        var one = $"{a}:{aPort}";
+        var two = $"{b}:{bPort}";
+        return string.CompareOrdinal(one, two) < 0 ? $"{protocol}|{one}|{two}" : $"{protocol}|{two}|{one}";
+    }
 
+    private Connection? ConnectionOf(FlowMetadata? m) =>
+        m == null ? null
+        : connections.GetValueOrDefault(ConnectionKey(m.SrcIp, m.SrcPort, m.DstIp, m.DstPort, ProtocolName(m.Protocol)));
 
-        SelectedFlowIndexText.Text =
-            "--";
+    private static string ProtocolName(int number) => number switch
+    {
+        6 => "TCP", 17 => "UDP", 1 => "ICMP", 58 => "ICMPv6", 0 => "Other", _ => $"IP {number}",
+    };
 
+    private static string FormatTime(double epochSeconds) =>
+        DateTimeOffset.FromUnixTimeMilliseconds((long)(epochSeconds * 1000.0))
+            .ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff");
 
-        SelectedConfidenceText.Text =
-            "--";
+    private void LoadPackets()
+    {
+        packetRows.Clear();
+        connections = new Dictionary<string, Connection>();
+        var packets = currentAnalysis?.Packets ?? new List<PacketRecord>();
+        foreach (var packet in packets)
+        {
+            string protocol = packet.Protocol ?? "Other";
+            var row = new PacketRow
+            {
+                Number = packet.PacketNumber,
+                Time = FormatTime(packet.Timestamp),
+                Source = packet.SourceIp ?? "",
+                SourcePort = packet.SourcePort?.ToString() ?? "",
+                Destination = packet.DestinationIp ?? "",
+                DestinationPort = packet.DestinationPort?.ToString() ?? "",
+                Protocol = protocol,
+                Length = packet.PacketLength,
+                Flags = FlagNames(packet.TcpFlags),
+            };
+            row.Info = packet.SourcePort.HasValue
+                ? $"{packet.SourcePort} → {packet.DestinationPort}" + (row.Flags.Length > 0 ? $" [{row.Flags}]" : "")
+                : protocol == "ARP" ? "Address resolution (link layer)" : protocol;
+            packetRows.Add(row);
 
+            if (packet.SourcePort.HasValue)
+            {
+                string key = ConnectionKey(packet.SourceIp, packet.SourcePort, packet.DestinationIp, packet.DestinationPort, protocol);
+                if (!connections.TryGetValue(key, out var c))
+                {
+                    connections[key] = c = new Connection { FirstTime = row.Time };
+                }
+                c.Packets++;
+                c.Bytes += packet.PacketLength;
+                foreach (var flag in row.Flags.Split(", ", StringSplitOptions.RemoveEmptyEntries))
+                {
+                    c.Flags.Add(flag);
+                }
+            }
+        }
 
-        SelectedExplanationText.Text =
-            "Select a row below";
+        PacketCountText.Text = $"{packets.Count:N0} packets in the capture";
+        FillFilter(PacketProtocolFilter, "All protocols", packetRows.Select(p => p.Protocol));
+        FillFilter(PacketFlagFilter, "All TCP flags",
+            packetRows.SelectMany(p => p.Flags.Split(", ", StringSplitOptions.RemoveEmptyEntries)));
+        ApplyPacketFilter();
+    }
 
-        SelectedVerdictText.Text = "--";
-        SelectedSourceText.Text = "--";
-        SelectedDestinationText.Text = "--";
+    private static string FlagNames(string? flags) => string.Join(", ", (flags ?? "").Select(f => f switch
+    {
+        'S' => "SYN", 'A' => "ACK", 'F' => "FIN", 'R' => "RST", 'P' => "PSH", 'U' => "URG", 'E' => "ECE", 'C' => "CWR",
+        _ => f.ToString(),
+    }));
 
+    private static void FillFilter(ComboBox box, string allLabel, IEnumerable<string> values)
+    {
+        box.Items.Clear();
+        box.Items.Add(allLabel);
+        foreach (var value in values.Where(v => !string.IsNullOrEmpty(v)).Distinct().OrderBy(v => v))
+        {
+            box.Items.Add(value);
+        }
+        box.SelectedIndex = 0;
+    }
 
-        shapRows.Clear();
+    private static string? Chosen(ComboBox box) => box.SelectedIndex > 0 ? box.SelectedItem as string : null;
+
+    private bool ThreatMatches(ThreatRow row)
+    {
+        string? protocol = Chosen(ThreatProtocolFilter);
+        string? mlClass = Chosen(ThreatClassFilter);
+        string text = ThreatSearchBox.Text.Trim();
+        return (protocol == null || row.Protocol == protocol)
+            && (mlClass == null || row.PredictedClass == mlClass)
+            && (text.Length == 0 || $"{row.FlowIndex} {row.Source} {row.Destination} {row.PredictedClass} {row.VerdictDisplay} {row.Info}"
+                .Contains(text, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool PacketMatches(PacketRow row)
+    {
+        string? protocol = Chosen(PacketProtocolFilter);
+        string? flag = Chosen(PacketFlagFilter);
+        string text = PacketSearchBox.Text.Trim();
+        return (protocol == null || row.Protocol == protocol)
+            && (flag == null || row.Flags.Split(", ").Contains(flag))
+            && (text.Length == 0 || $"{row.Number} {row.Source} {row.SourcePort} {row.Destination} {row.DestinationPort} {row.Info}"
+                .Contains(text, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ApplyThreatFilter()
+    {
+        threatView?.Refresh();
+        ThreatFilterStatusText.Text = $"Showing {threatView?.Cast<object>().Count() ?? 0:N0} of {threats.Count:N0}";
+    }
+
+    private void ApplyPacketFilter()
+    {
+        packetView?.Refresh();
+        PacketFilterStatusText.Text = $"Showing {packetView?.Cast<object>().Count() ?? 0:N0} of {packetRows.Count:N0}";
+    }
+
+    private void ThreatFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        if (IsLoaded) ApplyThreatFilter();
+    }
+
+    private void PacketFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        if (IsLoaded) ApplyPacketFilter();
+    }
+
+    private sealed class Connection
+    {
+        public string FirstTime { get; set; } = string.Empty;
+        public int Packets { get; set; }
+        public long Bytes { get; set; }
+        public SortedSet<string> Flags { get; } = new();
+
+        public string Info(FlowMetadata m) =>
+            $"{m.SrcPort} → {m.DstPort}"
+            + (Flags.Count > 0 ? $" [{string.Join(", ", Flags)}]" : "")
+            + $" · {Packets:N0} packet{(Packets == 1 ? "" : "s")}";
+    }
+
+    private sealed class PacketRow
+    {
+        public int Number { get; set; }
+        public string Time { get; set; } = string.Empty;
+        public string Source { get; set; } = string.Empty;
+        public string SourcePort { get; set; } = string.Empty;
+        public string Destination { get; set; } = string.Empty;
+        public string DestinationPort { get; set; } = string.Empty;
+        public string Protocol { get; set; } = string.Empty;
+        public int Length { get; set; }
+        public string Flags { get; set; } = string.Empty;
+        public string Info { get; set; } = string.Empty;
     }
 
 
@@ -1447,7 +1514,7 @@ public partial class DashboardView : UserControl
         ClearRulePanel();
 
         threats.Clear();
-        shapRows.Clear();
+        packetRows.Clear();
         trafficLegendRows.Clear();
 
         TrafficChartCanvas.Children.Clear();
@@ -1475,25 +1542,6 @@ public partial class DashboardView : UserControl
         ThreatCountText.Text =
             "0 threat flows";
 
-
-        SelectedThreatClassText.Text =
-            "Select a threat flow";
-
-
-        SelectedFlowIndexText.Text =
-            "--";
-
-
-        SelectedConfidenceText.Text =
-            "--";
-
-
-        SelectedExplanationText.Text =
-            "Select a row below";
-
-        SelectedVerdictText.Text = "--";
-        SelectedSourceText.Text = "--";
-        SelectedDestinationText.Text = "--";
 
 
     }
@@ -1734,6 +1782,14 @@ public partial class DashboardView : UserControl
 
         public string VerdictDisplay { get; set; }
             = "--";
+
+        public string Time { get; set; } = string.Empty;
+
+        public string Protocol { get; set; } = string.Empty;
+
+        public long Length { get; set; }
+
+        public string Info { get; set; } = string.Empty;
     }
 
 

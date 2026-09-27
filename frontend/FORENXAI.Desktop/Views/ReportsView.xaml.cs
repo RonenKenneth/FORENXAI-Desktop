@@ -418,7 +418,16 @@ public partial class ReportsView : UserControl
                         reviewDecision,
 
                     RecommendationSummary =
-                        recommendationSummary
+                        recommendationSummary,
+
+                    EvidenceDisplay =
+                        string.IsNullOrEmpty(finding.VerdictSource) ? "--"
+                        : finding.VerdictSource == "abstain" ? "Uncertain · analyst review"
+                        : $"{finding.Verdict} · " + DashboardView.EvidenceSource(
+                            finding.VerdictSource == "rule"
+                            && finding.RuleFindings?.FirstOrDefault(h => h.RuleId != "ALLOWLIST") is { } hit
+                                ? $"T{hit.Tier}"
+                                : finding.VerdictSource ?? "")
                 }
             );
         }
@@ -918,6 +927,8 @@ public partial class ReportsView : UserControl
 
     private sealed class ReportThreatRow
     {
+        public string EvidenceDisplay { get; set; } = string.Empty;
+
         public int FlowIndex
         {
             get;

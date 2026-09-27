@@ -44,7 +44,7 @@ public partial class EvidenceView : UserControl
     {
         InitializeComponent();
         SupportedFormatsText.Text =
-            $"Supported formats: .pcap and .pcapng  •  Maximum size: {MaxEvidenceMegabytes} MB";
+            $"PCAP or PCAPng  •  up to {MaxEvidenceMegabytes} MB";
 
 
         backendApi =
@@ -487,12 +487,13 @@ public partial class EvidenceView : UserControl
             Title = "FORENXAI Analysis",
             Width = 520,
             Height = 260,
-            ResizeMode = ResizeMode.NoResize,
+            // Minimize (no maximize); a taskbar button brings it back.
+            ResizeMode = ResizeMode.CanMinimize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Owner = analysisOwnerWindow,
             Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
-            ShowInTaskbar = false,
-            WindowStyle = WindowStyle.ToolWindow,
+            ShowInTaskbar = true,
+            WindowStyle = WindowStyle.SingleBorderWindow,
             ShowActivated = true,
             Topmost = true
         };
@@ -549,6 +550,17 @@ public partial class EvidenceView : UserControl
         panel.Children.Add(analysisViewResultsButton);
 
         analysisProgressWindow.Content = panel;
+        analysisProgressWindow.StateChanged += (_, _) =>
+        {
+            // Minimized: the app stays usable while the analysis runs.
+            // Restored before it finishes: back to the locked progress view.
+            if (analysisOwnerWindow != null && analysisProgressWindow != null)
+            {
+                analysisOwnerWindow.IsEnabled =
+                    analysisProgressWindow.WindowState == WindowState.Minimized
+                    || !analysisTimer.IsEnabled;
+            }
+        };
         analysisProgressWindow.Closed += (_, _) =>
         {
             // X hides the pop-up only: the backend keeps running and the
@@ -577,7 +589,7 @@ public partial class EvidenceView : UserControl
         }
 
         // Poll the backend's current pipeline step every other second.
-        if (analysisStopwatch.Elapsed.Seconds % 2 != 0)
+        if (analysisStopwatch.Elapsed.Seconds % 2 != 0 || caseId == null)
         {
             return;
         }

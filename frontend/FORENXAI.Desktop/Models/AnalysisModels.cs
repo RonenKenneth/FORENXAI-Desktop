@@ -39,6 +39,10 @@ public class AnalysisDocument
     /// packet rules, hybrid verdicts). Absent in older cases.</summary>
     [JsonPropertyName("rule_analysis")]
     public RuleAnalysis? RuleAnalysis { get; set; }
+
+    /// <summary>Every parsed packet of the capture (Dashboard packet table).</summary>
+    [JsonPropertyName("packets")]
+    public List<FORENXAI.Desktop.Services.PacketRecord> Packets { get; set; } = new();
 }
 
 

@@ -1049,6 +1049,18 @@ public class ReportThreatFinding
         ShapExplanation { get; set; }
 
 
+    [JsonPropertyName("verdict")]
+    public string? Verdict { get; set; }
+
+
+    [JsonPropertyName("verdict_source")]
+    public string? VerdictSource { get; set; }
+
+
+    [JsonPropertyName("rule_findings")]
+    public List<RuleHit>? RuleFindings { get; set; }
+
+
     [JsonPropertyName("investigator_review")]
     public InvestigatorReviewData?
         InvestigatorReview { get; set; }

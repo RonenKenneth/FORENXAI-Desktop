@@ -40,9 +40,10 @@ public class AnalysisDocument
     [JsonPropertyName("rule_analysis")]
     public RuleAnalysis? RuleAnalysis { get; set; }
 
-    /// <summary>Every parsed packet of the capture (Dashboard packet table).</summary>
-    [JsonPropertyName("packets")]
-    public List<FORENXAI.Desktop.Services.PacketRecord> Packets { get; set; } = new();
+    /// <summary>Packets in the capture. The packets themselves are served
+    /// a page at a time (GET /analysis/{case_id}/packets).</summary>
+    [JsonPropertyName("packet_count")]
+    public int PacketCount { get; set; }
 }
 
 
@@ -242,6 +243,11 @@ public class MlFinding
     [JsonPropertyName("rule_findings")]
     public List<RuleHit>? RuleFindings { get; set; }
 
+    /// <summary>Totals of the connection this flow belongs to, from the
+    /// packets (both directions). Absent in older cases.</summary>
+    [JsonPropertyName("connection")]
+    public FlowConnection? Connection { get; set; }
+
     /// <summary>
     /// Final hybrid verdict from the model and both rule tiers, and which
     /// side decided it: agree, rule, ml, conflict or abstain. Absent in
@@ -271,6 +277,21 @@ public class MlFinding
 // ============================================================
 // FLOW METADATA
 // ============================================================
+
+public class FlowConnection
+{
+    [JsonPropertyName("bytes")]
+    public long Bytes { get; set; }
+
+    [JsonPropertyName("packets")]
+    public int Packets { get; set; }
+
+    [JsonPropertyName("flags")]
+    public List<string> Flags { get; set; } = new();
+
+    [JsonPropertyName("first_time")]
+    public double FirstTime { get; set; }
+}
 
 public class FlowMetadata
 {

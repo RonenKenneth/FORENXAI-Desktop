@@ -15,6 +15,7 @@ SUITES = [
     "test_model_preprocessing.py",   # float32 scaling, model on CPU
     "test_rules.py",                 # Tier 1 flow rules
     "test_packet_rules.py",          # Tier 2 packet rules
+    "test_packet_parsing.py",        # protocol/info, padding, encryption, packet store
     "test_rag_pipeline.py",          # retrieval index
     "test_narration_rag.py",         # AI summary
     "test_recommendations.py",       # recommendations

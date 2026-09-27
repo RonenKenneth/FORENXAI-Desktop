@@ -89,6 +89,48 @@ set FORENXAI_DATA_DIR=%LOCALAPPDATA%\FORENXAI
 
 Without `FORENXAI_DATA_DIR` a source-run backend looks for cases in `backend/cases` and the app's analysis fails with "Case directory not found".
 
+### Packets, encryption and loading (28 Sep 2026)
+
+**Packets read like Wireshark.** `pcap_service.describe()` gives every packet its
+highest recognised protocol and a one-line summary of its contents: ARP ("Who has
+192.168.50.1? Tell 192.168.50.102"), DNS queries and responses, DHCP, ICMP and
+ICMPv6 message types, TLS records (Client Hello, Application Data...), SSH
+banners, HTTP request lines, TCP ports, flags, sequence numbers and payload
+length, well-known UDP services (NBNS, SSDP, MDNS...) and IP protocols (IGMP,
+GRE, ESP/AH...). ICMP is now its own transport instead of "OTHER". Tested on
+LabActivity2 (10,584 packets: TCP, ICMP, ARP, DNS, ICMPv6, IGMP, NBNS) and on
+LabActivity3 (2.55 million packets, including TLS Client Hellos, DNS, SSDP,
+WS-Discovery).
+
+**Encryption is judged on evidence.** Ethernet pads short frames to 60 bytes and
+scapy files the pad under TCP, so bare SYN/RST probes looked like 6-byte
+payloads, and any flow on port 443, 993, 22... was called encrypted. LabActivity2
+showed "15 encrypted flows, 99% inspectable"; none of the 15 carried a TLS
+record or SSH banner. Padding is now stripped (`_l4_payload`), and a flow is
+encrypted only when a TLS record, SSH banner, STARTTLS, or payload on an
+encrypted port is seen. LabActivity2: 0 encrypted flows, 100% inspectable,
+matching an independent scan of the packets.
+
+**Loading.** Packets moved out of `analysis.json` into `packets.json`, served a
+page at a time (`GET /analysis/{case_id}/packets`, filtered on the server by
+protocol, TCP flag, ML attack and text). Each flow carries its connection's
+totals (bytes, packets, flags, first time) for the Length and Info columns.
+`GET /analysis/{case_id}` streams the stored file instead of re-encoding it
+(about 20 s before, 0.16 s now); responses are gzip-compressed (43 MB to 1 MB
+on the wire, 0.58 s); the app decompresses and parses the stream directly and
+fetches each case once for the Dashboard and XAI tabs; narration and report
+requests reuse one cached parse of the file.
+
+**Verified.** An independent recomputation from the capture and the flow CSV
+matches every value shown (15 checks): packet and byte counts, protocol counts,
+flow counts, per-flow Length and Info, the four cards, Traffic classification,
+both tier charts, the hybrid source line, the rule-based attacks pie, encryption
+and inspectable share. The values read from the running app's Dashboard and
+Reports tabs are the same, and the packet filters return the expected counts
+("who has": 510; "SYN 192.168.50.104": 1,003). Model, abstain layer and
+TreeSHAP: 25/25. `test_packet_parsing.py` covers protocol/info, padding,
+encryption and the packet store.
+
 ### Statistical audit (28 Sep 2026)
 
 Every figure the app computes or quotes was recomputed independently, on the
@@ -165,7 +207,7 @@ PortScan, decided by the Tier 1 rule for 2,001 of 2,016 flows.
 | Check | Result |
 |---|---|
 | Backend import (`import app.main`) | OK |
-| `backend/run_tests.py` (7 suites: model preprocessing and CPU device, Tier 1 rules, Tier 2 packet rules, RAG index, AI summary, recommendations, all 16 classes) | 7/7 pass |
+| `backend/run_tests.py` (8 suites: model preprocessing and CPU device, Tier 1 rules, Tier 2 packet rules, packet parsing and store, RAG index, AI summary, recommendations, all 16 classes) | 8/8 pass |
 | `test_classifier.py`, `test_model_service.py`, `test_shap.py`, `test_shap_service.py` | Fail on every branch: unchanged since the first commit, they call removed functions or need a local sample CSV |
 | Desktop build (`dotnet build`) | 0 errors, 0 warnings |
 | End-to-end in the app, LabActivity2 (1.04 MB, 10,584 packets, 2,016 ML flows) | Pass: 100 MB limit (183 MB capture refused), evidence intake, progress pop-up with live step and X button, Dashboard (rule panel, Tier 2 toggle, donut, Selected threat, tables, row selection), double-click to XAI, XAI, Investigation, Reports |

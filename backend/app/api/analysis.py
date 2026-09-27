@@ -5,10 +5,12 @@ import json
 import os
 import re
 
+from fastapi.responses import FileResponse
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.pcap_service import extract_packets
+from app.services import packet_store
 from app.services.flow_service import build_flows
 from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
@@ -729,6 +731,11 @@ def start_analysis(
         # CONSTRUCT ANALYSIS JSON
         # =====================================================
 
+        packet_store.attach_connection_stats(
+            ml_findings,
+            packet_store.connection_stats(packets),
+        )
+
         analysis_result = {
 
             "case_id":
@@ -827,8 +834,10 @@ def start_analysis(
             },
 
 
-            "packets":
-                packets
+            # Packets live in packets.json, served a page at a time by
+            # GET /analysis/{case_id}/packets.
+            "packet_count":
+                len(packets)
         }
 
 
@@ -864,9 +873,14 @@ def start_analysis(
             json.dump(
                 analysis_result,
                 file,
-                indent=4,
-                ensure_ascii=False
+                ensure_ascii=False,
+                separators=(",", ":")
             )
+
+        packet_store.write_packets(
+            case_directory,
+            packets
+        )
 
 
         os.replace(
@@ -959,10 +973,6 @@ def start_analysis(
                     "total_packets"
                 ],
 
-            # Packet records are returned for the Investigation view so
-            # investigators can manually validate the XAI findings.
-            "packets":
-                packets,
 
             "total_flows":
                 len(flows),
@@ -1738,14 +1748,9 @@ def get_flow_narration(
 
     try:
 
-        with analysis_file.open(
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            analysis_data = json.load(
-                file
-            )
+        analysis_data = packet_store.read_analysis(
+            analysis_file
+        )
 
 
     except json.JSONDecodeError as error:
@@ -2040,30 +2045,44 @@ def get_analysis(
     # READ ANALYSIS JSON
     # ========================================================
 
-    try:
-
-        with analysis_file.open(
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            analysis_data = (
-                json.load(
-                    file
-                )
-            )
+    # Sent as stored: re-encoding the parsed document through FastAPI
+    # took about 20 s for a 44 MB analysis; the file itself is valid JSON
+    # (written atomically by start_analysis).
+    return FileResponse(
+        analysis_file,
+        media_type="application/json"
+    )
 
 
-    except json.JSONDecodeError as error:
+# ============================================================
+# PACKETS (paged and filtered on the server)
+# ============================================================
 
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "analysis.json contains "
-                "invalid JSON: "
-                f"{error}"
-            )
-        )
+@router.get("/{case_id}/packets")
+def get_packets(
+    case_id: str,
+    offset: int = 0,
+    limit: int = 500,
+    protocol: str = "",
+    flag: str = "",
+    attack: str = "",
+    q: str = ""
+):
+    if not re.fullmatch(r"FX-\d{8}-\d{6}", case_id):
+        raise HTTPException(status_code=400, detail="Invalid case ID.")
 
+    case_directory = get_cases_directory() / case_id
+    analysis_file = case_directory / "analysis.json"
+    if not analysis_file.exists():
+        raise HTTPException(status_code=404, detail="analysis.json not found.")
 
-    return analysis_data
+    analysis = packet_store.read_analysis(analysis_file)
+    packets = packet_store.load_packets(case_directory, analysis)
+    attacks = packet_store.attack_by_connection(
+        (analysis.get("ml_analysis") or {}).get("findings") or []
+    )
+    return packet_store.query_packets(
+        packets, attacks,
+        offset=max(0, offset), limit=max(1, min(limit, 5000)),
+        protocol=protocol, flag=flag, attack=attack, text=q
+    )

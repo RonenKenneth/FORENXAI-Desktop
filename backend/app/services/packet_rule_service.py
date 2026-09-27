@@ -55,6 +55,7 @@ from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from scapy.layers.inet6 import ICMPv6ND_NA, ICMPv6NDOptDstLLAddr, IPv6
 from scapy.layers.l2 import ARP
+from scapy.packet import Padding
 
 from app.services import rule_service as rs
 
@@ -249,7 +250,7 @@ class PacketInspector:
 
         if layer is None:
             return
-        payload = bytes(layer.payload)[: self.max_payload]
+        payload = _l4_payload(layer)[: self.max_payload]
         if not payload:
             return
         if dport in self.encrypted_ports or sport in self.encrypted_ports:
@@ -746,6 +747,15 @@ def parse_eve(eve: Path, cfg: Dict[str, Any], status: Dict[str, Any]) -> List[Di
 # attaching packet hits to CICFlowMeter rows
 # ------------------------------------------------------------------
 
+def _l4_payload(layer) -> bytes:
+    """Application bytes of a TCP/UDP segment. Ethernet pads short frames to
+    60 bytes and scapy files the pad under the transport layer; it is not
+    payload (a bare SYN/RST probe would otherwise look like 6 data bytes)."""
+    data = bytes(layer.payload)
+    pad = layer.getlayer(Padding)
+    return data[: len(data) - len(bytes(pad))] if pad is not None else data
+
+
 def attach(frame, hits: List[Dict[str, Any]], first_packet_time: Optional[float],
            encrypted_keys: set, encrypted_ports) -> Tuple[List[List[Dict[str, Any]]], List[bool], List[Dict[str, Any]]]:
     """Per CSV row: its Tier 2 hits and whether its payload is encrypted;
@@ -777,8 +787,11 @@ def attach(frame, hits: List[Dict[str, Any]], first_packet_time: Optional[float]
         def fits(candidate):
             return sum(any(start[r] - 1 <= t + candidate <= end[r] + 1 for r in index[k]) for k, t in events[:2000])
         offset = max(dict.fromkeys([offset, offset - 900.0, offset + 900.0, 0.0]), key=fits)
-    ports = set(encrypted_ports)
-    encrypted = [k in encrypted_keys or k[2] in ports or k[4] in ports for k in keys]
+    # Encrypted only on evidence: a TLS record, an SSH banner, STARTTLS, or
+    # payload on an encrypted port (record()). A flow on port 443 that
+    # carried no payload -- a scan probe -- has nothing to inspect, so it
+    # is not "encrypted, content rules not applied".
+    encrypted = [k in encrypted_keys for k in keys]
 
     per_row: List[List[Dict[str, Any]]] = [[] for _ in range(n)]
     unattached = []

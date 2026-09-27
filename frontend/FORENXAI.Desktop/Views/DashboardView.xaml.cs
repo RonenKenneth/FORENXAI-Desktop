@@ -29,7 +29,11 @@ public partial class DashboardView : UserControl
     private readonly ObservableCollection<PacketRow> packetRows = new();
     private readonly ObservableCollection<BarRow> attackLegend = new();
     private System.ComponentModel.ICollectionView? threatView;
-    private System.ComponentModel.ICollectionView? packetView;
+    private const int PacketPageSize = 1000;
+    private int packetOffset;
+    private int packetMatched;
+    private readonly System.Windows.Threading.DispatcherTimer packetSearchDelay =
+        new() { Interval = TimeSpan.FromMilliseconds(350) };
     private const string AllOption = "All";
     private readonly ObservableCollection<TrafficLegendRow> trafficLegendRows;
 
@@ -56,8 +60,11 @@ public partial class DashboardView : UserControl
         AttackEvidenceLegend.ItemsSource = attackLegend;
         threatView = System.Windows.Data.CollectionViewSource.GetDefaultView(threats);
         threatView.Filter = item => ThreatMatches((ThreatRow)item);
-        packetView = System.Windows.Data.CollectionViewSource.GetDefaultView(packetRows);
-        packetView.Filter = item => PacketMatches((PacketRow)item);
+        packetSearchDelay.Tick += async (_, _) =>
+        {
+            packetSearchDelay.Stop();
+            await LoadPacketPageAsync(resetOffset: true);
+        };
         TrafficLegendItemsControl.ItemsSource = trafficLegendRows;
 
         Tier1Bars.ItemsSource = tier1Bars;
@@ -151,7 +158,7 @@ public partial class DashboardView : UserControl
             LoadSummary();
             LoadTrafficClassification();
             LoadRulePanel();
-            LoadPackets();
+            await LoadPacketPageAsync(resetOffset: true, refreshOptions: true);
             LoadThreats();
 
 
@@ -1206,10 +1213,12 @@ public partial class DashboardView : UserControl
                     Confidence =
                         finding.Confidence,
 
-                    Time = ConnectionOf(finding.Metadata)?.FirstTime ?? finding.Metadata?.Timestamp ?? "",
+                    Time = finding.Connection != null
+                        ? FormatTime(finding.Connection.FirstTime)
+                        : finding.Metadata?.Timestamp ?? "",
                     Protocol = ProtocolName(finding.Metadata?.Protocol ?? 0),
-                    Length = ConnectionOf(finding.Metadata)?.Bytes ?? 0,
-                    Info = ConnectionOf(finding.Metadata)?.Info(finding.Metadata!) ?? "",
+                    Length = finding.Connection?.Bytes ?? 0,
+                    Info = ConnectionInfo(finding),
 
                     RuleDisplay =
                         topHit == null
@@ -1252,24 +1261,6 @@ public partial class DashboardView : UserControl
                     finding.FlowIndex);
             }
         }
-
-        var attackByConnection = new Dictionary<string, string>();
-        foreach (MlFinding finding in currentAnalysis.MlAnalysis.Findings)
-        {
-            FlowMetadata? m = finding.Metadata;
-            if (m != null && finding.PredictedClass != "Benign")
-            {
-                attackByConnection.TryAdd(
-                    ConnectionKey(m.SrcIp, m.SrcPort, m.DstIp, m.DstPort, ProtocolName(m.Protocol)),
-                    finding.PredictedClass);
-            }
-        }
-        foreach (PacketRow packet in packetRows)
-        {
-            packet.Attack = attackByConnection.GetValueOrDefault(packet.Key, "");
-        }
-        FillFilter(PacketAttackFilter, "All attacks (ML)", packetRows.Select(p => p.Attack));
-        ApplyPacketFilter();
 
         // Options list only what this capture actually contains.
         FillFilter(ThreatProtocolFilter, "All protocols", threats.Select(t => t.Protocol));
@@ -1378,8 +1369,6 @@ public partial class DashboardView : UserControl
     // split into several flows shows the whole connection's totals.
     // =========================================================
 
-    private Dictionary<string, Connection> connections = new();
-
     // Connection -> flow index of the first analysed flow on it, so a
     // double-clicked packet can open its flow in XAI.
     private Dictionary<string, int> flowByConnection = new();
@@ -1391,10 +1380,6 @@ public partial class DashboardView : UserControl
         return string.CompareOrdinal(one, two) < 0 ? $"{protocol}|{one}|{two}" : $"{protocol}|{two}|{one}";
     }
 
-    private Connection? ConnectionOf(FlowMetadata? m) =>
-        m == null ? null
-        : connections.GetValueOrDefault(ConnectionKey(m.SrcIp, m.SrcPort, m.DstIp, m.DstPort, ProtocolName(m.Protocol)));
-
     private static string ProtocolName(int number) => number switch
     {
         6 => "TCP", 17 => "UDP", 1 => "ICMP", 58 => "ICMPv6", 0 => "Other", _ => $"IP {number}",
@@ -1404,62 +1389,99 @@ public partial class DashboardView : UserControl
         DateTimeOffset.FromUnixTimeMilliseconds((long)(epochSeconds * 1000.0))
             .ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff");
 
-    private void LoadPackets()
+    // Ports, TCP flags and packet count of the flow's connection.
+    private static string ConnectionInfo(MlFinding finding)
     {
-        packetRows.Clear();
-        connections = new Dictionary<string, Connection>();
-        var packets = currentAnalysis?.Packets ?? new List<PacketRecord>();
-        foreach (var packet in packets)
+        FlowMetadata? m = finding.Metadata;
+        FlowConnection? c = finding.Connection;
+        if (m == null || c == null)
         {
-            string protocol = packet.Protocol ?? "Other";
-            var row = new PacketRow
-            {
-                Number = packet.PacketNumber,
-                Time = FormatTime(packet.Timestamp),
-                Source = packet.SourceIp ?? "",
-                SourcePort = packet.SourcePort?.ToString() ?? "",
-                Destination = packet.DestinationIp ?? "",
-                DestinationPort = packet.DestinationPort?.ToString() ?? "",
-                Protocol = protocol,
-                Length = packet.PacketLength,
-                Flags = FlagNames(packet.TcpFlags),
-                Key = packet.SourcePort.HasValue
-                    ? ConnectionKey(packet.SourceIp, packet.SourcePort, packet.DestinationIp, packet.DestinationPort, protocol)
-                    : "",
-            };
-            row.Info = packet.SourcePort.HasValue
-                ? $"{packet.SourcePort} → {packet.DestinationPort}" + (row.Flags.Length > 0 ? $" [{row.Flags}]" : "")
-                : protocol == "ARP" ? "Address resolution (link layer)" : protocol;
-            packetRows.Add(row);
-
-            if (packet.SourcePort.HasValue)
-            {
-                string key = ConnectionKey(packet.SourceIp, packet.SourcePort, packet.DestinationIp, packet.DestinationPort, protocol);
-                if (!connections.TryGetValue(key, out var c))
-                {
-                    connections[key] = c = new Connection { FirstTime = row.Time };
-                }
-                c.Packets++;
-                c.Bytes += packet.PacketLength;
-                foreach (var flag in row.Flags.Split(", ", StringSplitOptions.RemoveEmptyEntries))
-                {
-                    c.Flags.Add(flag);
-                }
-            }
+            return "";
         }
-
-        PacketCountText.Text = $"{packets.Count:N0} packets in the capture";
-        FillFilter(PacketProtocolFilter, "All protocols", packetRows.Select(p => p.Protocol));
-        FillFilter(PacketFlagFilter, "All TCP flags",
-            packetRows.SelectMany(p => p.Flags.Split(", ", StringSplitOptions.RemoveEmptyEntries)));
-        ApplyPacketFilter();
+        return $"{m.SrcPort} → {m.DstPort}"
+            + (c.Flags.Count > 0 ? $" [{string.Join(", ", c.Flags)}]" : "")
+            + $" · {c.Packets:N0} packet{(c.Packets == 1 ? "" : "s")}";
     }
 
-    private static string FlagNames(string? flags) => string.Join(", ", (flags ?? "").Select(f => f switch
+    // One page of packets, filtered on the backend. Filter options come
+    // from what the capture contains (with counts), refreshed on case load.
+    private async Task LoadPacketPageAsync(bool resetOffset, bool refreshOptions = false)
     {
-        'S' => "SYN", 'A' => "ACK", 'F' => "FIN", 'R' => "RST", 'P' => "PSH", 'U' => "URG", 'E' => "ECE", 'C' => "CWR",
-        _ => f.ToString(),
-    }));
+        string caseId = CaseIdTextBox.Text.Trim();
+        if (string.IsNullOrEmpty(caseId) || currentAnalysis == null)
+        {
+            return;
+        }
+        if (resetOffset)
+        {
+            packetOffset = 0;
+        }
+
+        PacketFilterStatusText.Text = "Loading packets...";
+        try
+        {
+            PacketPage page = await backendApi.GetPacketsAsync(
+                caseId, packetOffset, PacketPageSize,
+                Chosen(PacketProtocolFilter), Chosen(PacketFlagFilter), Chosen(PacketAttackFilter),
+                PacketSearchBox.Text.Trim());
+
+            packetRows.Clear();
+            foreach (PacketRecord packet in page.Rows)
+            {
+                packetRows.Add(new PacketRow
+                {
+                    Number = packet.PacketNumber,
+                    Time = FormatTime(packet.Timestamp),
+                    Source = packet.SourceIp ?? "",
+                    SourcePort = packet.SourcePort?.ToString() ?? "",
+                    Destination = packet.DestinationIp ?? "",
+                    DestinationPort = packet.DestinationPort?.ToString() ?? "",
+                    Protocol = packet.DisplayProtocol ?? packet.Protocol ?? "",
+                    Transport = packet.Protocol ?? "",
+                    Length = packet.PacketLength,
+                    Flags = string.Join(", ", packet.Flags ?? new List<string>()),
+                    Info = packet.Info ?? "",
+                    Attack = packet.Attack ?? "",
+                });
+            }
+
+            packetMatched = page.Matched;
+            if (refreshOptions)
+            {
+                FillFilter(PacketProtocolFilter, "All protocols", page.Protocols.Keys);
+                FillFilter(PacketFlagFilter, "All TCP flags", page.Flags.Keys);
+                FillFilter(PacketAttackFilter, "All attacks (ML)", page.Attacks.Keys);
+                PacketCountText.Text =
+                    $"{page.Total:N0} packets in the capture · "
+                    + string.Join(", ", page.Protocols.OrderByDescending(p => p.Value).Select(p => $"{p.Key} {p.Value:N0}"));
+            }
+
+            int first = page.Matched == 0 ? 0 : packetOffset + 1;
+            int last = packetOffset + packetRows.Count;
+            PacketFilterStatusText.Text = $"Showing {first:N0}–{last:N0} of {page.Matched:N0} matching ({page.Total:N0} total)";
+            PacketPrevButton.IsEnabled = packetOffset > 0;
+            PacketNextButton.IsEnabled = last < page.Matched;
+        }
+        catch (Exception ex)
+        {
+            PacketFilterStatusText.Text = "Could not load packets: " + ex.Message;
+        }
+    }
+
+    private async void PacketPrev_Click(object sender, RoutedEventArgs e)
+    {
+        packetOffset = Math.Max(0, packetOffset - PacketPageSize);
+        await LoadPacketPageAsync(resetOffset: false);
+    }
+
+    private async void PacketNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (packetOffset + PacketPageSize < packetMatched)
+        {
+            packetOffset += PacketPageSize;
+            await LoadPacketPageAsync(resetOffset: false);
+        }
+    }
 
     private static void FillFilter(ComboBox box, string allLabel, IEnumerable<string> values)
     {
@@ -1486,18 +1508,6 @@ public partial class DashboardView : UserControl
                 $"{row.FlowIndex} {row.Time} {row.Source} {row.Destination} {row.Protocol} {row.Length} {row.PredictedClass} {row.VerdictDisplay} {row.Info}");
     }
 
-    private bool PacketMatches(PacketRow row)
-    {
-        string? protocol = Chosen(PacketProtocolFilter);
-        string? flag = Chosen(PacketFlagFilter);
-        string? attack = Chosen(PacketAttackFilter);
-        return (protocol == null || row.Protocol == protocol)
-            && (flag == null || row.Flags.Split(", ").Contains(flag))
-            && (attack == null || row.Attack == attack)
-            && AllWordsIn(PacketSearchBox.Text,
-                $"{row.Number} {row.Time} {row.Source} {row.SourcePort} {row.Destination} {row.DestinationPort} {row.Protocol} {row.Length} {row.Flags} {row.Info} {row.Attack}");
-    }
-
     // Space-separated words, all of which must appear (any order, any case).
     private static bool AllWordsIn(string query, string haystack) =>
         query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -1507,12 +1517,6 @@ public partial class DashboardView : UserControl
     {
         threatView?.Refresh();
         ThreatFilterStatusText.Text = $"Showing {threatView?.Cast<object>().Count() ?? 0:N0} of {threats.Count:N0}";
-    }
-
-    private void ApplyPacketFilter()
-    {
-        packetView?.Refresh();
-        PacketFilterStatusText.Text = $"Showing {packetView?.Cast<object>().Count() ?? 0:N0} of {packetRows.Count:N0}";
     }
 
     private void ThreatFilter_Changed(object sender, RoutedEventArgs e)
@@ -1529,7 +1533,7 @@ public partial class DashboardView : UserControl
 
         int? sourcePort = int.TryParse(packet.SourcePort, out int sp) ? sp : null;
         int? destinationPort = int.TryParse(packet.DestinationPort, out int dp) ? dp : null;
-        string key = ConnectionKey(packet.Source, sourcePort, packet.Destination, destinationPort, packet.Protocol);
+        string key = ConnectionKey(packet.Source, sourcePort, packet.Destination, destinationPort, packet.Transport);
 
         if (!flowByConnection.TryGetValue(key, out int flowIndex))
         {
@@ -1553,22 +1557,20 @@ public partial class DashboardView : UserControl
         }
     }
 
-    private void PacketFilter_Changed(object sender, RoutedEventArgs e)
+    // Drop-downs reload at once; typing waits for a short pause.
+    private async void PacketFilter_Changed(object sender, RoutedEventArgs e)
     {
-        if (IsLoaded) ApplyPacketFilter();
-    }
-
-    private sealed class Connection
-    {
-        public string FirstTime { get; set; } = string.Empty;
-        public int Packets { get; set; }
-        public long Bytes { get; set; }
-        public SortedSet<string> Flags { get; } = new();
-
-        public string Info(FlowMetadata m) =>
-            $"{m.SrcPort} → {m.DstPort}"
-            + (Flags.Count > 0 ? $" [{string.Join(", ", Flags)}]" : "")
-            + $" · {Packets:N0} packet{(Packets == 1 ? "" : "s")}";
+        if (!IsLoaded || currentAnalysis == null)
+        {
+            return;
+        }
+        if (sender is TextBox)
+        {
+            packetSearchDelay.Stop();
+            packetSearchDelay.Start();
+            return;
+        }
+        await LoadPacketPageAsync(resetOffset: true);
     }
 
     private sealed class PacketRow
@@ -1583,7 +1585,7 @@ public partial class DashboardView : UserControl
         public int Length { get; set; }
         public string Flags { get; set; } = string.Empty;
         public string Info { get; set; } = string.Empty;
-        public string Key { get; set; } = string.Empty;
+        public string Transport { get; set; } = string.Empty;
         public string Attack { get; set; } = string.Empty;
     }
 

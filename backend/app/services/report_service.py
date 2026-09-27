@@ -50,16 +50,11 @@ def _build_case_report_impl(
 
     try:
 
-        with analysis_file.open(
-            "r",
-            encoding="utf-8"
-        ) as file:
+        from app.services.packet_store import read_analysis
 
-            analysis_data = (
-                json.load(
-                    file
-                )
-            )
+        analysis_data = read_analysis(
+            analysis_file
+        )
 
     except json.JSONDecodeError as error:
 

@@ -821,6 +821,10 @@
                                   ToolTip="Attack type the ML model gave the packet's flow"/>
                         <TextBox x:Name="PacketSearchBox" Width="300" Margin="8,0,0,0" Style="{StaticResource FilterBox}"
                                  ToolTip="Words separated by spaces; a row must contain all of them (IP, MAC, port, flag...)" TextChanged="PacketFilter_Changed"/>
+                        <Button x:Name="PacketPrevButton" Content="‹ Previous" Margin="12,0,0,0" Padding="12,4" Height="32"
+                                Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" Click="PacketPrev_Click" IsEnabled="False"/>
+                        <Button x:Name="PacketNextButton" Content="Next ›" Margin="6,0,0,0" Padding="12,4" Height="32"
+                                Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" Click="PacketNext_Click" IsEnabled="False"/>
                         <TextBlock x:Name="PacketFilterStatusText" Foreground="#94A3B8" FontSize="12"
                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                     </WrapPanel>
@@ -869,6 +873,7 @@
                             <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="85"/>
                             <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="75"/>
                             <DataGridTextColumn Header="TCP Flags" Binding="{Binding Flags}" Width="120"/>
+                            <DataGridTextColumn Header="Attack (ML)" Binding="{Binding Attack}" Width="120"/>
                             <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="420"/>
                         </DataGrid.Columns>
                     </DataGrid>

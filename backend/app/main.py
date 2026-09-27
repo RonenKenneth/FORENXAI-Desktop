@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.analysis import (
     router as analysis_router,
@@ -64,6 +65,13 @@ app = FastAPI(
 # ============================================================
 # ROUTERS
 # ============================================================
+
+# analysis.json is mostly repeated recommendation text: gzip cuts the
+# transfer to a small fraction.
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1024
+)
 
 app.include_router(
     analysis_router

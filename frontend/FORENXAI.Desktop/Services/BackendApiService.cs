@@ -25,7 +25,12 @@ public class BackendApiService
 
     public BackendApiService()
     {
-        _httpClient = new HttpClient
+        // The backend gzips large responses (analysis.json is mostly
+        // repeated recommendation text).
+        _httpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.All
+        })
         {
             BaseAddress = new Uri(
                 "http://127.0.0.1:8000"
@@ -159,6 +164,25 @@ public class BackendApiService
     // GET EXISTING ANALYSIS
     // ========================================================
 
+    private static string? cachedAnalysisCaseId;
+    private static AnalysisDocument? cachedAnalysis;
+
+    // =========================================================
+    // PACKETS: one filtered page from the backend
+    // =========================================================
+
+    public async Task<PacketPage> GetPacketsAsync(
+        string caseId, int offset, int limit,
+        string? protocol, string? flag, string? attack, string? text)
+    {
+        string url = $"/analysis/{Uri.EscapeDataString(caseId)}/packets?offset={offset}&limit={limit}"
+            + $"&protocol={Uri.EscapeDataString(protocol ?? "")}&flag={Uri.EscapeDataString(flag ?? "")}"
+            + $"&attack={Uri.EscapeDataString(attack ?? "")}&q={Uri.EscapeDataString(text ?? "")}";
+        using HttpResponseMessage response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PacketPage>() ?? new PacketPage();
+    }
+
     public async Task<AnalysisDocument?> GetAnalysisAsync(
         string caseId)
     {
@@ -174,16 +198,19 @@ public class BackendApiService
         }
 
 
-        HttpResponseMessage response =
+        // One analysis is shared by the Dashboard and XAI tabs: fetched
+        // once per case, then reused.
+        if (cachedAnalysis != null && cachedAnalysisCaseId == caseId)
+        {
+            return cachedAnalysis;
+        }
+
+        using HttpResponseMessage response =
             await _httpClient
                 .GetAsync(
-                    $"/analysis/{caseId}"
+                    $"/analysis/{caseId}",
+                    HttpCompletionOption.ResponseHeadersRead
                 );
-
-
-        string responseBody =
-            await response.Content
-                .ReadAsStringAsync();
 
 
         if (
@@ -194,16 +221,23 @@ public class BackendApiService
                 $"Python backend returned " +
                 $"{(int)response.StatusCode} " +
                 $"{response.StatusCode}\n\n" +
-                responseBody
+                await response.Content.ReadAsStringAsync()
             );
         }
 
 
+        // Deserialised straight from the (decompressed) stream.
         AnalysisDocument? result =
             await response.Content
                 .ReadFromJsonAsync<
                     AnalysisDocument
                 >();
+
+        if (result != null)
+        {
+            cachedAnalysisCaseId = caseId;
+            cachedAnalysis = result;
+        }
 
 
         if (result == null)
@@ -743,6 +777,21 @@ public class PacketRecord
     [JsonPropertyName("destination_port")] public int? DestinationPort { get; set; }
     [JsonPropertyName("packet_length")] public int PacketLength { get; set; }
     [JsonPropertyName("tcp_flags")] public string? TcpFlags { get; set; }
+    [JsonPropertyName("display_protocol")] public string? DisplayProtocol { get; set; }
+    [JsonPropertyName("info")] public string? Info { get; set; }
+    [JsonPropertyName("flags")] public List<string>? Flags { get; set; }
+    [JsonPropertyName("attack")] public string? Attack { get; set; }
+}
+
+public class PacketPage
+{
+    [JsonPropertyName("total")] public int Total { get; set; }
+    [JsonPropertyName("matched")] public int Matched { get; set; }
+    [JsonPropertyName("offset")] public int Offset { get; set; }
+    [JsonPropertyName("rows")] public List<PacketRecord> Rows { get; set; } = new();
+    [JsonPropertyName("protocols")] public Dictionary<string, int> Protocols { get; set; } = new();
+    [JsonPropertyName("flags")] public Dictionary<string, int> Flags { get; set; } = new();
+    [JsonPropertyName("attacks")] public Dictionary<string, int> Attacks { get; set; } = new();
 }
 
 

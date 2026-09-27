@@ -10,6 +10,11 @@ from app.services.logging_service import (
     logger,
 )
 
+from app.services.recommendation_service import (
+    rag_status,
+    start_rag_warmup,
+)
+
 
 # ============================================================
 # APPLICATION LIFESPAN
@@ -21,6 +26,11 @@ async def lifespan(app: FastAPI):
     # --------------------------------------------------------
     # STARTUP
     # --------------------------------------------------------
+    # Open the RAG index and load Qwen on a background thread. The server
+    # starts accepting requests immediately; an analysis that arrives first
+    # waits only for whatever is still loading.
+
+    start_rag_warmup()
 
     logger.info(
         "FORENXAI backend startup complete."
@@ -79,5 +89,6 @@ def root():
 @app.get("/health")
 def health():
     return {
-        "status": "healthy"
+        "status": "healthy",
+        "rag": rag_status(),
     }

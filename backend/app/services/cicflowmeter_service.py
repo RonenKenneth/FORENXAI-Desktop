@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import re
 import shutil
 import subprocess
 
@@ -12,6 +13,8 @@ from app.services.logging_service import (
 from app.utils.runtime_paths import (
     get_backend_directory,
     get_cases_directory,
+    get_java_home,
+    get_toolchain_directory,
 )
 
 # ============================================================
@@ -298,6 +301,73 @@ def _convert_pcapng_to_pcap(
 # PREPARE CICFLOWMETER INPUT
 # ============================================================
 
+# ============================================================
+# CAPTURE FORMAT AND LINK LAYER
+# ============================================================
+#
+# The format is read from the file's first bytes, not its name: a pcapng
+# saved as ".pcap" is still converted. CICFlowMeter's reader finds IP only
+# behind Ethernet (optionally VLAN-tagged) or in raw-IP captures; Linux
+# "cooked" (SLL / SLL2), BSD loopback, 802.11 and other link layers give no
+# flows at all. Such captures are rewritten into an Ethernet working copy:
+# the IP packets and their timestamps are kept, the link header is replaced.
+
+PCAPNG_MAGIC = b"\x0a\x0d\x0d\x0a"
+PCAP_MAGICS = {
+    b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4",      # microsecond
+    b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\x3c\x4d",      # nanosecond
+}
+CICFLOWMETER_LINK_TYPES = {1, 12, 14, 101}               # Ethernet, raw IP
+
+
+def _capture_format(path: Path) -> str:
+    with open(path, "rb") as stream:
+        magic = stream.read(4)
+    if magic == PCAPNG_MAGIC:
+        return "pcapng"
+    if magic in PCAP_MAGICS:
+        return "pcap"
+    raise RuntimeError(
+        "The evidence file is not a pcap or pcapng capture "
+        f"(first bytes {magic.hex()})."
+    )
+
+
+def _link_types(path: Path, probe: int = 2000) -> set[int]:
+    """Link types of the capture (every interface seen in the first
+    `probe` packets of a pcapng)."""
+    from scapy.utils import PcapReader
+
+    with PcapReader(str(path)) as reader:
+        for count, _ in enumerate(reader):
+            if count >= probe:
+                break
+        if isinstance(reader, PcapNgReader):
+            return {int(interface[0]) for interface in reader.interfaces}
+        return {int(reader.linktype)}
+
+
+def _rewrite_to_ethernet(source: Path, destination: Path) -> int:
+    """IP / IPv6 packets of any link layer, re-framed as Ethernet."""
+    from scapy.layers.inet import IP
+    from scapy.layers.inet6 import IPv6
+    from scapy.layers.l2 import Ether
+    from scapy.utils import PcapReader, PcapWriter
+
+    written = 0
+    with PcapReader(str(source)) as reader, \
+            PcapWriter(str(destination), linktype=1, sync=False) as writer:
+        for packet in reader:
+            layer = IP if IP in packet else IPv6 if IPv6 in packet else None
+            if layer is None:
+                continue
+            framed = Ether() / packet[layer]
+            framed.time = packet.time
+            writer.write(framed)
+            written += 1
+    return written
+
+
 def _prepare_input_file(
     evidence_file: Path,
     input_directory: Path
@@ -346,6 +416,42 @@ def _prepare_input_file(
     input_directory.mkdir(
         parents=True,
         exist_ok=True
+    )
+
+    capture_format = _capture_format(
+        evidence_file
+    )
+
+    link_types = _link_types(
+        evidence_file
+    )
+
+    if not link_types <= CICFLOWMETER_LINK_TYPES:
+        staged_file = (
+            input_directory
+            / (evidence_file.stem + "_ethernet.pcap")
+        )
+        print(
+            f"[FORENXAI] Link type(s) {sorted(link_types)} are not "
+            "readable by CICFlowMeter; writing an Ethernet "
+            "working copy...",
+            flush=True
+        )
+        written = _rewrite_to_ethernet(
+            evidence_file,
+            staged_file
+        )
+        print(
+            f"[FORENXAI] {written} IP packets re-framed: "
+            f"{staged_file}",
+            flush=True
+        )
+        return staged_file
+
+    extension = (
+        ".pcapng"
+        if capture_format == "pcapng"
+        else ".pcap"
     )
 
 
@@ -404,9 +510,102 @@ def _prepare_input_file(
 # BUILD NATIVE ENVIRONMENT
 # ============================================================
 
+def _java_major(java_home: Path) -> int:
+    """Major version of a JDK, or 0 when it cannot be determined.
+
+    Read from the JDK's own `release` file rather than by starting a JVM:
+    it is a one-line read instead of a process launch, and it works the
+    same on 8 (`JAVA_VERSION="1.8.0_452"`) and on 26 (`"26.0.1"`).
+    """
+    release = java_home / "release"
+
+    if release.is_file():
+        try:
+            for line in release.read_text(
+                encoding="utf-8", errors="replace"
+            ).splitlines():
+                if not line.startswith("JAVA_VERSION="):
+                    continue
+                version = line.split("=", 1)[1].strip().strip('"')
+                parts = version.split(".")
+                if parts[0] == "1" and len(parts) > 1:
+                    return int(parts[1])          # 1.8.0_452 -> 8
+                return int(parts[0].split("-")[0])
+        except (OSError, ValueError, IndexError):
+            pass
+
+    try:
+        finished = subprocess.run(
+            [str(java_home / "bin" / "java"), "-version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        blob = (finished.stderr or "") + (finished.stdout or "")
+        found = re.search(r'version "(\d+)(?:\.(\d+))?', blob)
+        if found:
+            major = int(found.group(1))
+            if major == 1 and found.group(2):
+                return int(found.group(2))
+            return major
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+
+    return 0
+
+
 def _build_environment() -> dict[str, str]:
 
     environment = os.environ.copy()
+
+    # --------------------------------------------------------
+    # Java toolchain
+    #
+    # CICFlowMeter compiles with source/target 1.8. JDK 24 removed
+    # -source 8, so a current JDK fails the build before reading a
+    # packet. A project-local JDK under tools/ is used when present,
+    # and the machine's Java is left alone either way.
+    # --------------------------------------------------------
+
+    java_home = get_java_home()
+
+    if java_home is not None:
+
+        major = _java_major(java_home)
+
+        if major >= 24:
+            raise RuntimeError(
+                "CICFlowMeter needs a JDK that still supports "
+                f"-source 8, and the one selected is Java {major}:\n"
+                f"{java_home}\n\n"
+                "JDK 24 removed -source 8, so Maven will fail with "
+                "\"Source option 8 is no longer supported\".\n\n"
+                "Unpack a JDK 8 or 11 here and it will be used "
+                "automatically, without changing the system Java:\n"
+                f"{get_toolchain_directory() / 'jdk8'}\n\n"
+                "Or point FORENXAI_JAVA_HOME at one."
+            )
+
+        environment["JAVA_HOME"] = str(java_home)
+
+        environment["PATH"] = (
+            str(java_home / "bin")
+            + os.pathsep
+            + environment.get("PATH", "")
+        )
+
+        print(
+            f"[FORENXAI] Java: {java_home} "
+            f"(major {major or 'unknown'})",
+            flush=True
+        )
+
+    else:
+        print(
+            "[FORENXAI] Java: system default "
+            "(no JDK under tools/, no JAVA_HOME)",
+            flush=True
+        )
 
     # --------------------------------------------------------
     # Verify required jNetPcap DLL
@@ -902,6 +1101,113 @@ def _run_cicflowmeter(
 # PUBLIC SERVICE FUNCTION
 # ============================================================
 
+def _describe_capture(capture: Path) -> str:
+    """A one-paragraph account of what is actually in a capture.
+
+    Only called when nothing usable came out of it, so the cost of
+    reading the file a second time buys a message the analyst can act
+    on.
+    """
+    try:
+        from scapy.all import rdpcap                  # noqa: PLC0415
+        packets = rdpcap(str(capture))
+    except Exception as error:                        # noqa: BLE001
+        return (
+            f"The capture could not be re-read for diagnosis "
+            f"({type(error).__name__}: {error})."
+        )
+
+    total = len(packets)
+
+    if total == 0:
+        return "The capture contains no packets at all."
+
+    # Flow key as CICFlowMeter forms it, so the count below is the
+    # number of flows it would have considered.
+    conversations: dict = {}
+    transport = 0
+
+    for packet in packets:
+        try:
+            layer = packet.payload.payload
+            name = layer.__class__.__name__
+            if name not in ("TCP", "UDP"):
+                continue
+            network = packet.payload
+            key = tuple(sorted([
+                (str(network.src), int(layer.sport)),
+                (str(network.dst), int(layer.dport)),
+            ])) + (name,)
+            conversations[key] = conversations.get(key, 0) + 1
+            transport += 1
+        except (AttributeError, ValueError, TypeError):
+            continue
+
+    usable = sum(
+        1 for count in conversations.values() if count > 1
+    )
+
+    summary = (
+        f"The capture holds {total} packet"
+        f"{'' if total == 1 else 's'}, "
+        f"{transport} of them TCP or UDP, forming "
+        f"{len(conversations)} conversation"
+        f"{'' if len(conversations) == 1 else 's'}, "
+        f"of which {usable} have more than one packet."
+    )
+
+    if total <= 2:
+        summary += (
+            f" A capture this small cannot produce a flow: "
+            f"the first packet of the file is "
+            f"{packets[0].summary()}."
+        )
+
+    return summary
+
+
+def _require_flow_rows(
+    csv_path: Path,
+    staged_capture: Path
+) -> None:
+    """Fail with the reason when CICFlowMeter wrote a header and no flows.
+
+    CICFlowMeter discards any flow of fewer than two packets, so a
+    capture of one packet -- a lone RST, a single beacon, a truncated
+    export -- yields the 84-column header and nothing beneath it. That
+    file is non-empty, so every size check passes and the failure only
+    surfaces later, in the classifier, as "produced no flow rows".
+    """
+    try:
+        with csv_path.open(
+            "r", encoding="utf-8", errors="replace"
+        ) as handle:
+            header = handle.readline()
+            for line in handle:
+                if line.strip():
+                    return                            # at least one flow
+    except OSError as error:
+        raise ValueError(
+            f"The CICFlowMeter CSV could not be read:\n"
+            f"{csv_path}\n{error}"
+        ) from error
+
+    columns = len(header.split(",")) if header else 0
+
+    raise ValueError(
+        "CICFlowMeter produced no flows from this capture.\n\n"
+        f"{_describe_capture(staged_capture)}\n\n"
+        "CICFlowMeter discards any flow of fewer than two packets, so "
+        "a capture needs at least one conversation with a packet in "
+        "reply -- a request and its response, or two packets of the "
+        "same TCP connection. A single packet, however valid, produces "
+        "no row.\n\n"
+        f"Capture analysed: {staged_capture}\n"
+        f"CSV written:      {csv_path} "
+        f"({columns} columns, no data rows)"
+    )
+
+
 def _generate_flow_csv_impl(
     evidence_file: Path | str,
     case_id: str
@@ -1169,7 +1475,25 @@ def _generate_flow_csv_impl(
     )
 
 
+    # --------------------------------------------------------
+    # A header-only CSV is not a usable result
+    #
+    # CICFlowMeter writes the 84-column header before it knows
+    # whether any flow will survive, so a file with bytes in it
+    # is not proof of a flow. Checking here means the analyst is
+    # told what was wrong with the capture, instead of meeting
+    # "produced no flow rows" from the classifier two steps
+    # later with nothing to act on.
+    # --------------------------------------------------------
+
+    _require_flow_rows(
+        final_csv,
+        staged_capture
+    )
+
+
     return final_csv
+
 
 # ============================================================
 # PUBLIC LOGGED SERVICE ENTRY POINT

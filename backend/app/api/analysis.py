@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 from hashlib import sha256
 import json
@@ -12,7 +13,16 @@ from app.services.flow_service import build_flows
 from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
-from app.services.recommendation_service import get_recommendation
+from app.services.rule_service import evaluate as evaluate_rules
+from app.services.rule_service import decide, load_config as load_rule_config, sort_hits
+from app.services.packet_rule_service import (
+    PacketInspector,
+    evaluate as evaluate_packet_rules,
+)
+from app.services.recommendation_service import (
+    get_recommendation,
+    warm_recommendations,
+)
 
 from app.services.logging_service import (
     logger,
@@ -63,6 +73,30 @@ class InvestigatorReviewRequest(BaseModel):
 # ============================================================
 # SHA-256
 # ============================================================
+
+def summarise_rule_hits(findings, tier):
+    """Flows flagged per class and per rule for one tier (a flow counts
+    once per class, even when several rules of that class fired)."""
+    by_class, by_rule, by_source = Counter(), Counter(), Counter()
+    flagged = 0
+    for finding in findings:
+        hits = [
+            h for h in (finding.get("rule_findings") or [])
+            if h.get("tier") == tier and h.get("rule_id") != "ALLOWLIST"
+        ]
+        if not hits:
+            continue
+        flagged += 1
+        by_class.update({h.get("class", "?") for h in hits})
+        by_rule.update({h.get("rule_id", "?") for h in hits})
+        by_source.update({h.get("source", "flow") for h in hits})
+    return {
+        "flows_flagged": flagged,
+        "by_class": dict(by_class.most_common()),
+        "by_rule": dict(by_rule.most_common()),
+        "by_source": dict(by_source),
+    }
+
 
 def calculate_sha256(
     file_path: Path
@@ -281,8 +315,26 @@ def start_analysis(
         )
 
 
+        # Tier 2 packet rules look at every packet in this same pass, so
+        # the capture is read once. A broken rules.json turns them off
+        # without stopping the analysis.
+        try:
+            inspector = PacketInspector()
+        except Exception as error:  # noqa: BLE001
+            print(
+                f"[FORENXAI] Tier 2 packet rules off "
+                f"({type(error).__name__}: {error})",
+                flush=True
+            )
+            inspector = None
+
         packets = extract_packets(
-            evidence_file
+            evidence_file,
+            on_packet=(
+                inspector.add
+                if inspector is not None
+                else None
+            )
         )
 
 
@@ -426,6 +478,86 @@ def start_analysis(
 
 
         # =====================================================
+        # SHAP EXPLAINABILITY
+        # =====================================================
+
+        print(
+            "[FORENXAI] Generating "
+            "SHAP explanations...",
+            flush=True
+        )
+
+
+        shap_result = (
+            explain_flow_csv(
+                ml_result,
+                top_n=10
+            )
+        )
+
+
+        print(
+            f"[FORENXAI] SHAP explanations: "
+            f"{shap_result['total_flows']}",
+            flush=True
+        )
+
+
+        print(
+            "[FORENXAI] SHAP "
+            "explainability complete.",
+            flush=True
+        )
+
+
+        # =====================================================
+        # RULE-BASED DETECTION
+        # =====================================================
+        #
+        # Runs beside the classifier on the same flows. None means no
+        # rule engine is configured yet; the recommendation then says the
+        # rule layer was not evaluated, rather than that nothing fired.
+
+        rule_hits = evaluate_rules(
+            str(cicflowmeter_csv),
+            ml_result.get("findings", [])
+        )
+        tier1_evaluated = rule_hits is not None
+
+        # Tier 2: the scapy checks gathered while reading the pcap, plus
+        # Suricata when it is installed, matched to the same flows.
+        tier2_hits, encrypted_flows, tier2_summary = (None, None, {
+            "error": "Tier 2 packet rules were not run."
+        })
+        if inspector is not None:
+            tier2_hits, encrypted_flows, tier2_summary = (
+                evaluate_packet_rules(
+                    evidence_file,
+                    str(cicflowmeter_csv),
+                    ml_result.get("findings", []),
+                    inspector,
+                    case_directory
+                )
+            )
+
+        try:
+            rule_config = load_rule_config()
+        except Exception:  # noqa: BLE001
+            rule_config = {}
+
+        if rule_hits is None and tier2_hits is not None:
+            rule_hits = {index: [] for index in tier2_hits}
+        if rule_hits is not None and tier2_hits:
+            rule_hits = {
+                index: sort_hits(
+                    hits + tier2_hits.get(index, []),
+                    rule_config
+                )
+                for index, hits in rule_hits.items()
+            }
+
+
+        # =====================================================
         # PHASE 15.3
         # ATTACH RESPONSE RECOMMENDATIONS
         # =====================================================
@@ -456,6 +588,55 @@ def start_analysis(
             )
 
 
+        # Generate each distinct recommendation ONCE, before the loop.
+        #
+        # Every flow that shares a class, a confidence band and the same
+        # alternative classes shares an answer, so a capture of two
+        # hundred flows is a handful of questions, not two hundred.
+        # Doing them here makes the work countable and reportable -- the
+        # loop below then costs nothing, instead of the first flow of
+        # each class silently blocking for two minutes inside it.
+        # SHAP ran above, so each flow's drivers are available here; the
+        # rule hits too. Both are attached only for the recommendation
+        # stage and removed again below, so analysis.json does not carry
+        # a second copy of the SHAP explanations.
+        top_features_per_flow = shap_result.get(
+            "top_features_per_flow", {}
+        )
+
+        for finding in ml_findings:
+            if isinstance(finding, dict):
+                index = finding.get("flow_index")
+                finding["top_features"] = top_features_per_flow.get(
+                    str(index)
+                )
+                finding["rule_findings"] = (
+                    None if rule_hits is None
+                    else rule_hits.get(index, [])
+                )
+                finding["payload_encrypted"] = (
+                    None if encrypted_flows is None
+                    else encrypted_flows.get(index)
+                )
+                verdict, source = decide(
+                    finding,
+                    finding["rule_findings"],
+                    rule_config or None
+                )
+                finding["verdict"] = verdict
+                finding["verdict_source"] = source
+
+        generated = warm_recommendations(
+            ml_findings
+        )
+
+        print(
+            f"[FORENXAI] {generated} distinct recommendation(s) "
+            f"for {len(ml_findings)} flow(s)",
+            flush=True
+        )
+
+
         for finding in ml_findings:
 
             if not isinstance(
@@ -484,9 +665,22 @@ def start_analysis(
                 )
 
 
+            # TreeSHAP runs later in the pipeline, so pass whatever
+            # drivers the finding already carries. The parameter is
+            # optional: the recommendation is grounded in the retrieved
+            # documents either way, and SHAP only tells the model which
+            # features to mention where a source explains them.
+            # The class alone is not the whole prediction. Confidence and
+            # the probability distribution decide whether the flow has a
+            # live alternative, and an alternative brings its own
+            # documents into the retrieval.
             recommendation = (
                 get_recommendation(
-                    predicted_class
+                    predicted_class,
+                    finding.get("top_features"),
+                    finding.get("confidence"),
+                    finding.get("probabilities"),
+                    finding.get("rule_findings"),
                 )
             )
 
@@ -494,6 +688,10 @@ def start_analysis(
             finding[
                 "recommendation"
             ] = recommendation
+
+            # Rule hits stay on the finding; SHAP already has its own
+            # section in the analysis document.
+            finding.pop("top_features", None)
 
 
         print(
@@ -507,39 +705,6 @@ def start_analysis(
         print(
             "[FORENXAI] Recommendation "
             "mapping complete.",
-            flush=True
-        )
-
-
-        # =====================================================
-        # SHAP EXPLAINABILITY
-        # =====================================================
-
-        print(
-            "[FORENXAI] Generating "
-            "SHAP explanations...",
-            flush=True
-        )
-
-
-        shap_result = (
-            explain_flow_csv(
-                ml_result,
-                top_n=10
-            )
-        )
-
-
-        print(
-            f"[FORENXAI] SHAP explanations: "
-            f"{shap_result['total_flows']}",
-            flush=True
-        )
-
-
-        print(
-            "[FORENXAI] SHAP "
-            "explainability complete.",
             flush=True
         )
 
@@ -577,6 +742,37 @@ def start_analysis(
 
             "flows":
                 flows,
+
+
+            "rule_analysis": {
+
+                "rules_version":
+                    rule_config.get("version"),
+
+                "sensitivity":
+                    rule_config.get("sensitivity"),
+
+                "tier1_evaluated":
+                    tier1_evaluated,
+
+                # Chart data for the Dashboard: flows flagged per
+                # class and per rule, for each tier.
+                "tier1_chart":
+                    summarise_rule_hits(ml_findings, 1),
+
+                "tier2_chart":
+                    summarise_rule_hits(ml_findings, 2),
+
+                "tier2":
+                    tier2_summary,
+
+                "verdict_sources":
+                    dict(Counter(
+                        f.get("verdict_source")
+                        for f in ml_findings
+                        if isinstance(f, dict)
+                    )),
+            },
 
 
             "ml_analysis": {
@@ -1685,8 +1881,8 @@ def get_flow_narration(
     # ========================================================
 
     print(
-        f"[FORENXAI] Generating Qwen narration "
-        f"for {case_id} / Flow {flow_index}...",
+        f"[FORENXAI] Composing explanation from the retrieved "
+        f"documents for {case_id} / Flow {flow_index}...",
         flush=True
     )
 

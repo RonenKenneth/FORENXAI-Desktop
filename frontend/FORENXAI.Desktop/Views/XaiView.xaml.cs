@@ -1,3 +1,6 @@
+using System.Windows.Data;
+using System.ComponentModel;
+using System.Collections.Generic;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -38,7 +41,7 @@ public partial class XaiView : UserControl
         shapRows =
             new ObservableCollection<ShapRow>();
 
-        ThreatDataGrid.ItemsSource =
+        ThreatList.ItemsSource =
             threats;
 
         ShapDataGrid.ItemsSource =
@@ -208,7 +211,7 @@ public partial class XaiView : UserControl
             threats.Clear();
             shapRows.Clear();
 
-            ThreatDataGrid.SelectedItem =
+            ThreatList.SelectedItem =
                 null;
 
             ShapDataGrid.SelectedItem =
@@ -223,8 +226,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                "Select a threat flow to view its SHAP explanation.";
 
             ClearRecommendationPanel();
             ClearReviewPanel();
@@ -253,7 +254,7 @@ public partial class XaiView : UserControl
         threats.Clear();
         shapRows.Clear();
 
-        ThreatDataGrid.SelectedItem =
+        ThreatList.SelectedItem =
             null;
 
         ShapDataGrid.SelectedItem =
@@ -265,8 +266,6 @@ public partial class XaiView : UserControl
         SelectedConfidenceText.Text =
             "--";
 
-        ExplanationText.Text =
-            "Select a threat flow to view its SHAP explanation.";
 
         ClearRecommendationPanel();
         ClearReviewPanel();
@@ -312,7 +311,12 @@ public partial class XaiView : UserControl
                         finding.PredictedClass,
 
                     Confidence =
-                        finding.Confidence
+                        finding.Confidence,
+
+                    TopDriver =
+                        DescribeTopDriver(
+                            finding.FlowIndex
+                        )
                 }
             );
         }
@@ -335,11 +339,14 @@ public partial class XaiView : UserControl
         }
 
 
+        ApplyThreatFilter();
+
+
         if (
             threats.Count > 0
         )
         {
-            ThreatDataGrid.SelectedIndex =
+            ThreatList.SelectedIndex =
                 0;
         }
     }
@@ -349,12 +356,12 @@ public partial class XaiView : UserControl
     // THREAT SELECTION
     // =========================================================
 
-    private void ThreatDataGrid_SelectionChanged(
+    private void ThreatList_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
     {
         if (
-            ThreatDataGrid.SelectedItem
+            ThreatList.SelectedItem
             is not ThreatRow selected
         )
         {
@@ -406,7 +413,7 @@ public partial class XaiView : UserControl
             target == null
         )
         {
-            ThreatDataGrid.SelectedItem =
+            ThreatList.SelectedItem =
                 null;
 
             ShapDataGrid.SelectedItem =
@@ -418,9 +425,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                $"Flow {flowIndex} could not be found " +
-                "in the detected threat list.";
 
             ClearRecommendationPanel();
             ClearReviewPanel();
@@ -433,11 +437,11 @@ public partial class XaiView : UserControl
         }
 
 
-        ThreatDataGrid.SelectedItem =
+        ThreatList.SelectedItem =
             target;
 
 
-        ThreatDataGrid.ScrollIntoView(
+        ThreatList.ScrollIntoView(
             target
         );
 
@@ -492,8 +496,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                "No SHAP analysis is available for this case.";
 
             return;
         }
@@ -520,8 +522,6 @@ public partial class XaiView : UserControl
             SelectedConfidenceText.Text =
                 "--";
 
-            ExplanationText.Text =
-                "No SHAP explanation was found for this flow.";
 
             return;
         }
@@ -536,10 +536,6 @@ public partial class XaiView : UserControl
             $"{explanation.Confidence:P2}";
 
 
-        ExplanationText.Text =
-            BuildExplanationText(
-                explanation
-            );
 
 
         if (
@@ -613,11 +609,13 @@ public partial class XaiView : UserControl
         }
 
 
+        ResetExplanationBullets();
+
         GenAiStatusText.Text =
             "Generating...";
 
         GenAiExplanationText.Text =
-            "Generating a grounded explanation with the local Qwen model...";
+            "Writing a summary with the local Qwen model from this flow's facts...";
 
 
         try
@@ -664,8 +662,9 @@ public partial class XaiView : UserControl
             }
 
 
-            GenAiExplanationText.Text =
-                response.Narration.Text;
+            ShowExplanation(
+                response.Narration.Text
+            );
 
 
             if (
@@ -673,14 +672,14 @@ public partial class XaiView : UserControl
             )
             {
                 GenAiStatusText.Text =
-                    "Deterministic fallback";
+                    "Facts shown as recorded";
             }
             else if (
                 response.Narration.Available
             )
             {
                 GenAiStatusText.Text =
-                    "Qwen local";
+                    "Qwen · facts verified";
             }
             else
             {
@@ -699,6 +698,8 @@ public partial class XaiView : UserControl
             }
 
 
+            ResetExplanationBullets();
+
             GenAiStatusText.Text =
                 "Unavailable";
 
@@ -709,9 +710,51 @@ public partial class XaiView : UserControl
     }
 
 
+    // Long explanations read as a list: one sentence per bullet, in a
+    // scrollable box. Two sentences or fewer stay as a paragraph.
+    private static readonly System.Text.RegularExpressions.Regex
+        SentenceBreak = new(@"(?<=[.!?])\s+(?=[A-Z(\[])");
+
+    private void ShowExplanation(
+        string text)
+    {
+        string[] sentences =
+            SentenceBreak
+                .Split(text.Trim())
+                .Select(sentence => sentence.Trim())
+                .Where(sentence => sentence.Length > 0)
+                .ToArray();
+
+        if (sentences.Length > 2)
+        {
+            GenAiExplanationText.Text = string.Empty;
+            GenAiExplanationText.Visibility = Visibility.Collapsed;
+            GenAiBulletsList.ItemsSource = sentences;
+            GenAiBulletsList.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            GenAiBulletsList.ItemsSource = null;
+            GenAiBulletsList.Visibility = Visibility.Collapsed;
+            GenAiExplanationText.Visibility = Visibility.Visible;
+            GenAiExplanationText.Text = text;
+        }
+    }
+
+
+    private void ResetExplanationBullets()
+    {
+        GenAiBulletsList.ItemsSource = null;
+        GenAiBulletsList.Visibility = Visibility.Collapsed;
+        GenAiExplanationText.Visibility = Visibility.Visible;
+    }
+
+
     private void ClearNarrationPanel()
     {
         ++narrationRequestVersion;
+
+        ResetExplanationBullets();
 
         GenAiStatusText.Text =
             "Not generated";
@@ -799,6 +842,16 @@ public partial class XaiView : UserControl
         }
 
 
+        ShowRecommendationBasis(
+            recommendation,
+            finding
+        );
+
+        ShowRecommendationProvenance(
+            recommendation
+        );
+
+
         if (
             recommendation.Actions
             == null
@@ -814,8 +867,141 @@ public partial class XaiView : UserControl
         }
 
 
+        // Prefer the cited form: the same sentence with its in-text
+        // citation appended. Falls back to the plain text for a bundle
+        // produced before citations were added.
         RecommendationActionsList.ItemsSource =
-            recommendation.Actions;
+            recommendation.ActionsCited != null
+            && recommendation.ActionsCited.Count
+                == recommendation.Actions.Count
+                ? recommendation.ActionsCited
+                : recommendation.Actions;
+
+        RecommendationActionsHeader.Text =
+            $"ACTIONS ({recommendation.Actions.Count})";
+    }
+
+
+    // =========================================================
+    // RECOMMENDATION BASIS
+    //
+    // The three inputs the recommendation was built from: the
+    // classifier's prediction, the SHAP drivers, and the rule-based
+    // detector's result, with whether the rules agree with the model.
+    // =========================================================
+
+    private void ShowRecommendationBasis(
+        RecommendationData recommendation,
+        MlFinding finding)
+    {
+        RecommendationInputs? inputs =
+            recommendation.Inputs;
+
+        double? f1 =
+            inputs?.Model?.ClassF1
+            ?? recommendation.Measured?.ClassF1;
+
+        RecModelText.Text =
+            $"XGBoost: {finding.PredictedClass}, "
+            + $"confidence {finding.Confidence:P1}"
+            + (f1 != null ? $" (class test F1 {f1:F3})" : string.Empty)
+            + (finding.Abstained
+                ? (finding.AbstainReason == "out_of_distribution"
+                    ? " -- abstained: flow is outside the training distribution"
+                    : " -- abstained: below this class's confidence threshold")
+                : string.Empty);
+
+        if (inputs?.Shap != null
+            && inputs.Shap.Count > 0)
+        {
+            RecShapText.Text =
+                string.Join(
+                    "; ",
+                    inputs.Shap.Select(
+                        driver =>
+                            $"{driver.Feature} "
+                            + (driver.TowardPrediction ? "↑" : "↓")
+                            + $" {driver.ShapValue:+0.000;-0.000}"
+                    )
+                );
+        }
+        else
+        {
+            RecShapText.Text =
+                "No SHAP drivers were available when this recommendation was generated.";
+        }
+
+        RuleInput? rules =
+            inputs?.Rules;
+
+        string agreement =
+            rules?.Agreement
+            ?? "not_evaluated";
+
+        if (rules == null
+            || rules.Status != "evaluated")
+        {
+            RecRulesText.Text =
+                "Not evaluated: no rule engine is configured yet.";
+        }
+        else if (rules.Hits.Count == 0)
+        {
+            RecRulesText.Text =
+                "Evaluated: no rule fired for this traffic.";
+        }
+        else
+        {
+            RecRulesText.Text =
+                string.Join(
+                    "\n",
+                    rules.Hits.Select(
+                        hit =>
+                            $"Tier {hit.Tier}, {hit.RuleId} ({hit.ClassName}): {hit.Evidence}"
+                    )
+                );
+        }
+
+        if (finding.PayloadEncrypted == true)
+        {
+            RecRulesText.Text +=
+                "\nPayload encrypted: content rules not applied.";
+        }
+
+        (string label, string background, string foreground) =
+            agreement switch
+            {
+                "agree" => ("Rules agree", "#14532D", "#BBF7D0"),
+                "conflict" => ("Rules disagree", "#7F1D1D", "#FECACA"),
+                "no_rule_fired" => ("Model only", "#1E3A5F", "#BFDBFE"),
+                _ => ("Rules not evaluated", "#1E293B", "#CBD5E1"),
+            };
+
+        // The hybrid verdict, when the case has one, replaces the plain
+        // agreement label: it names the final class and who decided it.
+        if (!string.IsNullOrEmpty(finding.VerdictSource))
+        {
+            (label, background, foreground) =
+                finding.VerdictSource switch
+                {
+                    "agree" => ($"Verdict {finding.Verdict}: rules agree", "#14532D", "#BBF7D0"),
+                    "rule" => ($"Verdict {finding.Verdict}: rule decided", "#78350F", "#FDE68A"),
+                    "conflict" => ($"Verdict {finding.Verdict}: rules disagree", "#7F1D1D", "#FECACA"),
+                    "abstain" => ("Uncertain: analyst review", "#1E293B", "#CBD5E1"),
+                    _ => ($"Verdict {finding.Verdict}: model only", "#1E3A5F", "#BFDBFE"),
+                };
+        }
+
+        RecAgreementText.Text = label;
+
+        RecAgreementBadge.Background =
+            (System.Windows.Media.Brush)
+            new System.Windows.Media.BrushConverter()
+                .ConvertFromString(background)!;
+
+        RecAgreementText.Foreground =
+            (System.Windows.Media.Brush)
+            new System.Windows.Media.BrushConverter()
+                .ConvertFromString(foreground)!;
     }
 
 
@@ -826,6 +1012,206 @@ public partial class XaiView : UserControl
 
         RecommendationActionsList.ItemsSource =
             null;
+
+        RecommendationVerificationText.Text =
+            string.Empty;
+
+        RecommendationSourcesText.Text =
+            string.Empty;
+
+        RecommendationActionsHeader.Text =
+            "ACTIONS";
+
+        RecModelText.Text = "--";
+        RecShapText.Text = "--";
+        RecRulesText.Text = "--";
+        RecAgreementText.Text = "--";
+    }
+
+
+    // =========================================================
+    // RECOMMENDATION PROVENANCE
+    //
+    // Every action the backend returns has already been traced
+    // to one retrieved passage; an action that could not be
+    // traced was dropped before it reached here. This shows the
+    // analyst which documents were used, so a recommendation can
+    // be checked rather than taken on trust.
+    // =========================================================
+
+    private void ShowRecommendationProvenance(
+        RecommendationData recommendation)
+    {
+        int actionCount =
+            recommendation.Actions?.Count
+            ?? 0;
+
+        string generator =
+            recommendation.Generator
+            == "qwen2.5-3b-q4.gguf"
+                ? "written by the local model from the retrieved passages"
+                : recommendation.Generator == "extraction"
+                    ? "quoted directly from the retrieved playbook"
+                    : "fixed text";
+
+        int rejected =
+            recommendation.RejectedUngrounded?.Count
+            ?? 0;
+
+        string verification =
+            actionCount == 0
+                ? "No actions were returned."
+                : $"{actionCount} action(s), {generator}. "
+                  + "Each one was matched back to a source before display.";
+
+        if (rejected > 0)
+        {
+            verification +=
+                $" {rejected} generated statement(s) could not be matched "
+                + "to a source and were discarded.";
+        }
+
+        VerificationSummary? summary =
+            recommendation.VerificationSummary;
+
+        if (summary != null
+            && summary.Generated > 0)
+        {
+            verification +=
+                $" Generated {summary.Generated}, verified {summary.Verified}, "
+                + $"dropped {summary.Dropped}."
+                + (summary.CitationCorrected > 0
+                    ? $" {summary.CitationCorrected} citation(s) corrected to the one source that supports the action."
+                    : string.Empty);
+
+            if (summary.Reasons.Count > 0)
+            {
+                verification +=
+                    " Dropped because: "
+                    + string.Join(
+                        "; ",
+                        summary.Reasons.Select(
+                            reason => $"{reason.Key} ({reason.Value})"
+                        )
+                    )
+                    + ".";
+            }
+        }
+
+        MeasuredContext? measured =
+            recommendation.Measured;
+
+        if (measured != null
+            && measured.LowConfidenceClass
+            && measured.ClassF1 != null)
+        {
+            verification +=
+                $" Classifier test F1 for this class is "
+                + $"{measured.ClassF1:F4}; treat the class itself as "
+                + "uncertain.";
+        }
+
+        if (measured != null
+            && measured.Alternatives.Count > 0)
+        {
+            var names = new List<string>();
+
+            foreach (AlternativeClass alternative in measured.Alternatives)
+            {
+                names.Add(
+                    alternative.Probability != null
+                        ? $"{alternative.ClassName} "
+                          + $"({alternative.Probability:P1})"
+                        : alternative.ClassName
+                );
+            }
+
+            verification +=
+                " This flow may instead be "
+                + string.Join(", ", names)
+                + ". The guidance below was written to hold either way, "
+                + "and that class's profile was retrieved alongside.";
+        }
+
+        if (actionCount > 0
+            && !recommendation.StandardsGrounded)
+        {
+            verification +=
+                " No action here rests on a published standard: all of "
+                + "them trace to the internal corpus, whose response "
+                + "playbooks are marked PLACEHOLDER.";
+        }
+
+        RecommendationVerificationText.Text =
+            verification;
+
+
+        var lines = new List<string>();
+
+        if (recommendation.ActionEvidence != null
+            && recommendation.ActionEvidence.Count > 0)
+        {
+            lines.Add("SOURCE FOR EACH ACTION");
+
+            for (int i = 0;
+                 i < recommendation.ActionEvidence.Count;
+                 i++)
+            {
+                ActionEvidence evidence =
+                    recommendation.ActionEvidence[i];
+
+                lines.Add(
+                    $"  {i + 1}. {evidence.Source}"
+                    + $"  [{evidence.Match}]"
+                );
+            }
+        }
+
+        if (recommendation.Controls != null
+            && recommendation.Controls.Count > 0)
+        {
+            lines.Add(
+                "NIST SP 800-53 controls: "
+                + string.Join(", ", recommendation.Controls)
+            );
+        }
+
+        if (recommendation.Mitre != null
+            && recommendation.Mitre.Count > 0)
+        {
+            lines.Add(
+                "MITRE ATT&CK: "
+                + string.Join(", ", recommendation.Mitre)
+                + "  (mappings need review)"
+            );
+        }
+
+        if (measured != null
+            && measured.Notes.Count > 0)
+        {
+            lines.Add("MEASURED FOR THIS PREDICTION");
+
+            foreach (string note in measured.Notes)
+            {
+                lines.Add("  " + note);
+            }
+        }
+
+        if (recommendation.References != null
+            && recommendation.References.Count > 0)
+        {
+            lines.Add("REFERENCES (ACM Reference Format)");
+
+            foreach (ReferenceEntry reference in recommendation.References)
+            {
+                lines.Add(
+                    $"  [{reference.Number}] {reference.Acm}"
+                );
+            }
+        }
+
+        RecommendationSourcesText.Text =
+            string.Join("\n", lines);
     }
 
 
@@ -948,7 +1334,7 @@ public partial class XaiView : UserControl
         try
         {
             if (
-                ThreatDataGrid.SelectedItem
+                ThreatList.SelectedItem
                 is not ThreatRow selected
             )
             {
@@ -1161,75 +1547,137 @@ public partial class XaiView : UserControl
     // HUMAN-READABLE SHAP SUMMARY
     // =========================================================
 
-    private static string BuildExplanationText(
-        ShapExplanation explanation)
+    // =========================================================
+    // CARD SUPPORT
+    // =========================================================
+
+    /// <summary>
+    /// The single feature TreeSHAP attributes most of this flow's
+    /// decision to, phrased for a card. Returns an empty string when
+    /// SHAP has not run, rather than inventing a driver.
+    /// </summary>
+    private string DescribeTopDriver(
+        int flowIndex)
     {
-        if (
-            explanation.Contributors
-            == null
-            ||
-            explanation.Contributors.Count
-            == 0
-        )
+        List<ShapContributor>? contributors =
+            currentAnalysis?
+                .ShapAnalysis?
+                .TopFeaturesPerFlow?
+                .GetValueOrDefault(
+                    flowIndex.ToString()
+                );
+
+        if (contributors == null
+            || contributors.Count == 0)
         {
-            return
-                "The model classified this flow as " +
-                $"{explanation.PredictedClass} with " +
-                $"{explanation.Confidence:P2} confidence, " +
-                "but no SHAP contributors were available.";
+            return string.Empty;
         }
 
+        ShapContributor top =
+            contributors[0];
 
-        ShapContributor? strongest =
-            explanation
-                .Contributors
-                .OrderByDescending(
-                    item =>
-                        Math.Abs(
-                            item.ShapValue
-                        )
-                )
-                .FirstOrDefault();
-
-
-        if (
-            strongest == null
-        )
-        {
-            return
-                $"The model classified this flow as " +
-                $"{explanation.PredictedClass} with " +
-                $"{explanation.Confidence:P2} confidence.";
-        }
-
-
-        string directionText =
-            strongest.Direction switch
-            {
-                "supports_prediction" =>
-                    "supported",
-
-                "opposes_prediction" =>
-                    "opposed",
-
-                "neutral" =>
-                    "had a neutral effect on",
-
-                _ =>
-                    "influenced"
-            };
-
+        string direction =
+            top.ShapValue >= 0
+                ? "toward"
+                : "away from";
 
         return
-            $"The model classified this network flow as " +
-            $"{explanation.PredictedClass} with " +
-            $"{explanation.Confidence:P2} confidence. " +
-            $"The strongest SHAP contributor was " +
-            $"\"{strongest.Feature}\". " +
-            $"Its observed value {directionText} " +
-            $"the predicted class. " +
-            $"The table below lists the most influential " +
-            $"features for this prediction.";
+            $"{top.Feature}  {top.ShapValue:+0.000;-0.000}  "
+            + $"({direction} this class)";
+    }
+
+
+    /// <summary>
+    /// Filter the card list by class name or flow number. Substring
+    /// matching, case-insensitive: a capture can hold hundreds of
+    /// detections and scrolling to find one is slower than typing it.
+    /// </summary>
+    private void ThreatFilterBox_TextChanged(
+        object sender,
+        TextChangedEventArgs e)
+    {
+        ApplyThreatFilter();
+    }
+
+
+    private void ApplyThreatFilter()
+    {
+        if (ThreatList == null
+            || ThreatEmptyText == null)
+        {
+            return;
+        }
+
+        string query =
+            (ThreatFilterBox?.Text ?? string.Empty)
+            .Trim();
+
+        if (ThreatFilterPlaceholder != null)
+        {
+            ThreatFilterPlaceholder.Visibility =
+                query.Length == 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+        }
+
+        ICollectionView view =
+            CollectionViewSource.GetDefaultView(
+                ThreatList.ItemsSource
+            );
+
+        if (view == null)
+        {
+            return;
+        }
+
+        if (query.Length == 0)
+        {
+            view.Filter = null;
+        }
+        else
+        {
+            view.Filter = item =>
+            {
+                if (item is not ThreatRow row)
+                {
+                    return false;
+                }
+
+                return
+                    row.PredictedClass.Contains(
+                        query,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                    || row.FlowIndex
+                        .ToString()
+                        .Contains(query);
+            };
+        }
+
+        view.Refresh();
+
+        int shown = 0;
+
+        foreach (object _ in view)
+        {
+            shown++;
+        }
+
+        ThreatEmptyText.Text =
+            shown == 0
+                ? $"No detection matches \"{query}\"."
+                : string.Empty;
+
+        ThreatList.Visibility =
+            shown == 0
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+        if (shown > 0
+            && ThreatList.SelectedItem == null)
+        {
+            ThreatList.SelectedIndex = 0;
+        }
     }
 
 
@@ -1251,6 +1699,51 @@ public partial class XaiView : UserControl
 
         public string ConfidenceDisplay =>
             $"{Confidence:P2}";
+
+
+        public string FlowLabel =>
+            $"flow {FlowIndex}";
+
+
+        /// <summary>
+        /// The feature TreeSHAP says moved this decision most. Shown on
+        /// the card so a list can be triaged without opening every one.
+        /// </summary>
+        public string TopDriver { get; set; }
+            = string.Empty;
+
+
+        /// <summary>
+        /// Width of the filled part of the confidence bar, in a fixed
+        /// 120px track. Bound rather than computed in XAML so the card
+        /// template stays declarative.
+        /// </summary>
+        public double ConfidenceBarWidth =>
+            Math.Max(
+                2.0,
+                Math.Min(1.0, Confidence) * 120.0
+            );
+
+
+        /// <summary>
+        /// Colour is a second channel only -- the class name carries the
+        /// same information in words, so the card is still readable
+        /// without it.
+        /// </summary>
+        public string SeverityBrush =>
+            PredictedClass switch
+            {
+                "Benign" => "#475569",
+
+                "DoS" or "DDoS" or "Slowloris" =>
+                    "#F97316",
+
+                "Exploitation" or "BufferOverflow" or "C2Beaconing"
+                    or "Exfiltration" or "MITM" =>
+                    "#EF4444",
+
+                _ => "#EAB308",
+            };
     }
 
 

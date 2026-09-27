@@ -84,7 +84,7 @@
             <Setter Property="BorderThickness"
                     Value="0"/>
             <Setter Property="Padding"
-                    Value="8,6"/>
+                    Value="10,7"/>
             <Setter Property="VerticalContentAlignment"
                     Value="Center"/>
             <Setter Property="FocusVisualStyle"
@@ -96,7 +96,7 @@
                               RelativeSource={RelativeSource AncestorType=DataGridRow}}"
                              Value="True">
                     <Setter Property="Background"
-                            Value="#2B5D87"/>
+                            Value="#172033"/>
                     <Setter Property="Foreground"
                             Value="White"/>
                 </DataTrigger>
@@ -105,9 +105,9 @@
                               RelativeSource={RelativeSource AncestorType=DataGridRow}}"
                              Value="True">
                     <Setter Property="Background"
-                            Value="#60A5FA"/>
+                            Value="#1E3A8A"/>
                     <Setter Property="Foreground"
-                            Value="#0F172A"/>
+                            Value="White"/>
                     <Setter Property="FontWeight"
                             Value="SemiBold"/>
                 </DataTrigger>
@@ -124,7 +124,7 @@
             <Setter Property="BorderThickness"
                     Value="0"/>
             <Setter Property="MinHeight"
-                    Value="36"/>
+                    Value="40"/>
 
             <Style.Triggers>
 
@@ -135,6 +135,152 @@
                 </Trigger>
 
             </Style.Triggers>
+        </Style>
+
+
+        <Style x:Key="PrimaryButtonStyle"
+               TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#1D4ED8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#1E40AF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#334155"/>
+                                <Setter TargetName="ButtonBorder"
+                                        Property="BorderBrush"
+                                        Value="#475569"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.40"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="InputTextBoxStyle"
+               TargetType="TextBox">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Background" Value="#0F172A"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="CaretBrush" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="SelectionBrush" Value="#2563EB"/>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="#3B82F6"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="#475569"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="GoldButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="#D4A017"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#EAB308"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#CA8A04"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
     </UserControl.Resources>
@@ -182,14 +328,8 @@
 
                 <TextBox x:Name="CaseIdTextBox"
                          Width="230"
-                         Height="38"
                          Margin="0,0,10,0"
-                         Padding="10,6"
-                         Background="#111827"
-                         Foreground="#F8FAFC"
-                         BorderBrush="#334155"
-                         BorderThickness="1"
-                         VerticalContentAlignment="Center"/>
+                         Style="{StaticResource InputTextBoxStyle}"/>
 
                 <Button x:Name="LoadReportButton"
                         Content="LOAD REPORT"
@@ -483,26 +623,34 @@
                           RowStyle="{StaticResource ReportRowStyle}"
                           CellStyle="{StaticResource ReportCellStyle}"
                           HorizontalGridLinesBrush="Transparent"
-                          VerticalGridLinesBrush="Transparent">
+                          VerticalGridLinesBrush="Transparent"
+                          EnableRowVirtualization="True"
+                          EnableColumnVirtualization="True"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
 
                     <DataGrid.ColumnHeaderStyle>
 
                         <Style TargetType="DataGridColumnHeader">
 
                             <Setter Property="Background"
-                                    Value="#1E293B"/>
+                                    Value="#0B1220"/>
 
                             <Setter Property="Foreground"
-                                    Value="#CBD5E1"/>
+                                    Value="#94A3B8"/>
 
                             <Setter Property="FontWeight"
                                     Value="SemiBold"/>
 
                             <Setter Property="Padding"
-                                    Value="8"/>
+                                    Value="12,10"/>
+
+                            <Setter Property="BorderBrush"
+                                    Value="#1E293B"/>
 
                             <Setter Property="BorderThickness"
-                                    Value="0"/>
+                                    Value="0,0,0,1"/>
 
                         </Style>
 

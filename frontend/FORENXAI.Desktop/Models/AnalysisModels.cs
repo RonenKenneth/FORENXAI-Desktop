@@ -249,3 +249,79 @@ public class ShapContributor
     [JsonPropertyName("direction")]
     public string Direction { get; set; } = string.Empty;
 }
+
+// ============================================================
+// PHASE 22 - CASE MANAGEMENT
+// ============================================================
+
+public class CaseListResponse
+{
+    [JsonPropertyName("total_cases")]
+    public int TotalCases { get; set; }
+
+    [JsonPropertyName("cases")]
+    public List<CaseSummary> Cases { get; set; } = new();
+}
+
+
+public class CaseSummary
+{
+    [JsonPropertyName("case_id")]
+    public string CaseId { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("evidence_file")]
+    public string? EvidenceFile { get; set; }
+
+    [JsonPropertyName("total_packets")]
+    public int? TotalPackets { get; set; }
+
+    [JsonPropertyName("total_flows")]
+    public int? TotalFlows { get; set; }
+
+    [JsonPropertyName("ml_total_flows")]
+    public int? MlTotalFlows { get; set; }
+
+    [JsonPropertyName("benign_flows")]
+    public int? BenignFlows { get; set; }
+
+    [JsonPropertyName("threat_flows")]
+    public int? ThreatFlows { get; set; }
+
+    [JsonPropertyName("threat_percentage")]
+    public double? ThreatPercentage { get; set; }
+
+    [JsonPropertyName("has_reviews")]
+    public bool HasReviews { get; set; }
+
+    [JsonPropertyName("analysis_exists")]
+    public bool AnalysisExists { get; set; }
+}
+
+
+public class CaseDetailsResponse
+{
+    [JsonPropertyName("case_id")]
+    public string CaseId { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("evidence_file")]
+    public string? EvidenceFile { get; set; }
+
+    [JsonPropertyName("analysis_exists")]
+    public bool AnalysisExists { get; set; }
+
+    [JsonPropertyName("has_reviews")]
+    public bool HasReviews { get; set; }
+
+    [JsonPropertyName("total_reviews")]
+    public int TotalReviews { get; set; }
+
+    [JsonPropertyName("analysis")]
+    public AnalysisDocument? Analysis { get; set; }
+}
+

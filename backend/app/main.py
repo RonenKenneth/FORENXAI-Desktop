@@ -6,6 +6,10 @@ from app.api.analysis import (
     router as analysis_router,
 )
 
+from app.api.cases import (
+    router as cases_router,
+)
+
 from app.services.logging_service import (
     logger,
 )
@@ -57,6 +61,10 @@ app = FastAPI(
 
 app.include_router(
     analysis_router
+)
+
+app.include_router(
+    cases_router
 )
 
 

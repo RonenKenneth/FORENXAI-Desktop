@@ -161,6 +161,20 @@ public partial class DashboardView : UserControl
 
     private void LoadSummary()
     {
+        // Packet and forensic-flow counts come from the original
+        // evidence-processing stages and are independent of ML.
+        TotalPacketsText.Text =
+            currentAnalysis?.TrafficSummary?.TotalPackets
+                .ToString("N0")
+            ?? "0";
+
+
+        ForensicFlowsText.Text =
+            currentAnalysis?.FlowSummary?.TotalFlows
+                .ToString("N0")
+            ?? "0";
+
+
         if (
             currentAnalysis?.MlAnalysis?.Summary
             == null
@@ -180,15 +194,15 @@ public partial class DashboardView : UserControl
 
 
         TotalFlowsText.Text =
-            summary.TotalFlows.ToString();
+            summary.TotalFlows.ToString("N0");
 
 
         BenignFlowsText.Text =
-            summary.BenignFlows.ToString();
+            summary.BenignFlows.ToString("N0");
 
 
         ThreatFlowsText.Text =
-            summary.ThreatFlows.ToString();
+            summary.ThreatFlows.ToString("N0");
 
 
         ThreatPercentageText.Text =
@@ -1185,6 +1199,14 @@ public partial class DashboardView : UserControl
         TrafficChartCanvas.Children.Clear();
 
         TrafficChartTotalText.Text =
+            "0";
+
+
+        TotalPacketsText.Text =
+            "0";
+
+
+        ForensicFlowsText.Text =
             "0";
 
 

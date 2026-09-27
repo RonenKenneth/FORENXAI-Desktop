@@ -1,7 +1,7 @@
 <UserControl x:Class="FORENXAI.Desktop.Views.XaiView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#0B1220">
+             Background="#0F172A">
 
     <UserControl.Resources>
 
@@ -117,6 +117,116 @@
 
         </Style>
 
+
+        <Style x:Key="PrimaryButtonStyle"
+               TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#1D4ED8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#1E40AF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#334155"/>
+                                <Setter TargetName="ButtonBorder"
+                                        Property="BorderBrush"
+                                        Value="#475569"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Background"
+                                        Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder"
+                                        Property="Opacity"
+                                        Value="0.40"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="InputTextBoxStyle"
+               TargetType="TextBox">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Background" Value="#0F172A"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="CaretBrush" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="SelectionBrush" Value="#2563EB"/>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="#3B82F6"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="#475569"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
     </UserControl.Resources>
 
 
@@ -135,13 +245,13 @@
                     Margin="0,0,0,20">
 
             <TextBlock Text="XAI ANALYSIS"
-                       Foreground="White"
-                       FontSize="26"
+                       Foreground="#F8FAFC"
+                       FontSize="28"
                        FontWeight="Bold"/>
 
             <TextBlock Text="Explainable AI analysis of detected network threats"
                        Foreground="#94A3B8"
-                       FontSize="14"
+                       FontSize="13"
                        Margin="0,5,0,0"/>
 
         </StackPanel>
@@ -150,7 +260,7 @@
         <!-- Case loader -->
 
         <Border Grid.Row="1"
-                Background="#151F2F"
+                Background="#111827"
                 CornerRadius="10"
                 Padding="18"
                 Margin="0,0,0,18">
@@ -175,12 +285,7 @@
 
                 <TextBox x:Name="CaseIdTextBox"
                          Grid.Column="1"
-                         Height="36"
-                         Padding="10,7"
-                         Background="#0F172A"
-                         Foreground="White"
-                         BorderBrush="#334155"
-                         BorderThickness="1"/>
+                         Style="{StaticResource InputTextBoxStyle}"/>
 
 
                 <Button Grid.Column="2"
@@ -221,7 +326,7 @@
             <!-- Threat list -->
 
             <Border Grid.Column="0"
-                    Background="#151F2F"
+                    Background="#111827"
                     CornerRadius="10"
                     Padding="16"
                     Margin="0,0,10,0">
@@ -301,7 +406,7 @@
             <!-- XAI / Recommendations / Review -->
 
             <Border Grid.Column="1"
-                    Background="#151F2F"
+                    Background="#111827"
                     CornerRadius="10"
                     Padding="18"
                     Margin="10,0,0,0">
@@ -685,15 +790,12 @@
 
 
                                 <TextBox x:Name="InvestigatorNotesTextBox"
+                                         Style="{StaticResource InputTextBoxStyle}"
                                          Height="90"
+                                         VerticalContentAlignment="Top"
                                          AcceptsReturn="True"
                                          TextWrapping="Wrap"
                                          VerticalScrollBarVisibility="Auto"
-                                         Background="#111827"
-                                         Foreground="#E2E8F0"
-                                         BorderBrush="#334155"
-                                         BorderThickness="1"
-                                         Padding="10"
                                          Margin="0,0,0,14"/>
 
 
@@ -718,12 +820,7 @@
                                             Grid.Column="1"
                                             Content="SAVE REVIEW"
                                             Width="130"
-                                            Height="36"
-                                            Background="#2563EB"
-                                            Foreground="White"
-                                            BorderThickness="0"
-                                            FontWeight="SemiBold"
-                                            Cursor="Hand"
+                                            Style="{StaticResource PrimaryButtonStyle}"
                                             Click="SaveReviewButton_Click"/>
 
                                 </Grid>

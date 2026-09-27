@@ -507,6 +507,209 @@ public class BackendApiService
         return result;
     }
 
+
+    // ========================================================
+    // PHASE 22
+    // GET CASE LIST
+    // ========================================================
+
+    public async Task<CaseListResponse?>
+        GetCasesAsync()
+    {
+        HttpResponseMessage response =
+            await _httpClient
+                .GetAsync(
+                    "/cases"
+                );
+
+
+        string responseBody =
+            await response.Content
+                .ReadAsStringAsync();
+
+
+        if (
+            !response.IsSuccessStatusCode
+        )
+        {
+            throw new Exception(
+                $"Python backend returned " +
+                $"{(int)response.StatusCode} " +
+                $"{response.StatusCode}\n\n" +
+                responseBody
+            );
+        }
+
+
+        CaseListResponse? result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    CaseListResponse
+                >();
+
+
+        if (result == null)
+        {
+            throw new Exception(
+                "Python backend returned an empty " +
+                "or invalid case-list response."
+            );
+        }
+
+
+        return result;
+    }
+
+
+    // ========================================================
+    // PHASE 22
+    // OPEN EXISTING CASE
+    // ========================================================
+
+    public async Task<CaseDetailsResponse?>
+        GetCaseDetailsAsync(
+            string caseId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(
+                caseId
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Case ID cannot be empty."
+            );
+        }
+
+
+        HttpResponseMessage response =
+            await _httpClient
+                .GetAsync(
+                    $"/cases/{caseId}"
+                );
+
+
+        string responseBody =
+            await response.Content
+                .ReadAsStringAsync();
+
+
+        if (
+            !response.IsSuccessStatusCode
+        )
+        {
+            throw new Exception(
+                $"Python backend returned " +
+                $"{(int)response.StatusCode} " +
+                $"{response.StatusCode}\n\n" +
+                responseBody
+            );
+        }
+
+
+        CaseDetailsResponse? result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    CaseDetailsResponse
+                >();
+
+
+        if (result == null)
+        {
+            throw new Exception(
+                "Python backend returned an empty " +
+                "or invalid case-detail response."
+            );
+        }
+
+
+        return result;
+    }
+
+
+    // ========================================================
+    // PHASE 22
+    // DELETE CASE
+    // ========================================================
+
+    public async Task<DeleteCaseResponse?>
+        DeleteCaseAsync(
+            string caseId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(
+                caseId
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Case ID cannot be empty."
+            );
+        }
+
+
+        HttpResponseMessage response =
+            await _httpClient
+                .DeleteAsync(
+                    $"/cases/{caseId}"
+                );
+
+
+        string responseBody =
+            await response.Content
+                .ReadAsStringAsync();
+
+
+        if (
+            !response.IsSuccessStatusCode
+        )
+        {
+            throw new Exception(
+                $"Python backend returned " +
+                $"{(int)response.StatusCode} " +
+                $"{response.StatusCode}\n\n" +
+                responseBody
+            );
+        }
+
+
+        DeleteCaseResponse? result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    DeleteCaseResponse
+                >();
+
+
+        if (result == null)
+        {
+            throw new Exception(
+                "Python backend returned an empty " +
+                "or invalid case-delete response."
+            );
+        }
+
+
+        return result;
+    }
+
+}
+
+
+// ============================================================
+// PHASE 22
+// DELETE CASE RESPONSE
+// ============================================================
+
+public class DeleteCaseResponse
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; }
+        = string.Empty;
+
+
+    [JsonPropertyName("case_id")]
+    public string CaseId { get; set; }
+        = string.Empty;
 }
 
 

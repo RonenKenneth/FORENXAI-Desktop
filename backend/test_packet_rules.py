@@ -275,6 +275,11 @@ def main():
         packets = extract_packets(path, on_packet=inspector.add)
         check("packet list keeps IP and ARP packets (ARP shown in the Investigation view)",
               len(packets) == 3 and sum(p["protocol"] == "ARP" for p in packets) == 2)
+        from app.analysis.traffic_analysis import build_traffic_summary
+        summary = build_traffic_summary(packets)
+        tops = [ip for ip, _ in summary["top_source_ips"] + summary["top_destination_ips"]]
+        check("traffic summary top-IP lists hold IP addresses only, not ARP MACs",
+              summary["total_packets"] == 3 and tops and all(ip.count(":") != 5 for ip in tops))
         check("inspector saw ARP and IP packets", inspector.packets == 3)
         check("and found both attacks",
               {h["rule_id"] for h in inspector.hits()} == {"T2-MITM-01", "T2-WEB-01"})

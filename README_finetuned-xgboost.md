@@ -489,6 +489,54 @@ and the scapy checks cover Tier 2.
   values: no labelled data was available to tune them.
 - Cases analysed before this branch show "Not in this case" in the rule panel.
 
+### Tier 2 validation: out of scope
+
+The packet-level (Tier 2) rules and the Suricata layer are implemented and
+functionally tested, but not statistically validated. Validation needs
+labelled packet captures for the same fifteen attack families the model was
+trained on. TRUSTLab publishes flow records only; its authors were asked for
+the original captures without a reply; and no public dataset covers all
+fifteen families (API attacks have none). Combining public datasets would
+cover about ten classes but mix networks and labelling methods, so it was not
+used to report figures. Safeguard: Tier 2 is advisory by design and cannot
+change a verdict; only PortScan and DoS (Tier 1, measured on held-out data)
+may. The validation procedure is the one already used for Tier 1 (split by
+capture, tune for best F1 with benign false alarms of at most 1%, test once);
+it needs only the captures.
+
+### Detection limitations per attack class
+
+| Class | Detected by | Limitation | Public labelled PCAPs |
+|---|---|---|---|
+| PortScan | Tier 1 (validated, decides); Suricata | Misses slow scans (under 50 ports per minute per source) and scans spread over several sources | Yes (CIC-IDS2017, CSE-CIC-IDS2018, CICIoT2023) |
+| DoS | Tier 1 (validated, decides); Suricata | Misses low-rate floods (under 800 flows per minute to one port); name-service ports excluded | Yes |
+| DDoS | Model; Suricata | Tier 1 rule disabled (6.7% benign false alarms); many sources each below the per-source threshold go unflagged | Yes |
+| Slowloris | Tier 1 (untuned); Suricata | Threshold untuned; only the listed web ports are checked | Yes (CIC-IDS2017) |
+| Bruteforce | Tier 1 (weak, F1 0.28); Tier 2 | Failed-login replies are readable only in plain protocols (FTP, SMTP, POP3, Telnet, HTTP); SSH and HTTPS attempts rely on counting | Yes |
+| C2Beaconing | Tier 1 (untuned); Suricata | Beacons with random jitter break the regularity test; encrypted C2 shows only timing; signatures need known malware (abuse.ch feeds unreachable from the development network) | Yes (bot traffic) |
+| Exfiltration | Tier 1 (untuned); Suricata | Only single flows over 10 MB with little return traffic; slow or split exfiltration missed; DNS-based exfiltration only through the DNS-name check | Partial (CIC-Bell-DNS-EXF-2021) |
+| DNS | Tier 1 amplification (untuned); Tier 2 tunnelling | Encrypted DNS (DoH, DoT) not visible; DNS spoofing detection not yet implemented | Partial (CICIoT2023, CIC-Bell-DNS-EXF-2021) |
+| TLSSSL | Tier 1 (untuned); Tier 2 | Only failed handshakes and outdated protocol versions; certificate problems and TLS-library exploits beyond the signatures not checked | Partial (Heartbleed in CIC-IDS2017) |
+| MITM | Tier 2 only | Only ARP, IPv6 neighbour and DHCP spoofing; Suricata does not parse ARP; DNS spoofing not yet implemented | Yes (CICIoT2023) |
+| Evasion | Tier 2; Suricata | Covers illegal flags, overlapping fragments and TTL changes; application-layer obfuscation beyond the decoders is missed | Partial (scan variants; synthetic via ID2T) |
+| WebBased | Tier 2; Suricata | Plain HTTP only; heavily obfuscated or novel payloads may evade the pattern families and signatures | Yes (CIC-IDS2017, CICIoT2023) |
+| API | Tier 2 only (counting) | No custom API signatures yet; most APIs use HTTPS, so content is usually not inspectable | None found |
+| Exploitation | Suricata only | Known exploits only; new vulnerabilities are detected only if the model flags them | Yes (UNSW-NB15) |
+| BufferOverflow | Tier 2; Suricata | Tier 1 oversized-packet rule off (0 of 16,000); NOP-sled and filler checks miss polymorphic shellcode | Yes (UNSW-NB15) |
+| Benign | Allowlist | Allowlist empty by default; "no rule fired" does not prove traffic is benign | — |
+
+General: signatures detect known attacks only; payload checks apply to
+unencrypted traffic only; thresholds depend on the network (hence adjustable
+in `rules.json`); Tier 1 could not be validated on TRUSTLab because its
+addresses and timestamps are anonymised; analysis covers only the traffic in
+the uploaded capture.
+
+Dataset coverage sources: Villafranca et al. 2026 (TRUSTLab; notes several
+families are "underrepresented in many contemporary datasets"); Neto et al.
+2023 (CICIoT2023, *Sensors* 23(13):5941); CIC-IDS2017 and CIC-Bell-DNS-EXF-2021
+(UNB dataset pages). UNSW-NB15 and Heartbleed coverage should be confirmed on
+their dataset pages before citing.
+
 ## Tier 2: improvements
 
 Status of the twelve improvements. Code is in

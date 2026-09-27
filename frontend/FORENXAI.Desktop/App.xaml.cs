@@ -9,6 +9,11 @@ public partial class App : Application
 {
     private BackendProcessService? backendProcessService;
 
+    // Restarts the backend if it has stopped since startup.
+    public static System.Threading.Tasks.Task EnsureBackendAsync() =>
+        ((App)Current).backendProcessService?.EnsureBackendRunningAsync()
+        ?? System.Threading.Tasks.Task.CompletedTask;
+
 
     // =========================================================
     // APPLICATION STARTUP

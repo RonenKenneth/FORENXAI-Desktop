@@ -43,6 +43,8 @@ public partial class EvidenceView : UserControl
     public EvidenceView()
     {
         InitializeComponent();
+        SupportedFormatsText.Text =
+            $"Supported formats: .pcap and .pcapng  •  Maximum size: {MaxEvidenceMegabytes} MB";
 
 
         backendApi =
@@ -54,10 +56,25 @@ public partial class EvidenceView : UserControl
     // BROWSE FOR PCAP / PCAPNG
     // =========================================================
 
+    // ponytail: size cap chosen, not measured; the analysis keeps every packet
+    // in memory and analysis.json grows with the flow count (88 MB for a
+    // 1 MB, 2,016-flow capture). Raise it after profiling a larger capture.
+    private const int MaxEvidenceMegabytes = 100;
+    private const long MaxEvidenceBytes = MaxEvidenceMegabytes * 1024L * 1024L;
+
     private void BrowsePcap_Click(
         object sender,
         RoutedEventArgs e)
     {
+        // The progress pop-up can be closed while the backend still runs.
+        if (analysisTimer.IsEnabled)
+        {
+            MessageBox.Show(
+                "An analysis is still running. Wait for it to finish before loading new evidence.",
+                "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         OpenFileDialog dialog =
             new OpenFileDialog
             {
@@ -83,6 +100,16 @@ public partial class EvidenceView : UserControl
             return;
         }
 
+
+        long size = new FileInfo(dialog.FileName).Length;
+        if (size > MaxEvidenceBytes)
+        {
+            MessageBox.Show(
+                $"This capture is {size / (1024.0 * 1024.0):N1} MB. FORENXAI accepts captures up to {MaxEvidenceMegabytes} MB.\n\n" +
+                "Split it into smaller files (for example with Wireshark's editcap -c) and analyze them separately.",
+                "Evidence Too Large", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
 
         selectedFilePath =
             dialog.FileName;
@@ -522,14 +549,16 @@ public partial class EvidenceView : UserControl
         panel.Children.Add(analysisViewResultsButton);
 
         analysisProgressWindow.Content = panel;
-        analysisProgressWindow.Closing += (_, eventArgs) =>
+        analysisProgressWindow.Closed += (_, _) =>
         {
-            // Do not let the user close the progress window while the
-            // backend is still running and leave the main window locked.
-            if (analysisOwnerWindow != null && !analysisOwnerWindow.IsEnabled)
+            // X hides the pop-up only: the backend keeps running and the
+            // Evidence status line reports the result when it finishes.
+            if (analysisOwnerWindow != null)
             {
-                eventArgs.Cancel = true;
+                analysisOwnerWindow.IsEnabled = true;
+                analysisOwnerWindow.Activate();
             }
+            analysisProgressWindow = null;
         };
         analysisStopwatch.Restart();
         analysisTimer.Interval = TimeSpan.FromSeconds(1);
@@ -539,12 +568,34 @@ public partial class EvidenceView : UserControl
         analysisProgressWindow.Show();
     }
 
-    private void AnalysisTimer_Tick(object? sender, EventArgs e)
+    private async void AnalysisTimer_Tick(object? sender, EventArgs e)
     {
         if (analysisElapsedText != null)
         {
             analysisElapsedText.Text =
                 $"Elapsed time: {analysisStopwatch.Elapsed:mm\\:ss}";
+        }
+
+        // Poll the backend's current pipeline step every other second.
+        if (analysisStopwatch.Elapsed.Seconds % 2 != 0)
+        {
+            return;
+        }
+        try
+        {
+            string stage = await backendApi.GetAnalysisStageAsync(caseId);
+            if (!string.IsNullOrEmpty(stage) && analysisTimer.IsEnabled)
+            {
+                if (analysisStatusText != null)
+                {
+                    analysisStatusText.Text = stage;
+                }
+                StatusText.Text = stage;
+            }
+        }
+        catch (Exception)
+        {
+            // Progress is informational; a failed poll keeps the last text.
         }
     }
 
@@ -552,6 +603,11 @@ public partial class EvidenceView : UserControl
     {
         analysisTimer.Stop();
         analysisStopwatch.Stop();
+        if (analysisProgressWindow == null)
+        {
+            // Pop-up was closed with X; results open from the Dashboard tab.
+            return;
+        }
         if (analysisProgressBar != null)
         {
             analysisProgressBar.IsIndeterminate = false;
@@ -717,6 +773,8 @@ public partial class EvidenceView : UserControl
             // =================================================
             // SEND TO PYTHON BACKEND
             // =================================================
+
+            await App.EnsureBackendAsync();
 
             AnalysisResponse? response =
                 await backendApi

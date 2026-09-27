@@ -16,7 +16,7 @@ This branch combines three lines of work into one application. Merge order,
 | Source | Added |
 |---|---|
 | `main` (Ronen Kenneth) | Production error handling and logging (`backend/app/services/logging_service.py`, logs under the data directory); warning for an empty PCAP / PCAPng; Dashboard traffic-classification donut chart by attack category; Dashboard scrolling and threat-table layout; backend process management in the desktop app |
-| ForenXAI-v3 (codexnii0) | Analysis progress pop-up with a live elapsed-time display (in the app, not the terminal); PCAP / PCAPng file metadata; Investigation view (packet list, including ARP); PCAPng reader fix; CICFlowMeter fixes (input directory, compile step, error diagnostics) |
+| ForenXAI-v3 (codexnii0) | Analysis progress pop-up with a live elapsed-time display (in the app, not the terminal); PCAP / PCAPng file metadata; Investigation view (packet list, including ARP; since emptied, see below); PCAPng reader fix; CICFlowMeter fixes (input directory, compile step, error diagnostics) |
 | `finetuned-xgboost` | Tuned 66-feature XGBoost bundle with an abstain layer (confidence thresholds + Mahalanobis out-of-distribution limit); Tier 1 flow rules and Tier 2 packet rules with Suricata; hybrid `decide()` verdict; retrieval-grounded recommendations and AI summary (22 cited sources); capture intake for any link layer; Dashboard rule-based detection panel and Rule / Verdict columns; XAI view evidence. Full detail: `README_finetuned-xgboost.md` |
 
 ### How conflicts were resolved
@@ -60,18 +60,46 @@ python ..\rag\config\rag_index.py                  # after copying the 22 source
 Place `qwen2.5-3b-q4.gguf` in `backend/models/llm/`. Without Suricata the
 analysis still runs and records "Suricata not run".
 
+### Changes after the merge (UI test round, 27 Sep 2026)
+
+Found while running the merged app end to end and fixed on this branch:
+
+| Area | Change | Files |
+|---|---|---|
+| Evidence tab | Wording "PCAP / PCAPng" in the heading and the Browse button; "Maximum size: 100 MB" under the heading; larger captures are refused with a message suggesting `editcap -c` to split them. The 100 MB cap is a chosen value, not a measured one (one constant, `MaxEvidenceMegabytes`) | `Views/EvidenceView.xaml(.cs)` |
+| Progress pop-up | Shows the backend's current step (reading packets, CICFlowMeter, XGBoost, TreeSHAP, Tier 1 / Tier 2 rules, Qwen recommendations, saving), polled every 2 s from the new `GET /analysis/{case_id}/progress`. The X button now closes the pop-up and unlocks the app while the analysis continues; the Evidence status line keeps the current step. Browse is blocked while an analysis runs | `backend/app/api/analysis.py`, `Services/BackendApiService.cs`, `Views/EvidenceView.xaml.cs` |
+| Investigation tab | Contents removed; the page shows "Coming soon." The v3 packet list is no longer shown | `Views/InvestigationView.xaml(.cs)`, `MainWindow.xaml.cs` |
+| Dashboard, rule panel | Tier 1, Tier 2 and Hybrid verdict cards have equal widths; the Tier 2 card shows one summary line, and the full Suricata / capture-level evidence moved to a collapsible "Show Tier 2 rule evidence" panel below the cards | `Views/DashboardView.xaml(.cs)` |
+| Dashboard, layout | Traffic classification and Selected threat side by side (equal halves); Detected threats and Top SHAP contributors at full width so IP addresses and feature names are not cut off; proportional column widths; SHAP values to 4 decimals; selected row shown in blue (was a white cell) | `Views/DashboardView.xaml(.cs)` |
+| Dashboard, Selected threat | Redundant OPEN XAI button removed; the card now shows flow, confidence, verdict, source, destination and explanation. Double-click a row in Detected threats to open it in XAI | `Views/DashboardView.xaml(.cs)` |
+| XAI tab | Right panel content kept clear of its scrollbar (the Confidence value was under it); inner scroll areas have a gutter; SHAP table fits without a second scrollbar, values to 4 decimals, text centred in rows | `Views/XaiView.xaml` |
+| Backend stability | The backend process crashed three times inside `xgboost.dll` (Windows error 0xC0000409) minutes after an analysis, with no request running; cause not yet found. `python run_backend.py --supervise` now restarts the server 3 s after a crash, and the app re-checks the backend before each analysis (restarting a packaged backend, or waiting up to 30 s for a supervised one) | `backend/run_backend.py`, `Services/BackendProcessService.cs`, `App.xaml.cs` |
+
+Running from source, start the backend with the app's data folder and the supervisor:
+
+```
+cd backend
+set FORENXAI_DATA_DIR=%LOCALAPPDATA%\FORENXAI
+.venv\Scripts\python.exe run_backend.py --supervise
+```
+
+Without `FORENXAI_DATA_DIR` a source-run backend looks for cases in `backend/cases` and the app's analysis fails with "Case directory not found".
+
 ### Checks on this branch
 
 | Check | Result |
 |---|---|
 | Backend import (`import app.main`) | OK |
-| `test_rules.py`, `test_packet_rules.py`, `test_rag_pipeline.py`, `test_narration_rag.py`, `test_recommendations.py --fast` | All pass |
-| Desktop build (`dotnet build`) | 0 errors |
-| End-to-end analysis in the desktop app | Not yet run on this branch |
+| `test_rules.py`, `test_packet_rules.py`, `test_rag_pipeline.py`, `test_narration_rag.py`, `test_recommendations.py`, `test_recommendations_all_classes.py` | All pass |
+| `test_classifier.py`, `test_model_service.py`, `test_shap.py`, `test_shap_service.py` | Fail on every branch: unchanged since the first commit, they call removed functions or need a local sample CSV |
+| Desktop build (`dotnet build`) | 0 errors, 0 warnings |
+| End-to-end in the app, LabActivity2 (1.04 MB, 10,584 packets, 2,016 ML flows) | Pass: 100 MB limit (183 MB capture refused), evidence intake, progress pop-up with live step and X button, Dashboard (rule panel, Tier 2 toggle, donut, Selected threat, tables, row selection), double-click to XAI, XAI, Investigation, Reports |
+| Backend supervisor | Pass: server killed on purpose, back and healthy within about 20 s |
 
 ### Next steps
 
-- Run one full analysis in the app to check the combined Dashboard (donut chart and rule panel), the progress pop-up and the Investigation view together.
+- Measure the real capture-size limit (time and memory on a larger capture such as the 183 MB LabActivity3) and set `MaxEvidenceMegabytes` from it.
+- Find the cause of the `xgboost.dll` crash (0xC0000409); the supervisor only recovers from it.
 - Open a pull request `merge-main-forenxai-v3` → `main`.
 - Open items from `finetuned-xgboost` still apply: Tier 2 statistical validation needs labelled packet captures; DNS spoofing detection, Suricata HTTP / DNS logs and custom API signatures are not yet implemented (see `README_finetuned-xgboost.md`, "Tier 2: improvements" and "Known limitations").
 

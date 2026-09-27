@@ -46,19 +46,39 @@ public sealed class BackendProcessService : IDisposable
 
     public async Task EnsureBackendRunningAsync()
     {
+        // A backend this app started and that has since crashed is
+        // released here so it can be started again below.
+        if (backendProcess != null && backendProcess.HasExited)
+        {
+            backendProcess.Dispose();
+            backendProcess = null;
+            ownsBackendProcess = false;
+        }
+
         if (
             await IsBackendHealthyAsync()
         )
         {
-            ownsBackendProcess =
-                false;
-
+            // Keep ownership of a process this app started; an external
+            // backend (for example one run from source) is never owned.
             return;
         }
 
 
-        string backendExecutable =
-            FindBackendExecutable();
+        string backendExecutable;
+        try
+        {
+            backendExecutable =
+                FindBackendExecutable();
+        }
+        catch
+        {
+            // No packaged backend: an external one (run_backend.py
+            // --supervise) may be restarting after a crash, so give it
+            // the normal startup window before reporting failure.
+            await WaitForBackendHealthAsync();
+            return;
+        }
 
 
         ProcessStartInfo startInfo =

@@ -1,9 +1,9 @@
-from app.main import app
-
-import uvicorn
-
-
 def main():
+    # Imported here so the --supervise parent stays a light process.
+    import uvicorn
+
+    from app.main import app
+
     print(
         "========================================",
         flush=True
@@ -33,5 +33,29 @@ def main():
     )
 
 
+def supervise():
+    # Native crashes (for example 0xC0000409 inside xgboost.dll) kill the
+    # whole interpreter, so a try/except cannot catch them. Run the server
+    # as a child and start it again whenever it dies with an error.
+    import subprocess
+    import sys
+    import time
+
+    while True:
+        code = subprocess.call([sys.executable, __file__])
+        if code == 0:
+            return
+        print(
+            f"[FORENXAI] Backend exited with code {code}; restarting in 3 s...",
+            flush=True
+        )
+        time.sleep(3)
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if "--supervise" in sys.argv:
+        supervise()
+    else:
+        main()

@@ -57,6 +57,19 @@ public class BackendApiService
 
 
     // ========================================================
+    // ANALYSIS PROGRESS
+    // ========================================================
+
+    public async Task<string> GetAnalysisStageAsync(string caseId)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(
+            await _httpClient.GetStringAsync(
+                $"/analysis/{Uri.EscapeDataString(caseId)}/progress"));
+        return document.RootElement.GetProperty("stage").GetString() ?? "";
+    }
+
+
+    // ========================================================
     // START FORENSIC ANALYSIS
     // ========================================================
 

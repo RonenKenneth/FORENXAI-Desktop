@@ -128,6 +128,15 @@ def calculate_sha256(
 # START ANALYSIS
 # ============================================================
 
+# Current pipeline step per case, polled by the desktop progress window.
+ANALYSIS_STAGES: dict[str, str] = {}
+
+
+@router.get("/{case_id}/progress")
+def get_analysis_progress(case_id: str):
+    return {"case_id": case_id, "stage": ANALYSIS_STAGES.get(case_id, "")}
+
+
 @router.post("/start")
 def start_analysis(
     request: AnalysisRequest
@@ -328,6 +337,7 @@ def start_analysis(
             )
             inspector = None
 
+        ANALYSIS_STAGES[request.case_id] = "Reading packets from the capture (Tier 2 packet checks)..."
         packets = extract_packets(
             evidence_file,
             on_packet=(
@@ -374,6 +384,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Building network flows..."
         flows = build_flows(
             packets
         )
@@ -397,6 +408,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Extracting flow features with CICFlowMeter..."
         cicflowmeter_csv = (
             generate_flow_csv(
                 evidence_file=evidence_file,
@@ -423,6 +435,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Classifying flows with XGBoost..."
         ml_result = (
             classify_flow_csv(
                 cicflowmeter_csv
@@ -488,6 +501,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Computing TreeSHAP explanations..."
         shap_result = (
             explain_flow_csv(
                 ml_result,
@@ -518,6 +532,7 @@ def start_analysis(
         # rule engine is configured yet; the recommendation then says the
         # rule layer was not evaluated, rather than that nothing fired.
 
+        ANALYSIS_STAGES[request.case_id] = "Running Tier 1 flow rules and Tier 2 Suricata rules..."
         rule_hits = evaluate_rules(
             str(cicflowmeter_csv),
             ml_result.get("findings", [])
@@ -626,6 +641,7 @@ def start_analysis(
                 finding["verdict"] = verdict
                 finding["verdict_source"] = source
 
+        ANALYSIS_STAGES[request.case_id] = "Writing recommendations with the local Qwen model (slowest step)..."
         generated = warm_recommendations(
             ml_findings
         )
@@ -820,6 +836,7 @@ def start_analysis(
         # WRITE ANALYSIS SAFELY
         # =====================================================
 
+        ANALYSIS_STAGES[request.case_id] = "Saving analysis results..."
         analysis_file = (
             case_directory
             / "analysis.json"

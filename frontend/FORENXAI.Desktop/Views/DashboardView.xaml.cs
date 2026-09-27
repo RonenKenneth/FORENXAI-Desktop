@@ -56,7 +56,6 @@ public partial class DashboardView : UserControl
         Tier2Bars.ItemsSource = tier2Bars;
         VerdictLegend.ItemsSource = verdictLegend;
 
-        OpenXaiButton.IsEnabled = false;
 
         ResetDashboard();
     }
@@ -117,7 +116,6 @@ public partial class DashboardView : UserControl
             StatusText.Text =
                 "Loading case...";
 
-            OpenXaiButton.IsEnabled = false;
 
             threats.Clear();
             shapRows.Clear();
@@ -270,8 +268,24 @@ public partial class DashboardView : UserControl
         Tier1SummaryText.Text = "--";
         Tier2SummaryText.Text = "--";
         Tier2StatusText.Text = string.Empty;
+        Tier2DetailsText.Text = string.Empty;
+        Tier2DetailsPanel.Visibility = Visibility.Collapsed;
         VerdictSummaryText.Text = "--";
         RulesVersionText.Text = string.Empty;
+    }
+
+    private void Tier2DetailsToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        Tier2DetailsBody.Visibility = Tier2DetailsToggle.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        UpdateTier2DetailsHeader();
+    }
+
+    private void UpdateTier2DetailsHeader()
+    {
+        Tier2DetailsHeader.Text = (Tier2DetailsToggle.IsChecked == true ? "▾ Hide" : "▸ Show")
+            + " Tier 2 rule evidence";
     }
 
     private static void FillBars(
@@ -350,29 +364,45 @@ public partial class DashboardView : UserControl
                 + (captureLevel > 0 ? $"; {captureLevel} capture-level hit(s)" : string.Empty);
             FillBars(tier2Bars, rules.Tier2Chart, total);
 
-            string suricata = tier2.Suricata == null
+            // Card keeps one short line; the full evidence goes to the
+            // collapsible panel under the three cards.
+            Tier2StatusText.Text = tier2.Suricata == null
                 ? "Suricata: unknown"
                 : tier2.Suricata.Ran
-                    ? $"Suricata ran: {tier2.Suricata.Alerts:N0} alerts, "
-                      + $"{tier2.Suricata.Mapped:N0} mapped to classes"
+                    ? $"Suricata: {tier2.Suricata.Alerts:N0} alerts · {tier2.Suricata.Mapped:N0} mapped"
+                      + (tier2.InspectableShare == null ? string.Empty : $" · {tier2.InspectableShare:P0} inspectable")
+                    : "Suricata not run";
+
+            var details = new List<string>();
+            if (tier2.Suricata != null)
+            {
+                details.Add(tier2.Suricata.Ran
+                    ? $"Suricata ran: {tier2.Suricata.Alerts:N0} alerts, {tier2.Suricata.Mapped:N0} mapped to classes"
                       + (tier2.Suricata.Ignored > 0 ? $", {tier2.Suricata.Ignored:N0} ignored (checksum offload)" : string.Empty)
-                    : $"Suricata not run: {tier2.Suricata.Reason}";
-            string coverage = tier2.InspectableShare == null
-                ? string.Empty
-                : $"\nPayload inspectable: {tier2.InspectableShare:P1} of flows"
-                  + $" ({tier2.EncryptedFlows ?? 0:N0} encrypted: content rules not applied)";
+                    : $"Suricata not run: {tier2.Suricata.Reason}");
+            }
+            if (tier2.InspectableShare != null)
+            {
+                details.Add($"Payload inspectable: {tier2.InspectableShare:P1} of flows"
+                    + $" ({tier2.EncryptedFlows ?? 0:N0} encrypted: content rules not applied)");
+            }
             // Hits that belong to the capture rather than one flow (for
             // example ARP spoofing with no matching flow), with evidence.
-            string captureHits = (tier2.CaptureLevelHits?.Count ?? 0) == 0
-                ? string.Empty
-                : "\nCapture-level:\n" + string.Join("\n",
-                    tier2.CaptureLevelHits!.Take(5).Select(
-                        hit => $"• {hit.ClassName}: {hit.Evidence}"));
-            string unmapped = (tier2.Suricata?.UnmappedSignatures.Count ?? 0) == 0
-                ? string.Empty
-                : "\nSuricata alerts with no class: "
-                  + string.Join("; ", tier2.Suricata!.UnmappedSignatures.Take(3));
-            Tier2StatusText.Text = suricata + coverage + captureHits + unmapped;
+            if (captureLevel > 0)
+            {
+                details.Add("\nCapture-level hits:");
+                details.AddRange(tier2.CaptureLevelHits!.Select(
+                    hit => $"• {hit.ClassName}: {hit.Evidence}"));
+            }
+            if ((tier2.Suricata?.UnmappedSignatures.Count ?? 0) > 0)
+            {
+                details.Add("\nSuricata alerts with no class:");
+                details.AddRange(tier2.Suricata!.UnmappedSignatures.Select(name => $"• {name}"));
+            }
+            Tier2DetailsText.Text = string.Join("\n", details);
+            Tier2DetailsPanel.Visibility = details.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            Tier2DetailsToggle.IsChecked = false;
+            UpdateTier2DetailsHeader();
         }
 
         // Hybrid verdict source
@@ -1136,7 +1166,6 @@ public partial class DashboardView : UserControl
             is not ThreatRow selectedThreat
         )
         {
-            OpenXaiButton.IsEnabled = false;
 
             ClearSelectedThreat();
 
@@ -1144,7 +1173,6 @@ public partial class DashboardView : UserControl
         }
 
 
-        OpenXaiButton.IsEnabled = true;
 
 
         SelectedThreatClassText.Text =
@@ -1157,6 +1185,10 @@ public partial class DashboardView : UserControl
 
         SelectedConfidenceText.Text =
             selectedThreat.ConfidenceDisplay;
+
+        SelectedVerdictText.Text = selectedThreat.VerdictDisplay;
+        SelectedSourceText.Text = selectedThreat.Source;
+        SelectedDestinationText.Text = selectedThreat.Destination;
 
 
         LoadShapExplanation(
@@ -1290,9 +1322,9 @@ public partial class DashboardView : UserControl
     // OPEN SELECTED THREAT IN XAI
     // =========================================================
 
-    private void OpenXai_Click(
+    private void ThreatDataGrid_MouseDoubleClick(
         object sender,
-        RoutedEventArgs e)
+        System.Windows.Input.MouseButtonEventArgs e)
     {
         // ---------------------------------------------
         // Make sure a threat is selected
@@ -1395,6 +1427,10 @@ public partial class DashboardView : UserControl
         SelectedExplanationText.Text =
             "Select a row below";
 
+        SelectedVerdictText.Text = "--";
+        SelectedSourceText.Text = "--";
+        SelectedDestinationText.Text = "--";
+
 
         shapRows.Clear();
     }
@@ -1455,9 +1491,11 @@ public partial class DashboardView : UserControl
         SelectedExplanationText.Text =
             "Select a row below";
 
+        SelectedVerdictText.Text = "--";
+        SelectedSourceText.Text = "--";
+        SelectedDestinationText.Text = "--";
 
-        OpenXaiButton.IsEnabled =
-            false;
+
     }
 
 

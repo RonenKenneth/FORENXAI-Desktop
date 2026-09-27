@@ -67,7 +67,7 @@
                             HorizontalAlignment="Center"/>
 
                         <TextBlock
-                            Text="Select a PCAP file for forensic analysis"
+                            Text="Select a PCAP / PCAPng file for forensic analysis"
                             Foreground="#F8FAFC"
                             FontSize="20"
                             FontWeight="SemiBold"
@@ -75,6 +75,7 @@
                             Margin="0,10,0,5"/>
 
                         <TextBlock
+                            x:Name="SupportedFormatsText"
                             Text="Supported formats: .pcap and .pcapng"
                             Foreground="#94A3B8"
                             FontSize="13"
@@ -82,8 +83,8 @@
                             Margin="0,0,0,20"/>
 
                         <Button
-                            Content="BROWSE PCAP FILE"
-                            Width="220"
+                            Content="BROWSE PCAP / PCAPng FILE"
+                            Width="280"
                             Height="45"
                             Background="#2563EB"
                             Foreground="White"

@@ -83,6 +83,19 @@
             <Setter Property="FocusVisualStyle"
                     Value="{x:Null}"/>
 
+            <!-- The default cell template ignores Padding and vertical
+                 alignment; this one centres the text in the row. -->
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+
             <Style.Triggers>
 
                 <DataTrigger Binding="{Binding IsMouseOver,
@@ -512,7 +525,8 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
 
-                    <Grid>
+                    <!-- Right margin keeps the scrollbar off the content -->
+                    <Grid Margin="0,0,16,0">
 
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -622,7 +636,7 @@
                                         CornerRadius="6"
                                         Padding="12">
 
-                                    <ScrollViewer MaxHeight="240"
+                                    <ScrollViewer Padding="0,0,12,0" MaxHeight="240"
                                                   VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled">
 
@@ -678,7 +692,8 @@
 
                             <DataGrid x:Name="ShapDataGrid"
                                       Grid.Row="1"
-                                      MaxHeight="320"
+                                      RowHeight="30"
+                                      MaxHeight="360"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       CanUserAddRows="False"
@@ -708,19 +723,19 @@
 
                                     <DataGridTextColumn Header="Feature"
                                                         Binding="{Binding Feature}"
-                                                        Width="*"/>
+                                                        Width="2*"/>
 
                                     <DataGridTextColumn Header="Observed Value"
-                                                        Binding="{Binding RawValue}"
-                                                        Width="125"/>
+                                                        Binding="{Binding RawValue, StringFormat={}{0:G6}}"
+                                                        Width="*"/>
 
                                     <DataGridTextColumn Header="SHAP Value"
-                                                        Binding="{Binding ShapValue}"
-                                                        Width="110"/>
+                                                        Binding="{Binding ShapValue, StringFormat={}{0:+0.0000;-0.0000}}"
+                                                        Width="*"/>
 
                                     <DataGridTextColumn Header="Direction"
                                                         Binding="{Binding DirectionDisplay}"
-                                                        Width="150"/>
+                                                        Width="*"/>
 
                                 </DataGrid.Columns>
 
@@ -861,7 +876,7 @@
                                            FontWeight="Bold"
                                            Margin="0,0,0,6"/>
 
-                                <ScrollViewer MaxHeight="300"
+                                <ScrollViewer Padding="0,0,12,0" MaxHeight="300"
                                               VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Disabled">
 
@@ -888,7 +903,7 @@
                                             Padding="12"
                                             Margin="0,8,0,0">
 
-                                        <ScrollViewer MaxHeight="260"
+                                        <ScrollViewer Padding="0,0,12,0" MaxHeight="260"
                                                       VerticalScrollBarVisibility="Auto"
                                                       HorizontalScrollBarVisibility="Disabled">
 

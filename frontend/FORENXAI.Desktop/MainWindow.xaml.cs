@@ -100,12 +100,7 @@ public partial class MainWindow : Window
 
     private void Investigation_Click(object sender, RoutedEventArgs e)
     {
-        if (CurrentAnalysis == null)
-        {
-            MessageBox.Show("Analyze evidence first to view packet details.", "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        MainContent.Content = new InvestigationView(CurrentAnalysis);
+        MainContent.Content = new InvestigationView();
         SetActiveNavigation(InvestigationButton);
     }
 

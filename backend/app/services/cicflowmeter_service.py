@@ -708,17 +708,20 @@ def _run_cicflowmeter(
     # with this CICFlowMeter source build.
     # --------------------------------------------------------
 
+    # CICFlowMeter's Cmd entry point expects an input DIRECTORY containing
+    # captures, not the individual capture path. Passing the file directly
+    # can report that it found a PCAP but still produce no CSV.
+    input_directory = staged_capture.parent
+
     try:
         input_argument = str(
-            staged_capture.relative_to(
+            input_directory.relative_to(
                 CICFLOWMETER_ROOT
             )
         )
 
     except ValueError:
-        input_argument = str(
-            staged_capture
-        )
+        input_argument = str(input_directory)
 
 
     try:
@@ -740,6 +743,11 @@ def _run_cicflowmeter(
 
     command = [
         str(MAVEN_EXECUTABLE),
+
+        # Compile the source tree before invoking Cmd.  exec:java alone does
+        # not compile this checkout, which leaves Cmd.class absent and causes
+        # ClassNotFoundException on a fresh project.
+        "compile",
 
         "exec:java",
 
@@ -836,13 +844,20 @@ def _run_cicflowmeter(
     # even if Maven later returns a non-zero code.
     # --------------------------------------------------------
 
-    generated_csv = (
-        _find_generated_csv(
+    try:
+        generated_csv = _find_generated_csv(
             output_directory,
             staged_capture,
             result.returncode
         )
-    )
+    except RuntimeError as error:
+        # The desktop dialog otherwise only shows "no CSV" and hides the
+        # Java/jNetPcap diagnostic that explains why CICFlowMeter stopped.
+        diagnostics = "\n\nCICFlowMeter stdout/stderr:\n"
+        diagnostics += (result.stdout or "").strip()
+        diagnostics += "\n"
+        diagnostics += (result.stderr or "").strip()
+        raise RuntimeError(str(error) + diagnostics) from error
 
 
     if result.returncode != 0:

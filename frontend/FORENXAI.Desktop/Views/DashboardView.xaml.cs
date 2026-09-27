@@ -16,6 +16,7 @@ namespace FORENXAI.Desktop.Views;
 
 public partial class DashboardView : UserControl
 {
+    private string fileMetadata = string.Empty;
     // =========================================================
     // SERVICES / STATE
     // =========================================================
@@ -128,6 +129,11 @@ public partial class DashboardView : UserControl
 
             CaseIdTextBox.Text = caseId;
 
+            fileMetadata =
+                $"{currentAnalysis.FileName}  •  {FormatFileSize(currentAnalysis.FileSize)}  •  SHA-256: {currentAnalysis.Sha256}";
+            FileMetadataText.Text = fileMetadata;
+            CopyMetadataButton.IsEnabled = true;
+
 
             LoadSummary();
             LoadTrafficClassification();
@@ -152,6 +158,20 @@ public partial class DashboardView : UserControl
                 MessageBoxImage.Error
             );
         }
+    }
+
+    private void CopyMetadata_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(fileMetadata)) return;
+        Clipboard.SetText(fileMetadata);
+        StatusText.Text = "File metadata copied";
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.##} KB";
+        return $"{bytes / (1024.0 * 1024.0):0.##} MB";
     }
 
 

@@ -5,7 +5,10 @@ from scapy.all import (
     IPv6,
     TCP,
     UDP,
-    PcapReader
+    PcapReader,
+    PcapNgReader,
+    Ether,
+    ARP
 )
 
 
@@ -22,7 +25,10 @@ def extract_packets(
 
     packet_number = 0
 
-    with PcapReader(str(pcap_path)) as reader:
+    # PCAPNG requires Scapy's native reader.  PcapReader may open the file
+    # without raising, but yield no packets for some PCAPNG captures.
+    reader_type = PcapNgReader if pcap_path.suffix.lower() == ".pcapng" else PcapReader
+    with reader_type(str(pcap_path)) as reader:
 
         for packet in reader:
 
@@ -69,6 +75,26 @@ def extract_packets(
                 )
 
             else:
+                # Keep link-layer packets (for example ARP) in the packet
+                # list used by Investigation. They are not IP flows, so
+                # flow_service will ignore them because they have no ports.
+                if Ether in packet:
+                    source_ip = str(packet[Ether].src)
+                    destination_ip = str(packet[Ether].dst)
+                protocol = "ARP" if ARP in packet else "OTHER"
+                packet_data = {
+                    "packet_number": int(packet_number),
+                    "timestamp": float(packet.time),
+                    "source_ip": source_ip,
+                    "destination_ip": destination_ip,
+                    "protocol": protocol,
+                    "protocol_number": 0,
+                    "source_port": None,
+                    "destination_port": None,
+                    "packet_length": int(len(packet)),
+                    "tcp_flags": ""
+                }
+                packets_data.append(packet_data)
                 continue
 
 

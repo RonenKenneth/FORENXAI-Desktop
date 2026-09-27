@@ -257,13 +257,25 @@
                     Grid.Row="3"
                     Content="START FORENSIC ANALYSIS"
                     Height="55"
-                    Background="#16A34A"
-                    Foreground="White"
                     BorderThickness="0"
                     FontSize="15"
                     FontWeight="Bold"
                     IsEnabled="False"
-                    Click="StartAnalysis_Click"/>
+                    Visibility="Collapsed"
+                    Click="StartAnalysis_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#16A34A"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Background" Value="#172033"/>
+                                    <Setter Property="Foreground" Value="#94A3B8"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
 
             </Grid>
 

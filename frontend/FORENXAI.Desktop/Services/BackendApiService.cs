@@ -707,6 +707,22 @@ public class AnalysisResponse
     [JsonPropertyName("message")]
     public string Message { get; set; }
         = string.Empty;
+
+    [JsonPropertyName("packets")]
+    public List<PacketRecord> Packets { get; set; } = new();
+}
+
+public class PacketRecord
+{
+    [JsonPropertyName("packet_number")] public int PacketNumber { get; set; }
+    [JsonPropertyName("timestamp")] public double Timestamp { get; set; }
+    [JsonPropertyName("source_ip")] public string? SourceIp { get; set; }
+    [JsonPropertyName("destination_ip")] public string? DestinationIp { get; set; }
+    [JsonPropertyName("protocol")] public string? Protocol { get; set; }
+    [JsonPropertyName("source_port")] public int? SourcePort { get; set; }
+    [JsonPropertyName("destination_port")] public int? DestinationPort { get; set; }
+    [JsonPropertyName("packet_length")] public int PacketLength { get; set; }
+    [JsonPropertyName("tcp_flags")] public string? TcpFlags { get; set; }
 }
 
 

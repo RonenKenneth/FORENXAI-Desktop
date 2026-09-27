@@ -1197,13 +1197,13 @@ public partial class DashboardView : UserControl
                     FlowIndex =
                         finding.FlowIndex,
 
-                    Source =
-                        BuildSourceText(
+                    Source = finding.PseudoFlow ? NonIpLabel
+                        : BuildSourceText(
                             finding.Metadata
                         ),
 
-                    Destination =
-                        BuildDestinationText(
+                    Destination = finding.PseudoFlow ? NonIpLabel
+                        : BuildDestinationText(
                             finding.Metadata
                         ),
 
@@ -1224,6 +1224,14 @@ public partial class DashboardView : UserControl
                         topHit == null
                             ? (finding.RuleFindings == null ? "not run" : "--")
                             : $"{topHit.ClassName} (T{topHit.Tier})",
+
+                    SourceIp = finding.PseudoFlow ? NonIpLabel : finding.Metadata?.SrcIp ?? "",
+                    DestinationIp = finding.PseudoFlow ? NonIpLabel : finding.Metadata?.DstIp ?? "",
+                    SourcePort = finding.Metadata?.SrcPort ?? 0,
+                    DestinationPort = finding.Metadata?.DstPort ?? 0,
+                    EvidenceSource = finding.VerdictSource == "abstain" ? "Uncertain"
+                        : string.IsNullOrEmpty(finding.VerdictSource) ? ""
+                        : EvidenceSource(EvidenceSourceOf(finding)),
 
                     EvidenceClass =
                         finding.VerdictSource == "abstain" ? "Uncertain"
@@ -1263,9 +1271,20 @@ public partial class DashboardView : UserControl
         }
 
         // Options list only what this capture actually contains.
-        FillFilter(ThreatProtocolFilter, "All protocols", threats.Select(t => t.Protocol));
-        FillFilter(ThreatClassFilter, "All attacks (ML prediction)", threats.Select(t => t.PredictedClass));
-        FillFilter(ThreatEvidenceFilter, "All attacks (supporting evidence)", threats.Select(t => t.EvidenceClass));
+        FillFilter(ThreatProtocolFilter, "All", threats.Select(t => t.Protocol));
+        FillFilter(ThreatClassFilter, "All", threats.Select(t => t.PredictedClass));
+        FillFilter(ThreatEvidenceFilter, "All", threats.Select(t => t.EvidenceClass));
+        FillFilter(ThreatEvidenceSourceFilter, "All", threats.Select(t => t.EvidenceSource));
+        FillFilter(ThreatSourceFilter, "All", threats.Select(t => t.SourceIp));
+        FillFilter(ThreatDestinationFilter, "All", threats.Select(t => t.DestinationIp));
+        // Confidence bands that actually occur in this capture, highest first.
+        ThreatConfidenceFilter.Items.Clear();
+        ThreatConfidenceFilter.Items.Add("Any");
+        foreach (var band in ConfidenceBands.Where(b => threats.Any(t => t.Confidence >= b.Min && t.Confidence < b.Max)))
+        {
+            ThreatConfidenceFilter.Items.Add(band.Label);
+        }
+        ThreatConfidenceFilter.SelectedIndex = 0;
         ApplyThreatFilter();
     }
 
@@ -1382,12 +1401,19 @@ public partial class DashboardView : UserControl
 
     private static string ProtocolName(int number) => number switch
     {
-        6 => "TCP", 17 => "UDP", 1 => "ICMP", 58 => "ICMPv6", 0 => "Other", _ => $"IP {number}",
+        6 => "TCP", 17 => "UDP", 1 => "ICMP", 58 => "ICMPv6", 0 => "Other (ICMP, IGMP, non-IP)", _ => $"IP {number}",
     };
 
     private static string FormatTime(double epochSeconds) =>
         DateTimeOffset.FromUnixTimeMilliseconds((long)(epochSeconds * 1000.0))
             .ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff");
+
+    // CICFlowMeter folds non-IP frames (ARP) into one pseudo-flow whose
+    // addresses are ARP header bytes (e.g. 8.6.0.1 -> 8.0.6.4); the backend
+    // flags it (pseudo_flow) because no packet carries those addresses.
+    // ICMP / IGMP flows also have protocol 0 and ports 0 but real addresses,
+    // so they are not relabelled.
+    private const string NonIpLabel = "Non-IP frames (ARP)";
 
     // Ports, TCP flags and packet count of the flow's connection.
     private static string ConnectionInfo(MlFinding finding)
@@ -1422,8 +1448,20 @@ public partial class DashboardView : UserControl
         {
             PacketPage page = await backendApi.GetPacketsAsync(
                 caseId, packetOffset, PacketPageSize,
-                Chosen(PacketProtocolFilter), Chosen(PacketFlagFilter), Chosen(PacketAttackFilter),
-                PacketSearchBox.Text.Trim());
+                new PacketQuery
+                {
+                    Protocol = Chosen(PacketProtocolFilter),
+                    Flag = Chosen(PacketFlagFilter),
+                    Source = Chosen(PacketSourceFilter),
+                    Destination = Chosen(PacketDestinationFilter),
+                    IpVersion = Chosen(PacketIpVersionFilter),
+                    Interface = Chosen(PacketInterfaceFilter),
+                    Port = PacketPortFilter.Text.Trim(),
+                    MinLength = int.TryParse(PacketMinLengthFilter.Text, out int min) ? min : null,
+                    MaxLength = int.TryParse(PacketMaxLengthFilter.Text, out int max) ? max : null,
+                    Text = PacketSearchBox.Text.Trim(),
+                });
+            double firstTime = page.FirstTime ?? 0;
 
             packetRows.Clear();
             foreach (PacketRecord packet in page.Rows)
@@ -1438,19 +1476,48 @@ public partial class DashboardView : UserControl
                     DestinationPort = packet.DestinationPort?.ToString() ?? "",
                     Protocol = packet.DisplayProtocol ?? packet.Protocol ?? "",
                     Transport = packet.Protocol ?? "",
-                    Length = packet.PacketLength,
+                    Length = packet.WireLength ?? packet.PacketLength,
                     Flags = string.Join(", ", packet.Flags ?? new List<string>()),
                     Info = packet.Info ?? "",
-                    Attack = packet.Attack ?? "",
+                    Relative = (packet.Timestamp - firstTime).ToString("0.000000"),
+                    SourceMac = packet.SourceMac ?? "",
+                    DestinationMac = packet.DestinationMac ?? "",
+                    EtherType = packet.EtherType ?? "",
+                    Vlan = packet.Vlan?.ToString() ?? "",
+                    Interface = packet.Interface ?? "",
+                    IpVersion = packet.IpVersion?.ToString() ?? "",
+                    Ttl = packet.Ttl?.ToString() ?? "",
+                    IpId = packet.IpId?.ToString() ?? "",
+                    IpFlags = packet.IpFlags ?? "",
+                    FragmentOffset = packet.FragmentOffset?.ToString() ?? "",
+                    Dscp = packet.Dscp?.ToString() ?? "",
+                    Ecn = packet.Ecn?.ToString() ?? "",
+                    IpHeaderLength = packet.IpHeaderLength?.ToString() ?? "",
+                    IpTotalLength = packet.IpTotalLength?.ToString() ?? "",
+                    TcpSeq = packet.TcpSeq?.ToString() ?? "",
+                    TcpAck = packet.TcpAck?.ToString() ?? "",
+                    TcpWindow = packet.TcpWindow?.ToString() ?? "",
+                    TcpHeaderLength = packet.TcpHeaderLength?.ToString() ?? "",
+                    TcpOptions = packet.TcpOptions ?? "",
+                    UdpLength = packet.UdpLength?.ToString() ?? "",
+                    IcmpType = packet.IcmpType?.ToString() ?? "",
+                    IcmpCode = packet.IcmpCode?.ToString() ?? "",
+                    PayloadLength = packet.PayloadLength?.ToString() ?? "",
+                    CapturedLength = packet.CapturedLength?.ToString() ?? "",
+                    Comment = packet.Comment ?? "",
                 });
             }
 
             packetMatched = page.Matched;
             if (refreshOptions)
             {
-                FillFilter(PacketProtocolFilter, "All protocols", page.Protocols.Keys);
-                FillFilter(PacketFlagFilter, "All TCP flags", page.Flags.Keys);
-                FillFilter(PacketAttackFilter, "All attacks (ML)", page.Attacks.Keys);
+                FillFilter(PacketProtocolFilter, "All", page.Protocols.Keys);
+                FillFilter(PacketFlagFilter, "All", page.Flags.Keys);
+                FillFilter(PacketSourceFilter, "All", page.Sources.Keys);
+                FillFilter(PacketDestinationFilter, "All", page.Destinations.Keys);
+                FillFilter(PacketIpVersionFilter, "All", page.IpVersions.Keys);
+                FillFilter(PacketInterfaceFilter, "All", page.Interfaces.Keys);
+                ShowPacketColumns(page.Columns);
                 PacketCountText.Text =
                     $"{page.Total:N0} packets in the capture · "
                     + string.Join(", ", page.Protocols.OrderByDescending(p => p.Value).Select(p => $"{p.Key} {p.Value:N0}"));
@@ -1501,11 +1568,85 @@ public partial class DashboardView : UserControl
         string? protocol = Chosen(ThreatProtocolFilter);
         string? mlClass = Chosen(ThreatClassFilter);
         string? evidence = Chosen(ThreatEvidenceFilter);
+        string? evidenceSource = Chosen(ThreatEvidenceSourceFilter);
+        string? source = Chosen(ThreatSourceFilter);
+        string? destination = Chosen(ThreatDestinationFilter);
+        string? band = Chosen(ThreatConfidenceFilter);
+        var range = ConfidenceBands.FirstOrDefault(b => b.Label == band);
+        bool portOk = !int.TryParse(ThreatPortFilter.Text.Trim(), out int port)
+            || row.SourcePort == port || row.DestinationPort == port;
         return (protocol == null || row.Protocol == protocol)
             && (mlClass == null || row.PredictedClass == mlClass)
             && (evidence == null || row.EvidenceClass == evidence)
+            && (evidenceSource == null || row.EvidenceSource == evidenceSource)
+            && (source == null || row.SourceIp == source)
+            && (destination == null || row.DestinationIp == destination)
+            && (band == null || (row.Confidence >= range.Min && row.Confidence < range.Max))
+            && portOk
             && AllWordsIn(ThreatSearchBox.Text,
                 $"{row.FlowIndex} {row.Time} {row.Source} {row.Destination} {row.Protocol} {row.Length} {row.PredictedClass} {row.VerdictDisplay} {row.Info}");
+    }
+
+    private static readonly (string Label, double Min, double Max)[] ConfidenceBands =
+    {
+        ("90% and above", 0.90, 1.01), ("70% to 90%", 0.70, 0.90), ("50% to 70%", 0.50, 0.70), ("Below 50%", 0.0, 0.50),
+    };
+
+    // Columns the capture has no value for (e.g. VLAN, comments) are hidden.
+    private static readonly Dictionary<string, string> PacketColumnFields = new()
+    {
+        ["No."] = "packet_number", ["Time"] = "timestamp", ["Relative (s)"] = "timestamp", ["Source"] = "source_ip",
+        ["Src Port"] = "source_port", ["Destination"] = "destination_ip", ["Dst Port"] = "destination_port",
+        ["Protocol"] = "display_protocol", ["Length"] = "wire_length", ["Info"] = "info", ["Src MAC"] = "src_mac",
+        ["Dst MAC"] = "dst_mac", ["EtherType"] = "ether_type", ["VLAN"] = "vlan", ["Interface"] = "interface",
+        ["IP Ver"] = "ip_version", ["TTL"] = "ttl", ["IP ID"] = "ip_id", ["IP Flags"] = "ip_flags",
+        ["Frag Offset"] = "fragment_offset", ["DSCP"] = "dscp", ["ECN"] = "ecn", ["IP Hdr"] = "ip_header_length",
+        ["IP Len"] = "ip_total_length", ["TCP Flags"] = "tcp_flags", ["Seq"] = "tcp_seq", ["Ack"] = "tcp_ack",
+        ["Window"] = "tcp_window", ["TCP Hdr"] = "tcp_header_length", ["TCP Options"] = "tcp_options",
+        ["UDP Len"] = "udp_length", ["ICMP Type"] = "icmp_type", ["ICMP Code"] = "icmp_code",
+        ["Payload"] = "payload_length", ["Captured"] = "captured_length", ["Comment"] = "comment",
+    };
+
+    private void ShowPacketColumns(IReadOnlyCollection<string> present)
+    {
+        var fields = new HashSet<string>(present);
+        foreach (DataGridColumn column in PacketDataGrid.Columns)
+        {
+            string header = column.Header?.ToString() ?? "";
+            column.Visibility = !PacketColumnFields.TryGetValue(header, out string? field) || fields.Contains(field)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        // One interface or one IP version: nothing to choose, so no filter.
+        PacketInterfaceFilter.IsEnabled = PacketInterfaceFilter.Items.Count > 2;
+        PacketIpVersionFilter.IsEnabled = PacketIpVersionFilter.Items.Count > 2;
+    }
+
+    private void ThreatClearFilters_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (ComboBox box in new[] { ThreatProtocolFilter, ThreatClassFilter, ThreatConfidenceFilter, ThreatEvidenceFilter,
+                                         ThreatEvidenceSourceFilter, ThreatSourceFilter, ThreatDestinationFilter })
+        {
+            box.SelectedIndex = 0;
+        }
+        ThreatPortFilter.Clear();
+        ThreatSearchBox.Clear();
+        ApplyThreatFilter();
+    }
+
+    private async void PacketClearFilters_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (ComboBox box in new[] { PacketProtocolFilter, PacketFlagFilter, PacketSourceFilter, PacketDestinationFilter,
+                                         PacketIpVersionFilter, PacketInterfaceFilter })
+        {
+            box.SelectedIndex = 0;
+        }
+        foreach (TextBox box in new[] { PacketPortFilter, PacketMinLengthFilter, PacketMaxLengthFilter, PacketSearchBox })
+        {
+            box.Clear();
+        }
+        packetSearchDelay.Stop();
+        await LoadPacketPageAsync(resetOffset: true);
     }
 
     // Space-separated words, all of which must appear (any order, any case).
@@ -1586,7 +1727,32 @@ public partial class DashboardView : UserControl
         public string Flags { get; set; } = string.Empty;
         public string Info { get; set; } = string.Empty;
         public string Transport { get; set; } = string.Empty;
-        public string Attack { get; set; } = string.Empty;
+        public string Relative { get; set; } = string.Empty;
+        public string SourceMac { get; set; } = string.Empty;
+        public string DestinationMac { get; set; } = string.Empty;
+        public string EtherType { get; set; } = string.Empty;
+        public string Vlan { get; set; } = string.Empty;
+        public string Interface { get; set; } = string.Empty;
+        public string IpVersion { get; set; } = string.Empty;
+        public string Ttl { get; set; } = string.Empty;
+        public string IpId { get; set; } = string.Empty;
+        public string IpFlags { get; set; } = string.Empty;
+        public string FragmentOffset { get; set; } = string.Empty;
+        public string Dscp { get; set; } = string.Empty;
+        public string Ecn { get; set; } = string.Empty;
+        public string IpHeaderLength { get; set; } = string.Empty;
+        public string IpTotalLength { get; set; } = string.Empty;
+        public string TcpSeq { get; set; } = string.Empty;
+        public string TcpAck { get; set; } = string.Empty;
+        public string TcpWindow { get; set; } = string.Empty;
+        public string TcpHeaderLength { get; set; } = string.Empty;
+        public string TcpOptions { get; set; } = string.Empty;
+        public string UdpLength { get; set; } = string.Empty;
+        public string IcmpType { get; set; } = string.Empty;
+        public string IcmpCode { get; set; } = string.Empty;
+        public string PayloadLength { get; set; } = string.Empty;
+        public string CapturedLength { get; set; } = string.Empty;
+        public string Comment { get; set; } = string.Empty;
     }
 
 
@@ -1879,6 +2045,16 @@ public partial class DashboardView : UserControl
         public string Info { get; set; } = string.Empty;
 
         public string EvidenceClass { get; set; } = string.Empty;
+
+        public string EvidenceSource { get; set; } = string.Empty;
+
+        public string SourceIp { get; set; } = string.Empty;
+
+        public string DestinationIp { get; set; } = string.Empty;
+
+        public int SourcePort { get; set; }
+
+        public int DestinationPort { get; set; }
     }
 
 

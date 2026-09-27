@@ -12,6 +12,7 @@ from scapy.all import (
     ARP
 )
 from scapy.layers.dhcp import DHCP
+from scapy.layers.l2 import Dot1Q
 from scapy.layers.dns import DNS
 from scapy.packet import Padding
 
@@ -75,6 +76,57 @@ def _app_layer(payload: bytes, sport: int, dport: int):
     if payload.startswith(HTTP_METHODS):
         return "HTTP", payload.split(b"\r\n")[0].decode(errors="replace")[:80]
     return None
+
+
+ETHER_TYPES = {0x0800: "IPv4", 0x0806: "ARP", 0x86DD: "IPv6", 0x8100: "VLAN", 0x88CC: "LLDP", 0x8863: "PPPoE-D",
+               0x8864: "PPPoE-S", 0x888E: "EAPOL"}
+
+
+def header_fields(packet) -> dict:
+    """Every header field the frame carries, as Wireshark's packet details
+    show them. A field a packet does not have is None, so the Dashboard can
+    hide columns that are empty for the whole capture."""
+    f = {
+        "captured_length": int(len(packet)),
+        "wire_length": int(getattr(packet, "wirelen", None) or len(packet)),
+        "interface": str(getattr(packet, "sniffed_on", "") or "") or None,
+        "comment": (packet.comment.decode(errors="replace") if isinstance(getattr(packet, "comment", None), bytes)
+                    else getattr(packet, "comment", None)) or None,
+        "src_mac": None, "dst_mac": None, "ether_type": None, "vlan": None,
+        "ip_version": None, "ttl": None, "ip_id": None, "ip_flags": None, "fragment_offset": None,
+        "dscp": None, "ecn": None, "ip_header_length": None, "ip_total_length": None,
+        "tcp_seq": None, "tcp_ack": None, "tcp_window": None, "tcp_header_length": None, "tcp_options": None,
+        "udp_length": None, "icmp_type": None, "icmp_code": None, "payload_length": None,
+    }
+    if Ether in packet:
+        eth = packet[Ether]
+        f["src_mac"], f["dst_mac"] = str(eth.src), str(eth.dst)
+        f["ether_type"] = ETHER_TYPES.get(int(eth.type), f"0x{int(eth.type):04x}")
+    if Dot1Q in packet:
+        f["vlan"] = int(packet[Dot1Q].vlan)
+    if IP in packet:
+        ip = packet[IP]
+        f.update(ip_version=4, ttl=int(ip.ttl), ip_id=int(ip.id), ip_flags=str(ip.flags) or None,
+                 fragment_offset=int(ip.frag), dscp=int(ip.tos) >> 2, ecn=int(ip.tos) & 3,
+                 ip_header_length=int(ip.ihl or 5) * 4, ip_total_length=int(ip.len) if ip.len is not None else None)
+    elif IPv6 in packet:
+        ip6 = packet[IPv6]
+        f.update(ip_version=6, ttl=int(ip6.hlim), dscp=int(ip6.tc) >> 2, ecn=int(ip6.tc) & 3,
+                 ip_header_length=40, ip_total_length=40 + int(ip6.plen or 0))
+    if TCP in packet:
+        tcp = packet[TCP]
+        f.update(tcp_seq=int(tcp.seq), tcp_ack=int(tcp.ack), tcp_window=int(tcp.window),
+                 tcp_header_length=int(tcp.dataofs or 5) * 4, payload_length=len(_l4_payload(tcp)))
+        options = []
+        for name, value in tcp.options or []:
+            options.append(f"{name}={value}" if name in ("MSS", "WScale") else name)
+        f["tcp_options"] = ", ".join(options) or None
+    elif UDP in packet:
+        f.update(udp_length=int(packet[UDP].len) if packet[UDP].len is not None else None,
+                 payload_length=len(_l4_payload(packet[UDP])))
+    if ICMP in packet:
+        f.update(icmp_type=int(packet[ICMP].type), icmp_code=int(packet[ICMP].code))
+    return f
 
 
 def describe(packet, transport: str, sport, dport, tcp_flags: str):
@@ -216,7 +268,8 @@ def extract_packets(
                     "packet_length": int(len(packet)),
                     "tcp_flags": "",
                     "display_protocol": display_protocol,
-                    "info": info
+                    "info": info,
+                    **header_fields(packet)
                 }
                 packets_data.append(packet_data)
                 continue
@@ -314,7 +367,9 @@ def extract_packets(
                     display_protocol,
 
                 "info":
-                    info
+                    info,
+
+                **header_fields(packet)
             }
 
 

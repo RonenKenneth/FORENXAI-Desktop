@@ -248,6 +248,11 @@ public class MlFinding
     [JsonPropertyName("connection")]
     public FlowConnection? Connection { get; set; }
 
+    /// <summary>True for CICFlowMeter's non-IP (ARP) pseudo-flow: neither
+    /// address occurs in the capture.</summary>
+    [JsonPropertyName("pseudo_flow")]
+    public bool PseudoFlow { get; set; }
+
     /// <summary>
     /// Final hybrid verdict from the model and both rule tiers, and which
     /// side decided it: agree, rule, ml, conflict or abstain. Absent in

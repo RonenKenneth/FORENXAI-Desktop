@@ -44,10 +44,18 @@ def connection_stats(packets: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, A
     return stats
 
 
-def attach_connection_stats(findings: List[Dict[str, Any]], stats: Dict[str, Dict[str, Any]]) -> None:
-    """finding["connection"] = totals of the connection the flow belongs to."""
+def attach_connection_stats(findings: List[Dict[str, Any]], stats: Dict[str, Dict[str, Any]],
+                            capture_addresses: Optional[set] = None) -> None:
+    """finding["connection"] = totals of the connection the flow belongs to.
+
+    finding["pseudo_flow"] = True when neither address occurs in the capture:
+    CICFlowMeter folds non-IP frames (ARP) into one flow whose "addresses"
+    are ARP header bytes (e.g. 8.6.0.1 -> 8.0.6.4)."""
     for finding in findings:
         m = finding.get("metadata") or {}
+        if capture_addresses is not None:
+            finding["pseudo_flow"] = (m.get("Src IP") not in capture_addresses
+                                      and m.get("Dst IP") not in capture_addresses)
         protocol = PROTOCOL_NAMES.get(int(m.get("Protocol") or 0), "OTHER")
         s = stats.get(connection_key(protocol, m.get("Src IP"), m.get("Src Port"), m.get("Dst IP"), m.get("Dst Port")))
         if s is not None:
@@ -88,58 +96,72 @@ def read_analysis(analysis_file: Path) -> Dict[str, Any]:
     return _load_analysis(str(analysis_file), analysis_file.stat().st_mtime_ns)
 
 
-def attack_by_connection(findings: List[Dict[str, Any]]) -> Dict[str, str]:
-    """Connection -> the ML attack class of its first non-benign flow."""
-    result: Dict[str, str] = {}
-    for f in findings:
-        m = f.get("metadata") or {}
-        if f.get("predicted_class") in (None, "", "Benign"):
-            continue
-        protocol = PROTOCOL_NAMES.get(int(m.get("Protocol") or 0), "OTHER")
-        result.setdefault(connection_key(protocol, m.get("Src IP"), m.get("Src Port"), m.get("Dst IP"), m.get("Dst Port")),
-                          f["predicted_class"])
-    return result
+OPTION_LIMIT = 300  # most frequent addresses / ports offered as filter options
 
 
-def query_packets(packets: List[Dict[str, Any]], attacks: Dict[str, str], offset: int = 0, limit: int = 500,
-                  protocol: str = "", flag: str = "", attack: str = "", text: str = "") -> Dict[str, Any]:
-    """One page of packets matching every filter given. Words in `text`
-    must all appear (any order, any case)."""
+def _top(counter: Dict[Any, int]) -> Dict[str, int]:
+    top = sorted(counter.items(), key=lambda kv: -kv[1])[:OPTION_LIMIT]
+    return {str(k): v for k, v in sorted(top, key=lambda kv: str(kv[0]))}
+
+
+def query_packets(packets: List[Dict[str, Any]], offset: int = 0, limit: int = 500,
+                  protocol: str = "", flag: str = "", source: str = "", destination: str = "",
+                  port: str = "", ip_version: str = "", interface: str = "",
+                  min_length: Optional[int] = None, max_length: Optional[int] = None,
+                  text: str = "") -> Dict[str, Any]:
+    """One page of the packets matching every filter given, plus the filter
+    options and columns this capture actually has. Addresses match IP or MAC
+    on that side; `port` matches either side; words in `text` must all
+    appear (any order, any case)."""
     words = [w.lower() for w in text.split()]
-    counts_protocol: Dict[str, int] = defaultdict(int)
-    counts_flag: Dict[str, int] = defaultdict(int)
-    counts_attack: Dict[str, int] = defaultdict(int)
+    wanted_port = int(port) if str(port).strip().isdigit() else None
+    options = {name: defaultdict(int) for name in
+               ("protocols", "flags", "sources", "destinations", "ports", "ip_versions", "interfaces")}
+    present = set()
     rows = []
     matched = 0
     for p in packets:
         display = p.get("display_protocol") or p.get("protocol") or "OTHER"
         flags = flag_names(p.get("tcp_flags", ""))
-        key = (connection_key(p["protocol"], p["source_ip"], p["source_port"], p["destination_ip"], p["destination_port"])
-               if p.get("source_port") is not None else "")
-        packet_attack = attacks.get(key, "")
-        counts_protocol[display] += 1
+        src = {v for v in (p.get("source_ip"), p.get("src_mac")) if v}
+        dst = {v for v in (p.get("destination_ip"), p.get("dst_mac")) if v}
+        ports = {v for v in (p.get("source_port"), p.get("destination_port")) if v is not None}
+        options["protocols"][display] += 1
         for name in flags:
-            counts_flag[name] += 1
-        if packet_attack:
-            counts_attack[packet_attack] += 1
-        if protocol and display != protocol:
-            continue
-        if flag and flag not in flags:
-            continue
-        if attack and packet_attack != attack:
+            options["flags"][name] += 1
+        if p.get("source_ip"):
+            options["sources"][p["source_ip"]] += 1
+        if p.get("destination_ip"):
+            options["destinations"][p["destination_ip"]] += 1
+        for value in ports:
+            options["ports"][value] += 1
+        if p.get("ip_version"):
+            options["ip_versions"][f"IPv{p['ip_version']}"] += 1
+        if p.get("interface"):
+            options["interfaces"][p["interface"]] += 1
+        present.update(k for k, v in p.items() if v not in (None, ""))
+
+        length = p.get("wire_length") or p.get("packet_length") or 0
+        if ((protocol and display != protocol) or (flag and flag not in flags)
+                or (source and source not in src) or (destination and destination not in dst)
+                or (wanted_port is not None and wanted_port not in ports)
+                or (ip_version and f"IPv{p.get('ip_version')}" != ip_version)
+                or (interface and p.get("interface") != interface)
+                or (min_length is not None and length < min_length)
+                or (max_length is not None and length > max_length)):
             continue
         if words:
-            haystack = " ".join(str(v) for v in (p["packet_number"], p.get("source_ip"), p.get("source_port"),
-                                                 p.get("destination_ip"), p.get("destination_port"), display,
-                                                 p.get("info", ""), " ".join(flags), packet_attack)).lower()
+            haystack = " ".join(str(v) for v in p.values() if v is not None).lower()
             if not all(w in haystack for w in words):
                 continue
         if offset <= matched < offset + limit:
-            rows.append({**p, "display_protocol": display, "flags": flags, "attack": packet_attack})
+            rows.append({**p, "display_protocol": display, "flags": flags})
         matched += 1
-    return {"total": len(packets), "matched": matched, "offset": offset, "rows": rows,
-            "protocols": dict(sorted(counts_protocol.items())), "flags": dict(sorted(counts_flag.items())),
-            "attacks": dict(sorted(counts_attack.items()))}
+    result = {"total": len(packets), "matched": matched, "offset": offset, "rows": rows,
+              "columns": sorted(present), "first_time": packets[0]["timestamp"] if packets else None}
+    for name, counter in options.items():
+        result[name] = _top(counter)
+    return result
 
 
 if __name__ == "__main__":
@@ -159,10 +181,13 @@ if __name__ == "__main__":
                "predicted_class": "PortScan"}
     attach_connection_stats([finding], st)
     assert finding["connection"]["flags"] == ["ACK", "RST", "SYN"]
-    att = attack_by_connection([finding])
-    assert query_packets(pk, att, attack="PortScan")["matched"] == 2
-    assert query_packets(pk, att, protocol="ARP", text="who 10.0.0.2")["matched"] == 1
-    assert query_packets(pk, att, flag="RST")["matched"] == 1
-    page = query_packets(pk, att, offset=1, limit=1)
+    assert query_packets(pk, protocol="ARP", text="who 10.0.0.2")["matched"] == 1
+    assert query_packets(pk, flag="RST")["matched"] == 1
+    assert query_packets(pk, source="10.0.0.2")["matched"] == 1
+    assert query_packets(pk, destination="ff:ff")["matched"] == 1      # ARP: the destination is a MAC
+    assert query_packets(pk, port="80")["matched"] == 2                # either side
+    assert query_packets(pk, min_length=60, max_length=70)["matched"] == 1
+    page = query_packets(pk, offset=1, limit=1)
     assert page["matched"] == 3 and [r["packet_number"] for r in page["rows"]] == [2]
+    assert "tcp_flags" in page["columns"] and page["ports"] == {"5000": 2, "80": 2}
     print("ALL CHECKS PASSED")

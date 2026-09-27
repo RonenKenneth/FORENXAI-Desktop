@@ -678,17 +678,23 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Filters: protocol, ML prediction, free text -->
-                    <WrapPanel Grid.Row="1" Margin="0,0,0,10">
-                        <ComboBox x:Name="ThreatProtocolFilter" Width="130" SelectionChanged="ThreatFilter_Changed"/>
-                        <ComboBox x:Name="ThreatClassFilter" Width="200" Margin="8,0,0,0" SelectionChanged="ThreatFilter_Changed"
-                                  ToolTip="Attack type predicted by the ML model"/>
-                        <ComboBox x:Name="ThreatEvidenceFilter" Width="220" Margin="8,0,0,0" SelectionChanged="ThreatFilter_Changed"
-                                  ToolTip="Attack type supported by the rule evidence"/>
-                        <TextBox x:Name="ThreatSearchBox" Width="300" Margin="8,0,0,0" Style="{StaticResource FilterBox}"
-                                 ToolTip="Words separated by spaces; a row must contain all of them (IP, port, class, flag...)" TextChanged="ThreatFilter_Changed"/>
+                    <!-- Filters: every option comes from this capture's flows -->
+                    <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Protocol" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatProtocolFilter" Width="120" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="ML prediction" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatClassFilter" Width="170" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="ML confidence" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatConfidenceFilter" Width="130" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Supporting evidence" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatEvidenceFilter" Width="170" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Evidence source" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatEvidenceSourceFilter" Width="170" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Source IP" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatSourceFilter" Width="150" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Destination IP" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="ThreatDestinationFilter" Width="150" SelectionChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Port (either side)" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><TextBox x:Name="ThreatPortFilter" Width="110" Style="{StaticResource FilterBox}" ToolTip="Source or destination port" TextChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Search" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><TextBox x:Name="ThreatSearchBox" Width="220" Style="{StaticResource FilterBox}" ToolTip="Words separated by spaces; a row must contain all of them" TextChanged="ThreatFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6" VerticalAlignment="Bottom">
+                            <Button Content="Clear filters" Height="32" Padding="12,4" Background="#1E293B" Foreground="#E2E8F0"
+                                    BorderBrush="#334155" Click="ThreatClearFilters_Click"/>
+                        </StackPanel>
                         <TextBlock x:Name="ThreatFilterStatusText" Foreground="#94A3B8" FontSize="12"
-                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                   VerticalAlignment="Bottom" Margin="4,0,0,14"/>
                     </WrapPanel>
 
                     <Grid Grid.Row="0"
@@ -814,19 +820,27 @@
                         <TextBlock Text="Double-click a packet to open its flow in XAI, with that flow's SHAP explanation."
                                    Foreground="#64748B" FontSize="11" Margin="0,4,0,0"/>
                     </StackPanel>
-                    <WrapPanel Grid.Row="1" Margin="0,0,0,10">
-                        <ComboBox x:Name="PacketProtocolFilter" Width="130" SelectionChanged="PacketFilter_Changed"/>
-                        <ComboBox x:Name="PacketFlagFilter" Width="130" Margin="8,0,0,0" SelectionChanged="PacketFilter_Changed"/>
-                        <ComboBox x:Name="PacketAttackFilter" Width="220" Margin="8,0,0,0" SelectionChanged="PacketFilter_Changed"
-                                  ToolTip="Attack type the ML model gave the packet's flow"/>
-                        <TextBox x:Name="PacketSearchBox" Width="300" Margin="8,0,0,0" Style="{StaticResource FilterBox}"
-                                 ToolTip="Words separated by spaces; a row must contain all of them (IP, MAC, port, flag...)" TextChanged="PacketFilter_Changed"/>
-                        <Button x:Name="PacketPrevButton" Content="‹ Previous" Margin="12,0,0,0" Padding="12,4" Height="32"
-                                Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" Click="PacketPrev_Click" IsEnabled="False"/>
-                        <Button x:Name="PacketNextButton" Content="Next ›" Margin="6,0,0,0" Padding="12,4" Height="32"
-                                Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" Click="PacketNext_Click" IsEnabled="False"/>
+                    <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Protocol" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="PacketProtocolFilter" Width="120" SelectionChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="TCP flag" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="PacketFlagFilter" Width="110" SelectionChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Source" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="PacketSourceFilter" Width="160" SelectionChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Destination" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="PacketDestinationFilter" Width="160" SelectionChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="IP version" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="PacketIpVersionFilter" Width="100" SelectionChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Interface" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><ComboBox x:Name="PacketInterfaceFilter" Width="110" SelectionChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Port (either side)" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><TextBox x:Name="PacketPortFilter" Width="110" Style="{StaticResource FilterBox}" ToolTip="Source or destination port" TextChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Min length" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><TextBox x:Name="PacketMinLengthFilter" Width="80" Style="{StaticResource FilterBox}" ToolTip="Bytes on the wire" TextChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Max length" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><TextBox x:Name="PacketMaxLengthFilter" Width="80" Style="{StaticResource FilterBox}" ToolTip="Bytes on the wire" TextChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6"><TextBlock Text="Search" Foreground="#64748B" FontSize="10" Margin="0,0,0,2"/><TextBox x:Name="PacketSearchBox" Width="200" Style="{StaticResource FilterBox}" ToolTip="Words separated by spaces; a row must contain all of them (any field)" TextChanged="PacketFilter_Changed"/></StackPanel>
+                        <StackPanel Margin="0,0,8,6" VerticalAlignment="Bottom" Orientation="Horizontal">
+                            <Button Content="Clear filters" Height="32" Padding="12,4" Background="#1E293B" Foreground="#E2E8F0"
+                                    BorderBrush="#334155" Click="PacketClearFilters_Click"/>
+                            <Button x:Name="PacketPrevButton" Content="‹ Previous" Margin="8,0,0,0" Padding="12,4" Height="32"
+                                    Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" Click="PacketPrev_Click" IsEnabled="False"/>
+                            <Button x:Name="PacketNextButton" Content="Next ›" Margin="6,0,0,0" Padding="12,4" Height="32"
+                                    Background="#1E293B" Foreground="#E2E8F0" BorderBrush="#334155" Click="PacketNext_Click" IsEnabled="False"/>
+                        </StackPanel>
                         <TextBlock x:Name="PacketFilterStatusText" Foreground="#94A3B8" FontSize="12"
-                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                   VerticalAlignment="Bottom" Margin="4,0,0,14"/>
                     </WrapPanel>
                     <DataGrid x:Name="PacketDataGrid"
                               MouseDoubleClick="PacketDataGrid_MouseDoubleClick"
@@ -866,15 +880,40 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="No." Binding="{Binding Number}" Width="70"/>
                             <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="190"/>
-                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="180"/>
-                            <DataGridTextColumn Header="Src Port" Binding="{Binding SourcePort}" Width="85"/>
-                            <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="180"/>
-                            <DataGridTextColumn Header="Dst Port" Binding="{Binding DestinationPort}" Width="85"/>
-                            <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="85"/>
-                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="75"/>
-                            <DataGridTextColumn Header="TCP Flags" Binding="{Binding Flags}" Width="120"/>
-                            <DataGridTextColumn Header="Attack (ML)" Binding="{Binding Attack}" Width="120"/>
+                            <DataGridTextColumn Header="Relative (s)" Binding="{Binding Relative}" Width="100"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="170"/>
+                            <DataGridTextColumn Header="Src Port" Binding="{Binding SourcePort}" Width="80"/>
+                            <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="170"/>
+                            <DataGridTextColumn Header="Dst Port" Binding="{Binding DestinationPort}" Width="80"/>
+                            <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="90"/>
+                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="70"/>
                             <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="420"/>
+                            <DataGridTextColumn Header="Src MAC" Binding="{Binding SourceMac}" Width="150"/>
+                            <DataGridTextColumn Header="Dst MAC" Binding="{Binding DestinationMac}" Width="150"/>
+                            <DataGridTextColumn Header="EtherType" Binding="{Binding EtherType}" Width="90"/>
+                            <DataGridTextColumn Header="VLAN" Binding="{Binding Vlan}" Width="60"/>
+                            <DataGridTextColumn Header="Interface" Binding="{Binding Interface}" Width="90"/>
+                            <DataGridTextColumn Header="IP Ver" Binding="{Binding IpVersion}" Width="60"/>
+                            <DataGridTextColumn Header="TTL" Binding="{Binding Ttl}" Width="60"/>
+                            <DataGridTextColumn Header="IP ID" Binding="{Binding IpId}" Width="80"/>
+                            <DataGridTextColumn Header="IP Flags" Binding="{Binding IpFlags}" Width="80"/>
+                            <DataGridTextColumn Header="Frag Offset" Binding="{Binding FragmentOffset}" Width="90"/>
+                            <DataGridTextColumn Header="DSCP" Binding="{Binding Dscp}" Width="60"/>
+                            <DataGridTextColumn Header="ECN" Binding="{Binding Ecn}" Width="50"/>
+                            <DataGridTextColumn Header="IP Hdr" Binding="{Binding IpHeaderLength}" Width="70"/>
+                            <DataGridTextColumn Header="IP Len" Binding="{Binding IpTotalLength}" Width="70"/>
+                            <DataGridTextColumn Header="TCP Flags" Binding="{Binding Flags}" Width="120"/>
+                            <DataGridTextColumn Header="Seq" Binding="{Binding TcpSeq}" Width="110"/>
+                            <DataGridTextColumn Header="Ack" Binding="{Binding TcpAck}" Width="110"/>
+                            <DataGridTextColumn Header="Window" Binding="{Binding TcpWindow}" Width="80"/>
+                            <DataGridTextColumn Header="TCP Hdr" Binding="{Binding TcpHeaderLength}" Width="70"/>
+                            <DataGridTextColumn Header="TCP Options" Binding="{Binding TcpOptions}" Width="260"/>
+                            <DataGridTextColumn Header="UDP Len" Binding="{Binding UdpLength}" Width="70"/>
+                            <DataGridTextColumn Header="ICMP Type" Binding="{Binding IcmpType}" Width="80"/>
+                            <DataGridTextColumn Header="ICMP Code" Binding="{Binding IcmpCode}" Width="80"/>
+                            <DataGridTextColumn Header="Payload" Binding="{Binding PayloadLength}" Width="80"/>
+                            <DataGridTextColumn Header="Captured" Binding="{Binding CapturedLength}" Width="80"/>
+                            <DataGridTextColumn Header="Comment" Binding="{Binding Comment}" Width="200"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

@@ -5,6 +5,7 @@ import json
 import os
 import re
 
+from typing import Optional
 from fastapi.responses import FileResponse
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -734,6 +735,7 @@ def start_analysis(
         packet_store.attach_connection_stats(
             ml_findings,
             packet_store.connection_stats(packets),
+            {a for p in packets for a in (p.get("source_ip"), p.get("destination_ip")) if a},
         )
 
         analysis_result = {
@@ -2065,7 +2067,13 @@ def get_packets(
     limit: int = 500,
     protocol: str = "",
     flag: str = "",
-    attack: str = "",
+    source: str = "",
+    destination: str = "",
+    port: str = "",
+    ip_version: str = "",
+    interface: str = "",
+    min_length: Optional[int] = None,
+    max_length: Optional[int] = None,
     q: str = ""
 ):
     if not re.fullmatch(r"FX-\d{8}-\d{6}", case_id):
@@ -2076,13 +2084,13 @@ def get_packets(
     if not analysis_file.exists():
         raise HTTPException(status_code=404, detail="analysis.json not found.")
 
-    analysis = packet_store.read_analysis(analysis_file)
-    packets = packet_store.load_packets(case_directory, analysis)
-    attacks = packet_store.attack_by_connection(
-        (analysis.get("ml_analysis") or {}).get("findings") or []
+    packets = packet_store.load_packets(
+        case_directory, packet_store.read_analysis(analysis_file)
     )
     return packet_store.query_packets(
-        packets, attacks,
+        packets,
         offset=max(0, offset), limit=max(1, min(limit, 5000)),
-        protocol=protocol, flag=flag, attack=attack, text=q
+        protocol=protocol, flag=flag, source=source, destination=destination,
+        port=port, ip_version=ip_version, interface=interface,
+        min_length=min_length, max_length=max_length, text=q
     )

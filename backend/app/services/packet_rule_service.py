@@ -632,7 +632,11 @@ def run_suricata(pcap: Path, out_dir: Path, config: Optional[Dict[str, Any]] = N
         return [], status
     out_dir = Path(out_dir).resolve()                     # Suricata runs from its own folder
     out_dir.mkdir(parents=True, exist_ok=True)
-    command = [binary, "-r", str(Path(pcap).resolve()), "-l", str(out_dir), "-k", "none"]
+    # --runmode single: one worker thread, so threshold rules (e.g. "ET SCAN
+    # Potential SSH Scan", count 5 in 120 s) fire on the same packet every
+    # run. With several workers the packet that crosses a threshold varied
+    # between runs of the same capture, and so did the flows Tier 2 flagged.
+    command = [binary, "--runmode", "single", "-r", str(Path(pcap).resolve()), "-l", str(out_dir), "-k", "none"]
     config_file = cfg.get("config") or next(
         (str(p) for p in (Path(binary).parent / "suricata.yaml",) if p.is_file()), "")
     if config_file:

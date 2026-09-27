@@ -131,6 +131,43 @@ Reports tabs are the same, and the packet filters return the expected counts
 TreeSHAP: 25/25. `test_packet_parsing.py` covers protocol/info, padding,
 encryption and the packet store.
 
+### Filters, packet columns and reproducibility (28 Sep 2026)
+
+**Packets table: every field of the capture, no ML column.** Frame (captured and
+wire length, interface, comment), Ethernet (source/destination MAC, EtherType,
+VLAN), IP (version, TTL/hop limit, ID, flags, fragment offset, DSCP, ECN, header
+and total length), TCP (flags, sequence, acknowledgement, window, header length,
+options), UDP length, ICMP type/code, payload length, relative time and the
+Wireshark-style protocol and info. Columns a capture has no value for (VLAN,
+comments...) are hidden.
+
+**Filters, scoped to the capture.** Every option lists only what the capture
+contains.
+- Detected threats: protocol, ML prediction, ML confidence band, supporting
+  evidence, evidence source (Tier 1 flow rule, Tier 2 packet rule, model only,
+  uncertain), source IP, destination IP, port (either side), search.
+- Packets (filtered on the server, 1,000 per page): protocol, TCP flag, source
+  and destination (IP or MAC), IP version, interface, port (either side), length
+  range, search across every field.
+- Search boxes match every word typed; "Clear filters" resets each table.
+- Checked in the running app against independent counts: ML = PortScan 4,
+  model only 8, destination .104 + port 22 1, confidence below 50% 4; packets
+  DNS 26, source .104 + RST 997, port 53 27, length 100–200 6. All equal.
+
+**CICFlowMeter's ARP pseudo-flow.** CICFlowMeter folds non-IP frames into one
+flow whose "addresses" are ARP header bytes (LabActivity2: 520 ARP frames as
+`8.6.0.1 -> 8.0.6.4`, protocol 0, ports 0). The backend flags it
+(`pseudo_flow`) when neither address occurs in the capture; the Dashboard shows
+it as "Non-IP frames (ARP)". ICMP and IGMP flows also have protocol 0 and ports 0
+but real addresses, so they are shown as they are.
+
+**Reproducible results.** Suricata ran multi-threaded, so threshold rules
+(e.g. "ET SCAN Potential SSH Scan", 5 in 120 s) fired on a different probe from
+run to run, and Tier 2 flagged different flows for the same capture. Suricata
+now runs with `--runmode single`. Two analyses of LabActivity2 are identical in
+ML predictions and confidence, Tier 1 and Tier 2 hits, supporting evidence,
+encryption and pseudo-flow flags, the rule summary, and the packet data.
+
 ### Statistical audit (28 Sep 2026)
 
 Every figure the app computes or quotes was recomputed independently, on the

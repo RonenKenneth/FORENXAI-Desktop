@@ -344,7 +344,8 @@
                     <!-- INVESTIGATION -->
 
                     <Button x:Name="InvestigationButton"
-                            Style="{StaticResource SidebarButtonStyle}">
+                            Style="{StaticResource SidebarButtonStyle}"
+                            Click="Investigation_Click">
 
                         <StackPanel Orientation="Horizontal">
 

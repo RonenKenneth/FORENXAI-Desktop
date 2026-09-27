@@ -710,6 +710,11 @@ def start_analysis(
                     "total_packets"
                 ],
 
+            # Packet records are returned for the Investigation view so
+            # investigators can manually validate the XAI findings.
+            "packets":
+                packets,
+
             "total_flows":
                 len(flows),
 

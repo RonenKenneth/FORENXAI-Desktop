@@ -2,6 +2,7 @@
 using System.Windows.Controls;
 using System.Windows.Media;
 
+using FORENXAI.Desktop.Services;
 using FORENXAI.Desktop.Views;
 
 namespace FORENXAI.Desktop;
@@ -15,6 +16,7 @@ public partial class MainWindow : Window
 
     private string CurrentCaseId =
         string.Empty;
+    private AnalysisResponse? CurrentAnalysis;
 
 
     // =========================================================
@@ -88,6 +90,23 @@ public partial class MainWindow : Window
     public string GetCurrentCase()
     {
         return CurrentCaseId;
+    }
+
+    public void SetCurrentAnalysis(AnalysisResponse response)
+    {
+        CurrentAnalysis = response;
+        SetCurrentCase(response.CaseId);
+    }
+
+    private void Investigation_Click(object sender, RoutedEventArgs e)
+    {
+        if (CurrentAnalysis == null)
+        {
+            MessageBox.Show("Analyze evidence first to view packet details.", "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        MainContent.Content = new InvestigationView(CurrentAnalysis);
+        SetActiveNavigation(InvestigationButton);
     }
 
 

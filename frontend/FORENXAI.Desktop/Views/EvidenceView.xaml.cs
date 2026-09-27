@@ -1,12 +1,14 @@
 using Microsoft.Win32;
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 using FORENXAI.Desktop.Services;
 
@@ -23,6 +25,15 @@ public partial class EvidenceView : UserControl
 
 
     private readonly BackendApiService backendApi;
+
+    private Window? analysisProgressWindow;
+    private Window? analysisOwnerWindow;
+    private ProgressBar? analysisProgressBar;
+    private TextBlock? analysisElapsedText;
+    private TextBlock? analysisStatusText;
+    private Button? analysisViewResultsButton;
+    private readonly Stopwatch analysisStopwatch = new();
+    private readonly DispatcherTimer analysisTimer = new();
 
 
     // =========================================================
@@ -249,6 +260,9 @@ public partial class EvidenceView : UserControl
             StartAnalysisButton.IsEnabled =
                 true;
 
+            StartAnalysisButton.Visibility =
+                Visibility.Visible;
+
 
             // =================================================
             // COMPLETE
@@ -431,6 +445,159 @@ public partial class EvidenceView : UserControl
     // START FORENSIC ANALYSIS
     // =========================================================
 
+    private void ShowAnalysisProgressDialog()
+    {
+        analysisOwnerWindow = Window.GetWindow(this);
+        if (analysisOwnerWindow != null)
+        {
+            // Keep the user focused on the running analysis. The window is
+            // re-enabled when the analysis finishes or fails.
+            analysisOwnerWindow.IsEnabled = false;
+        }
+
+        analysisProgressWindow = new Window
+        {
+            Title = "FORENXAI Analysis",
+            Width = 520,
+            Height = 260,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = analysisOwnerWindow,
+            Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+            ShowInTaskbar = false,
+            WindowStyle = WindowStyle.ToolWindow,
+            ShowActivated = true,
+            Topmost = true
+        };
+
+        StackPanel panel = new StackPanel { Margin = new Thickness(28) };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "FORENXAI FORENSIC ANALYSIS",
+            Foreground = Brushes.White,
+            FontSize = 18,
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(0, 0, 0, 16)
+        });
+
+        analysisStatusText = new TextBlock
+        {
+            Text = "Analyzing evidence...",
+            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            FontSize = 13,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        panel.Children.Add(analysisStatusText);
+
+        analysisProgressBar = new ProgressBar
+        {
+            Height = 18,
+            IsIndeterminate = true,
+            Foreground = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        panel.Children.Add(analysisProgressBar);
+
+        analysisElapsedText = new TextBlock
+        {
+            Text = "Elapsed time: 00:00",
+            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 18)
+        };
+        panel.Children.Add(analysisElapsedText);
+
+        analysisViewResultsButton = new Button
+        {
+            Content = "View Results",
+            IsEnabled = false,
+            Visibility = Visibility.Collapsed,
+            Height = 38,
+            Background = new SolidColorBrush(Color.FromRgb(22, 163, 74)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            FontWeight = FontWeights.Bold
+        };
+        panel.Children.Add(analysisViewResultsButton);
+
+        analysisProgressWindow.Content = panel;
+        analysisProgressWindow.Closing += (_, eventArgs) =>
+        {
+            // Do not let the user close the progress window while the
+            // backend is still running and leave the main window locked.
+            if (analysisOwnerWindow != null && !analysisOwnerWindow.IsEnabled)
+            {
+                eventArgs.Cancel = true;
+            }
+        };
+        analysisStopwatch.Restart();
+        analysisTimer.Interval = TimeSpan.FromSeconds(1);
+        analysisTimer.Tick -= AnalysisTimer_Tick;
+        analysisTimer.Tick += AnalysisTimer_Tick;
+        analysisTimer.Start();
+        analysisProgressWindow.Show();
+    }
+
+    private void AnalysisTimer_Tick(object? sender, EventArgs e)
+    {
+        if (analysisElapsedText != null)
+        {
+            analysisElapsedText.Text =
+                $"Elapsed time: {analysisStopwatch.Elapsed:mm\\:ss}";
+        }
+    }
+
+    private void CompleteAnalysisProgressDialog(Action viewResults)
+    {
+        analysisTimer.Stop();
+        analysisStopwatch.Stop();
+        if (analysisProgressBar != null)
+        {
+            analysisProgressBar.IsIndeterminate = false;
+            analysisProgressBar.Value = 100;
+        }
+        if (analysisStatusText != null)
+        {
+            analysisStatusText.Text = "Analysis complete.";
+            analysisStatusText.Foreground =
+                new SolidColorBrush(Color.FromRgb(74, 222, 128));
+        }
+        if (analysisElapsedText != null)
+        {
+            analysisElapsedText.Text =
+                $"Completed in: {analysisStopwatch.Elapsed:mm\\:ss}";
+        }
+        if (analysisViewResultsButton != null)
+        {
+            analysisViewResultsButton.Visibility = Visibility.Visible;
+            analysisViewResultsButton.IsEnabled = true;
+            analysisViewResultsButton.Click += (_, _) =>
+            {
+                if (analysisOwnerWindow != null)
+                {
+                    analysisOwnerWindow.IsEnabled = true;
+                    analysisOwnerWindow.Activate();
+                }
+                analysisProgressWindow?.Close();
+                viewResults();
+            };
+        }
+    }
+
+    private void CloseAnalysisProgressDialog()
+    {
+        analysisTimer.Stop();
+        analysisStopwatch.Stop();
+        if (analysisOwnerWindow != null)
+        {
+            analysisOwnerWindow.IsEnabled = true;
+        }
+        analysisProgressWindow?.Close();
+        analysisProgressWindow = null;
+        analysisOwnerWindow = null;
+    }
+
     private async void StartAnalysis_Click(
         object sender,
         RoutedEventArgs e)
@@ -521,6 +688,8 @@ public partial class EvidenceView : UserControl
                 new SolidColorBrush(
                     Colors.LightBlue
                 );
+
+            ShowAnalysisProgressDialog();
 
 
             // =================================================
@@ -692,56 +861,17 @@ public partial class EvidenceView : UserControl
                 is MainWindow mainWindow
             )
             {
-                mainWindow.SetCurrentCase(
-                    response.CaseId
-                );
+                mainWindow.SetCurrentAnalysis(response);
             }
 
 
-            // =================================================
-            // SHOW COMPLETION MESSAGE
-            // =================================================
-
-            MessageBox.Show(
-                $"FORENXAI analysis completed.\n\n" +
-
-                $"Case ID: {response.CaseId}\n" +
-                $"Evidence: {response.FileName}\n\n" +
-
-                $"Total Packets: {response.TotalPackets:N0}\n" +
-                $"Total Flows: {response.TotalFlows:N0}\n" +
-                $"Total Bytes: {response.TotalBytes:N0}\n\n" +
-
-                $"ML Flows: {response.MlTotalFlows:N0}\n" +
-                $"Benign: {response.BenignFlows:N0}\n" +
-                $"Threats: {response.ThreatFlows:N0}\n" +
-                $"Threat Percentage: {response.ThreatPercentage:F2}%\n\n" +
-
-                $"SHA-256:\n{response.Sha256}\n\n" +
-
-                response.Message,
-
-                "FORENXAI Analysis",
-
-                MessageBoxButton.OK,
-
-                MessageBoxImage.Information
-            );
-
-
-            // =================================================
-            // AUTOMATICALLY OPEN DASHBOARD
-            // =================================================
-
-            if (
-                Window.GetWindow(this)
-                is MainWindow dashboardWindow
-            )
+            CompleteAnalysisProgressDialog(() =>
             {
-                dashboardWindow.ShowDashboard(
-                    response.CaseId
-                );
-            }
+                if (Window.GetWindow(this) is MainWindow dashboardWindow)
+                {
+                    dashboardWindow.ShowDashboard(response.CaseId);
+                }
+            });
         }
 
 
@@ -753,6 +883,7 @@ public partial class EvidenceView : UserControl
             HttpRequestException ex
         )
         {
+            CloseAnalysisProgressDialog();
             StatusText.Text =
                 "Backend connection failed";
 
@@ -790,6 +921,7 @@ public partial class EvidenceView : UserControl
             Exception ex
         )
         {
+            CloseAnalysisProgressDialog();
             StatusText.Text =
                 "Analysis failed";
 

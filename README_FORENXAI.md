@@ -268,6 +268,20 @@ Three fixed values had been shown as measurements. They are now either measured 
   - The Reports tab now shows the recommended action for the ML class.
   - The per-class F1 in the XAI tab and the AI summary is now labelled as the TRUSTLab test-set figure from training.
 
+### Charts, rules vs ML, packets to XAI (28 Sep 2026)
+
+| Area | Change | Files |
+|---|---|---|
+| Dashboard charts | The Hybrid source strip is removed. Both charts now show the uncertain part themselves. Traffic classification draws flows the model abstained on as a grey "Uncertain" slice. Rule-based detected attacks adds "Uncertain" for flows with no rule where the model abstained. Every non-empty slice is drawn at least 4° wide so small groups stay visible; the legends keep the exact counts | `Views/DashboardView.xaml(.cs)` |
+| Rules vs ML | One line under both charts: Agree, Differ (with the most frequent pair, e.g. "ML DDoS vs rule PortScan, 2,001"), Model only, Uncertain | `Views/DashboardView.xaml(.cs)` |
+| Packets to XAI | Double-click opens XAI whenever the packet has a flow. TCP and UDP match by connection. ICMP and IGMP match CICFlowMeter's protocol-0 flow for the same two hosts. ARP frames open the ARP pseudo-flow. Any other packet shows a warning that says why, e.g. a single-packet probe is not in the flow records | `Views/DashboardView.xaml.cs` |
+| ICMP Info | ICMP errors are shown as in Wireshark, with the code name (RFC 792) and the packet they quote, e.g. "Destination unreachable (Protocol unreachable) for TCP 192.168.50.102:50764 > 192.168.50.100:256". In LabActivity2, host .100 answered each of 1,000 TCP probes from .102 this way | `backend/app/services/pcap_service.py`, `test_packet_parsing.py` |
+| Packet columns | "Captured" is renamed "Bytes in file": the bytes saved for a packet. It differs from Length (bytes on the wire) only when the capture truncated packets (snaplen), so the column is shown only then | `packet_store.py`, `DashboardView` |
+| Buttons | A dark button template in `App.xaml` for every view: disabled buttons are dimmed instead of white (Previous on page 1, Browse during an analysis) | `App.xaml`, `Views/EvidenceView.xaml` |
+
+Checked in the app on a fresh LabActivity2 analysis:
+- **Charts and summary line:** DDoS 2,009 and Uncertain 7; PortScan 2,001 and Uncertain 7; Rules vs ML reads agree 0, differ 2,001, model only 8, uncertain 7.
+- **Double-click:** an ICMP packet opens flow 2012, a DNS query opens flow 2013, an ARP frame opens the ARP pseudo-flow 2010, and a single-packet SYN probe shows the warning.
 ### Rule basis, packet filters, setup and training code (28 Sep 2026)
 
 | Area | Change | Files |

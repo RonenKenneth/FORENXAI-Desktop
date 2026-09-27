@@ -164,6 +164,7 @@ def query_packets(packets: List[Dict[str, Any]], offset: int = 0, limit: int = 5
     options = {name: defaultdict(int) for name in
                ("protocols", "flags", "sources", "destinations", "ports", "ip_versions", "interfaces")}
     present = set()
+    truncated = False      # any packet saved shorter than on the wire (snaplen)
     rows = []
     matched = 0
     for p in packets:
@@ -186,6 +187,8 @@ def query_packets(packets: List[Dict[str, Any]], offset: int = 0, limit: int = 5
         if p.get("interface"):
             options["interfaces"][p["interface"]] += 1
         present.update(k for k, v in p.items() if v not in (None, ""))
+        if p.get("captured_length") not in (None, p.get("wire_length")):
+            truncated = True
 
         length = p.get("wire_length") or p.get("packet_length") or 0
         if ((protocol and display != protocol) or (flag and flag not in flags)
@@ -203,6 +206,8 @@ def query_packets(packets: List[Dict[str, Any]], offset: int = 0, limit: int = 5
         if offset <= matched < offset + limit:
             rows.append({**p, "display_protocol": display, "flags": flags})
         matched += 1
+    if not truncated:
+        present.discard("captured_length")      # equals Length for every packet: no column
     result = {"total": len(packets), "matched": matched, "offset": offset, "rows": rows,
               "columns": sorted(present), "first_time": packets[0]["timestamp"] if packets else None}
     for name, counter in options.items():

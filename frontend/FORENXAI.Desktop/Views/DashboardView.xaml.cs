@@ -44,7 +44,6 @@ public partial class DashboardView : UserControl
 
     private readonly ObservableCollection<BarRow> tier1Bars = new();
     private readonly ObservableCollection<BarRow> tier2Bars = new();
-    private readonly ObservableCollection<BarRow> verdictLegend = new();
 
 
     // =========================================================
@@ -74,7 +73,6 @@ public partial class DashboardView : UserControl
 
         Tier1Bars.ItemsSource = tier1Bars;
         Tier2Bars.ItemsSource = tier2Bars;
-        VerdictLegend.ItemsSource = verdictLegend;
 
 
         ResetDashboard();
@@ -262,14 +260,7 @@ public partial class DashboardView : UserControl
         ["Benign"] = "#22C55E",
     };
 
-    private static readonly (string Key, string Label, string Colour, string Meaning)[] VerdictSources =
-    {
-        ("agree", "agree", "#22C55E", "Model and rules name the same class"),
-        ("rule", "rule", "#F59E0B", "A trusted rule decided (or stood in for an abstaining model)"),
-        ("ml", "model", "#3B82F6", "No rule fired; the model decided"),
-        ("conflict", "conflict", "#EF4444", "Rules and model disagree; model class shown, analyst review"),
-        ("abstain", "uncertain", "#64748B", "Model below its confidence threshold or out of distribution, and no rule fired"),
-    };
+    private const string UncertainColour = "#64748B";
 
     private static Brush ToBrush(string colour) =>
         (Brush)new BrushConverter().ConvertFromString(colour)!;
@@ -282,9 +273,6 @@ public partial class DashboardView : UserControl
     {
         tier1Bars.Clear();
         tier2Bars.Clear();
-        verdictLegend.Clear();
-        VerdictBar.Children.Clear();
-        VerdictBar.ColumnDefinitions.Clear();
         EvidencePieCanvas.Children.Clear();
         EvidencePieTotalText.Text = "0";
         Tier1CoverageText.Text = string.Empty;
@@ -295,7 +283,7 @@ public partial class DashboardView : UserControl
         Tier2StatusText.Text = string.Empty;
         Tier2DetailsText.Text = string.Empty;
         Tier2DetailsPanel.Visibility = Visibility.Collapsed;
-        VerdictSummaryText.Text = "--";
+        RuleMlAgreementText.Text = string.Empty;
         RulesVersionText.Text = string.Empty;
     }
 
@@ -440,39 +428,48 @@ public partial class DashboardView : UserControl
                  : $" Not in them: {coverage.NotInFlowRecords:N0} ({coverage.SinglePacketNotExported:N0} single-packet; "
                    + "CICFlowMeter exports flows of 2+ packets only, as in the training data)."
                    + (coverage.UnansweredSynProbes.Count == 0 ? string.Empty
-                      : " Unanswered SYN probes: " + string.Join("; ", coverage.UnansweredSynProbes.Take(4)
+                      : " Single-packet SYN probes (no TCP reply): " + string.Join("; ", coverage.UnansweredSynProbes.Take(4)
                             .Select(p => $"{p.Source} → {p.Destination} {p.Ports:N0} ports"))
                         + ". Tier 2 and the Packets table still read them."));
 
-        // Hybrid source: one stacked line of rule / model / uncertain.
-        int decided = rules.VerdictSources.Values.Sum();
-        VerdictSummaryText.Text = decided == 0
-            ? "No flows in this case."
-            : $"{decided:N0} flows";
-        foreach (var (key, label, colour, meaning) in VerdictSources)
+        ShowRuleMlAgreement();
+        LoadAttackEvidencePie();
+    }
+
+    // One line under both charts: where the rules and the model agree,
+    // where they differ (with the most frequent pair), and what only one
+    // side or neither could decide.
+    private void ShowRuleMlAgreement()
+    {
+        var findings = currentAnalysis?.MlAnalysis?.Findings ?? new List<MlFinding>();
+        int agree = 0, modelOnly = 0, uncertain = 0;
+        var differ = new List<(string Ml, string Rule)>();
+        foreach (MlFinding f in findings)
         {
-            int count = rules.VerdictSources.GetValueOrDefault(key);
-            if (count == 0)
+            string? ruleClass = TopRuleHit(f)?.ClassName;
+            if (ruleClass != null)
             {
-                continue;
+                if (ruleClass == f.PredictedClass) agree++;
+                else differ.Add((f.PredictedClass ?? "?", ruleClass));
             }
-
-            VerdictBar.ColumnDefinitions.Add(
-                new ColumnDefinition { Width = new GridLength(count, GridUnitType.Star) });
-            var segment = new Border { Background = ToBrush(colour), ToolTip = meaning };
-            Grid.SetColumn(segment, VerdictBar.ColumnDefinitions.Count - 1);
-            VerdictBar.Children.Add(segment);
-
-            verdictLegend.Add(new BarRow
-            {
-                Label = $"{label} · {count:N0} ({(double)count / decided:P1}): {meaning}",
-                Count = count,
-                Brush = ToBrush(colour),
-                Tooltip = meaning,
-            });
+            else if (f.VerdictSource == "abstain") uncertain++;
+            else modelOnly++;
         }
 
-        LoadAttackEvidencePie();
+        RuleMlAgreementText.Inlines.Clear();
+        void Chip(string colour, string text, string tip)
+        {
+            RuleMlAgreementText.Inlines.Add(new System.Windows.Documents.Run("●  ") { Foreground = ToBrush(colour) });
+            RuleMlAgreementText.Inlines.Add(new System.Windows.Documents.Run(text) { ToolTip = tip });
+            RuleMlAgreementText.Inlines.Add(new System.Windows.Documents.Run("      "));
+        }
+        RuleMlAgreementText.Inlines.Add(new System.Windows.Documents.Run("RULES vs ML    ") { FontWeight = FontWeights.Bold, Foreground = Brushes.White });
+        Chip("#22C55E", $"Agree {agree:N0}", "A rule fired for the same class the model predicted");
+        var top = differ.GroupBy(d => d).OrderByDescending(g => g.Count()).FirstOrDefault();
+        Chip("#EF4444", $"Differ {differ.Count:N0}" + (top == null ? "" : $" (most: ML {top.Key.Ml} vs rule {top.Key.Rule}, {top.Count():N0})"),
+             "A rule fired for a different class than the model predicted; the Supporting Evidence column shows which one decided");
+        Chip("#3B82F6", $"Model only {modelOnly:N0}", "No rule fired; the model's class stands (including benign)");
+        Chip("#64748B", $"Uncertain {uncertain:N0}", "No rule fired and the model abstained (low confidence or out of distribution): analyst review");
     }
 
     // Pie beside Traffic classification: the attack types (of the 15)
@@ -490,28 +487,34 @@ public partial class DashboardView : UserControl
             .OrderByDescending(g => g.Count())
             .ToList();
         int ruleBacked = attacks.Sum(g => g.Count());
-        EvidencePieTotalText.Text = ruleBacked.ToString("N0");
+        int uncertain = findings.Count(f => f.VerdictSource == "abstain");
+        int charted = ruleBacked + uncertain;
+        EvidencePieTotalText.Text = charted.ToString("N0");
         AttackEvidenceSubtitleText.Text = ruleBacked == 0
             ? "No attack type is supported by a Tier 1 or Tier 2 rule."
             : $"Attack types supported by Tier 1 / Tier 2 rules · {ruleBacked:N0} of {findings.Count:N0} flows";
 
         int modelOnly = findings.Count(f => f.VerdictSource == "ml" && f.Verdict != "Benign");
-        int uncertain = findings.Count(f => f.VerdictSource == "abstain");
-        var notCharted = new List<string>();
-        if (modelOnly > 0) notCharted.Add($"{modelOnly:N0} backed by the model only");
-        if (uncertain > 0) notCharted.Add($"{uncertain:N0} uncertain (analyst review)");
-        EvidenceNoteText.Text = notCharted.Count == 0 ? "" : "Not charted: " + string.Join(", ", notCharted) + ".";
+        EvidenceNoteText.Text = modelOnly == 0 ? "" : $"Not charted: {modelOnly:N0} backed by the model only.";
+        if (uncertain > 0)
+        {
+            attacks.Add(findings.Where(f => f.VerdictSource == "abstain").GroupBy(_ => "Uncertain").First());
+        }
 
         double start = -90.0;
+        double[] sweeps = VisibleSweeps(attacks.Select(g => g.Count()).ToList());
+        int slot = 0;
         foreach (var group in attacks)
         {
             int count = group.Count();
             var sources = group.GroupBy(EvidenceSourceOf).OrderByDescending(x => x.Count()).ToList();
-            string source = sources.Count == 1
+            bool isUncertain = group.Key == "Uncertain";
+            string source = isUncertain ? "no rule fired and the model abstained: analyst review"
+                : sources.Count == 1
                 ? EvidenceSource(sources[0].Key)
                 : string.Join(" + ", sources.Select(x => $"{EvidenceSource(x.Key)} {x.Count():N0}"));
-            Brush brush = ToBrush(ClassColours[group.Key]);
-            double sweep = count * 360.0 / ruleBacked;
+            Brush brush = ToBrush(isUncertain ? UncertainColour : ClassColours[group.Key]);
+            double sweep = sweeps[slot++];
             Path slice = attacks.Count == 1
                 ? CreateDonutSegment(110, 110, 100, 58, -90, 359.999, brush)
                 : CreateDonutSegment(110, 110, 100, 58, start, sweep, brush);
@@ -521,12 +524,40 @@ public partial class DashboardView : UserControl
 
             attackLegend.Add(new BarRow
             {
-                Label = $"{group.Key}  ({(double)count / ruleBacked:P1})",
+                Label = $"{group.Key}  ({(double)count / charted:P1})",
                 Count = count,
                 Brush = brush,
                 Tooltip = source,
             });
         }
+    }
+
+    // Slice angles proportional to the counts, except that every non-empty
+    // slice gets at least MinSliceDegrees so a small group (e.g. 7
+    // uncertain flows of 2,016) stays visible; the difference is taken from
+    // the largest slice. Legends keep the exact counts and percentages.
+    private const double MinSliceDegrees = 4.0;
+
+    internal static double[] VisibleSweeps(IList<int> counts)
+    {
+        double total = counts.Sum();
+        var sweeps = counts.Select(n => total <= 0 ? 0 : n * 360.0 / total).ToArray();
+        if (sweeps.Count(s => s > 0) < 2)
+        {
+            return sweeps;
+        }
+        double added = 0;
+        for (int i = 0; i < sweeps.Length; i++)
+        {
+            if (sweeps[i] > 0 && sweeps[i] < MinSliceDegrees)
+            {
+                added += MinSliceDegrees - sweeps[i];
+                sweeps[i] = MinSliceDegrees;
+            }
+        }
+        int largest = Array.IndexOf(sweeps, sweeps.Max());
+        sweeps[largest] -= added;
+        return sweeps;
     }
 
     // Source key of the evidence for one flow: "T1"/"T2" when a rule
@@ -589,18 +620,21 @@ public partial class DashboardView : UserControl
 
         // Only the 15 attack types are charted; benign flows are counted
         // in the subtitle instead.
-        int benignFlows = findings.Count(finding =>
+        int benignFlows = findings.Count(finding => !finding.Abstained &&
             string.Equals(finding.PredictedClass?.Trim(), "Benign", StringComparison.OrdinalIgnoreCase));
         TrafficChartSubtitleText.Text = benignFlows == 0
-            ? "Attack types predicted by the ML model"
-            : $"Attack types predicted by the ML model · {benignFlows:N0} benign flow{(benignFlows == 1 ? "" : "s")} not charted";
+            ? "Attack types predicted by the ML model; Uncertain = model abstained"
+            : $"Attack types predicted by the ML model; Uncertain = model abstained · {benignFlows:N0} benign flow{(benignFlows == 1 ? "" : "s")} not charted";
 
         Dictionary<string, int> classCounts =
             findings
-                .Where(finding => !string.Equals(finding.PredictedClass?.Trim(), "Benign", StringComparison.OrdinalIgnoreCase))
+                .Where(finding => finding.Abstained
+                                  || !string.Equals(finding.PredictedClass?.Trim(), "Benign", StringComparison.OrdinalIgnoreCase))
                 .GroupBy(
                     finding =>
-                        string.IsNullOrWhiteSpace(
+                        finding.Abstained
+                            ? "Uncertain"
+                            : string.IsNullOrWhiteSpace(
                             finding.PredictedClass
                         )
                             ? "Unknown"
@@ -820,6 +854,9 @@ public partial class DashboardView : UserControl
         double startAngle =
             -90.0;
 
+        double[] sweeps =
+            VisibleSweeps(slices.Select(row => row.Count).ToList());
+        int slot = 0;
 
         foreach (
             TrafficLegendRow row
@@ -827,9 +864,7 @@ public partial class DashboardView : UserControl
         )
         {
             double sweepAngle =
-                row.Count
-                / (double)total
-                * 360.0;
+                sweeps[slot++];
 
 
             if (
@@ -1098,6 +1133,9 @@ public partial class DashboardView : UserControl
             {
                 "benign" =>
                     "#4ADE80",
+
+                "uncertain" =>
+                    UncertainColour,
 
                 "dos" =>
                     "#3B82F6",
@@ -1637,7 +1675,7 @@ public partial class DashboardView : UserControl
         ["IP Len"] = "ip_total_length", ["TCP Flags"] = "tcp_flags", ["Seq"] = "tcp_seq", ["Ack"] = "tcp_ack",
         ["Window"] = "tcp_window", ["TCP Hdr"] = "tcp_header_length", ["TCP Options"] = "tcp_options",
         ["UDP Len"] = "udp_length", ["ICMP Type"] = "icmp_type", ["ICMP Code"] = "icmp_code",
-        ["Payload"] = "payload_length", ["Captured"] = "captured_length", ["Comment"] = "comment",
+        ["Payload"] = "payload_length", ["Bytes in file"] = "captured_length", ["Comment"] = "comment",
     };
 
     private void ShowPacketColumns(IReadOnlyCollection<string> present)
@@ -1711,12 +1749,35 @@ public partial class DashboardView : UserControl
         int? sourcePort = int.TryParse(packet.SourcePort, out int sp) ? sp : null;
         int? destinationPort = int.TryParse(packet.DestinationPort, out int dp) ? dp : null;
         string key = ConnectionKey(packet.Source, sourcePort, packet.Destination, destinationPort, packet.Transport);
+        bool isIp = packet.IpVersion != "";
 
-        if (!flowByConnection.TryGetValue(key, out int flowIndex))
+        // CICFlowMeter records IP packets without ports (ICMP, IGMP) as
+        // protocol 0 with ports 0, and folds non-IP frames (ARP) into one
+        // pseudo-flow; look those up the same way.
+        bool found = flowByConnection.TryGetValue(key, out int flowIndex);
+        if (!found && isIp && sourcePort == null)
         {
+            found = flowByConnection.TryGetValue(
+                ConnectionKey(packet.Source, 0, packet.Destination, 0, ProtocolName(0)), out flowIndex);
+        }
+        if (!found && !isIp
+            && currentAnalysis?.MlAnalysis?.Findings.FirstOrDefault(f => f.PseudoFlow) is MlFinding pseudo)
+        {
+            flowIndex = pseudo.FlowIndex;
+            found = true;
+        }
+
+        if (!found)
+        {
+            string reason = sourcePort != null
+                ? $"Its connection ({packet.Source}:{packet.SourcePort} ↔ {packet.Destination}:{packet.DestinationPort}) "
+                  + "is not in the CICFlowMeter flow records. CICFlowMeter exports only connections with 2 or more packets, "
+                  + "as in the model's training data, so single-packet probes and one-off queries have no flow."
+                : $"CICFlowMeter made no flow for this {packet.Protocol} packet.";
             MessageBox.Show(
-                $"Packet {packet.Number} ({packet.Protocol}) is not part of an analysed flow, so it has no ML prediction or SHAP explanation.",
-                "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
+                $"Packet {packet.Number} ({packet.Protocol}) cannot be opened in XAI: it has no ML prediction or SHAP explanation.\n\n"
+                + reason + "\n\nTier 2 rules and Suricata still inspect it.",
+                "FORENXAI: no XAI for this packet", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1724,7 +1785,7 @@ public partial class DashboardView : UserControl
         {
             MessageBox.Show(
                 $"Packet {packet.Number} belongs to flow {flowIndex}, which the model classified as benign. The XAI tab lists detected threats only.",
-                "FORENXAI", MessageBoxButton.OK, MessageBoxImage.Information);
+                "FORENXAI: no XAI for this packet", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

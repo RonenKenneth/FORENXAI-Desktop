@@ -40,33 +40,6 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-        <!-- Dark buttons: the default template paints disabled buttons
-             white (e.g. "Previous" on the first page). -->
-        <Style TargetType="Button">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#60A5FA"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Chrome" Property="Opacity" Value="0.8"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Chrome" Property="Opacity" Value="0.4"/>
-                                <Setter Property="Cursor" Value="Arrow"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="#E2E8F0"/>
             <Setter Property="Background" Value="#1E293B"/>
@@ -351,7 +324,7 @@
                 <Grid Grid.Row="0" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="RULE-BASED DETECTION" Foreground="White" FontSize="16" FontWeight="Bold"/>
-                        <TextBlock Text="Flows flagged by each rule class. Tier 1 reads the flow records; Tier 2 reads the packets (scapy checks and Suricata). Hybrid source (below) shows what backs each flow's class: a rule, the model alone, or uncertain."
+                        <TextBlock Text="Flows flagged by each rule class. Tier 1 reads the flow records; Tier 2 reads the packets (scapy checks and Suricata). The charts and the RULES vs ML line below compare the rules with the model."
                                    Foreground="#94A3B8" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                     <TextBlock x:Name="RulesVersionText" Text="" Foreground="#64748B" FontSize="11"
@@ -452,42 +425,6 @@
                 </Grid>
 
 
-
-                <!-- HYBRID SOURCE: the combination of both tiers and the model,
-                     as one stacked line across the panel -->
-                <Border Grid.Row="2" Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,10,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="220"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="HYBRID SOURCE" Foreground="#BBF7D0" FontSize="12" FontWeight="Bold"/>
-                            <TextBlock x:Name="VerdictSummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1">
-                            <Border CornerRadius="4" ClipToBounds="True" Height="14" Background="#1E293B">
-                                <Grid x:Name="VerdictBar"/>
-                            </Border>
-                            <ItemsControl x:Name="VerdictLegend" Margin="0,8,0,0">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,20,4" ToolTip="{Binding Tooltip}">
-                                            <Border Width="10" Height="10" CornerRadius="2" Background="{Binding Brush}"
-                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text="{Binding Label}" Foreground="#CBD5E1" FontSize="11"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Grid>
-                </Border>
             </Grid>
         </Border>
 
@@ -507,7 +444,15 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+
+            <!-- RULES vs ML: one line under both charts showing where the two
+                 detectors agree and where they differ -->
+            <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#151F2F" CornerRadius="10"
+                    Padding="16,10" Margin="0,0,0,16">
+                <TextBlock x:Name="RuleMlAgreementText" Foreground="#CBD5E1" FontSize="12" TextWrapping="Wrap"/>
+            </Border>
 
             <!-- TRAFFIC CLASSIFICATION -->
             <Border Grid.Row="0" Grid.Column="0"
@@ -570,7 +515,7 @@
                                            FontWeight="Bold"
                                            HorizontalAlignment="Center"/>
 
-                                <TextBlock Text="ML attack flows"
+                                <TextBlock Text="flows charted"
                                            Foreground="#94A3B8"
                                            FontSize="11"
                                            HorizontalAlignment="Center"
@@ -669,7 +614,7 @@
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
                                 <TextBlock x:Name="EvidencePieTotalText" Text="0" Foreground="White" FontSize="24"
                                            FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Rule-backed flows" Foreground="#94A3B8" FontSize="11"
+                                <TextBlock Text="flows charted" Foreground="#94A3B8" FontSize="11"
                                            HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Grid>
@@ -698,7 +643,7 @@
             </Border>
 
             <!-- DETECTED THREATS -->
-            <Border Grid.Row="1" Grid.ColumnSpan="3"
+            <Border Grid.Row="2" Grid.ColumnSpan="3"
                     Background="#151F2F"
                     CornerRadius="10"
                     Padding="16"
@@ -837,7 +782,7 @@
             </Border>
 
             <!-- PACKETS: every packet in the capture, filterable -->
-            <Border Grid.Row="2" Grid.ColumnSpan="3"
+            <Border Grid.Row="3" Grid.ColumnSpan="3"
                     Background="#151F2F"
                     CornerRadius="10"
                     Padding="16"
@@ -946,7 +891,7 @@
                             <DataGridTextColumn Header="ICMP Type" Binding="{Binding IcmpType}" Width="80"/>
                             <DataGridTextColumn Header="ICMP Code" Binding="{Binding IcmpCode}" Width="80"/>
                             <DataGridTextColumn Header="Payload" Binding="{Binding PayloadLength}" Width="80"/>
-                            <DataGridTextColumn Header="Captured" Binding="{Binding CapturedLength}" Width="80"/>
+                            <DataGridTextColumn Header="Bytes in file" Binding="{Binding CapturedLength}" Width="100"/>
                             <DataGridTextColumn Header="Comment" Binding="{Binding Comment}" Width="200"/>
                         </DataGrid.Columns>
                     </DataGrid>

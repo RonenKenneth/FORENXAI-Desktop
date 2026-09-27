@@ -30,6 +30,13 @@ assert describe(dns, "UDP", 5353, 53, "")[0] == "DNS"
 ping = Ether() / IP() / ICMP(type=8, id=1, seq=2)
 assert describe(ping, "ICMP", None, None, "")[1].startswith("Echo (ping) request")
 
+# ICMP error: code named as in Wireshark, plus the packet it refers to
+# (rebuilt from bytes so scapy decodes the quoted header as IPerror).
+unreach = Ether(bytes(Ether() / IP(src="10.0.0.2", dst="10.0.0.1") / ICMP(type=3, code=2)
+                      / IP(src="10.0.0.1", dst="10.0.0.2") / TCP(sport=4242, dport=80, flags="S")))
+assert describe(unreach, "ICMP", None, None, "")[1] == \
+    "Destination unreachable (Protocol unreachable) for TCP 10.0.0.1:4242 > 10.0.0.2:80"
+
 tcp = describe(syn, "TCP", 5000, 443, "S")
 assert tcp[0] == "TCP" and "[SYN]" in tcp[1] and "Len=0" in tcp[1]
 

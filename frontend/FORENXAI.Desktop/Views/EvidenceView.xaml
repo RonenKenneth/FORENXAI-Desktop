@@ -265,7 +265,7 @@
                     Visibility="Collapsed"
                     Click="StartAnalysis_Click">
                     <Button.Style>
-                        <Style TargetType="Button">
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                             <Setter Property="Background" Value="#16A34A"/>
                             <Setter Property="Foreground" Value="White"/>
                             <Style.Triggers>

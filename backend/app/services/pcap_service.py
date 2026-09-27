@@ -15,6 +15,7 @@ from scapy.layers.dhcp import DHCP
 from scapy.layers.l2 import Dot1Q
 from scapy.layers.dns import DNS
 from scapy.packet import Padding
+from scapy.layers.inet import IPerror, TCPerror, UDPerror
 
 
 # ============================================================
@@ -31,8 +32,18 @@ TCP_FLAG_NAMES = [("S", "SYN"), ("A", "ACK"), ("F", "FIN"), ("R", "RST"),
 TLS_RECORDS = {0x14: "Change Cipher Spec", 0x15: "Alert", 0x16: "Handshake", 0x17: "Application Data"}
 TLS_HANDSHAKES = {1: "Client Hello", 2: "Server Hello", 11: "Certificate", 12: "Server Key Exchange",
                   14: "Server Hello Done", 16: "Client Key Exchange", 20: "Finished"}
-ICMP_TYPES = {0: "Echo (ping) reply", 3: "Destination unreachable", 5: "Redirect",
-              8: "Echo (ping) request", 11: "Time-to-live exceeded"}
+ICMP_TYPES = {0: "Echo (ping) reply", 3: "Destination unreachable", 4: "Source quench", 5: "Redirect",
+              8: "Echo (ping) request", 11: "Time-to-live exceeded", 12: "Parameter problem",
+              13: "Timestamp request", 14: "Timestamp reply"}
+# Code names as Wireshark shows them (RFC 792, RFC 1812).
+ICMP_CODES = {
+    3: {0: "Network unreachable", 1: "Host unreachable", 2: "Protocol unreachable", 3: "Port unreachable",
+        4: "Fragmentation needed", 5: "Source route failed", 6: "Destination network unknown",
+        7: "Destination host unknown", 9: "Network administratively prohibited",
+        10: "Host administratively prohibited", 13: "Communication administratively filtered"},
+    5: {0: "Redirect for network", 1: "Redirect for host"},
+    11: {0: "Time to live exceeded in transit", 1: "Fragment reassembly time exceeded"},
+}
 DHCP_TYPES = {1: "Discover", 2: "Offer", 3: "Request", 4: "Decline", 5: "ACK", 6: "NAK", 7: "Release", 8: "Inform"}
 DNS_QTYPES = {1: "A", 2: "NS", 5: "CNAME", 6: "SOA", 12: "PTR", 15: "MX", 16: "TXT", 28: "AAAA", 33: "SRV", 255: "ANY"}
 # Well-known services, named by port when no content is recognised (as
@@ -129,6 +140,19 @@ def header_fields(packet) -> dict:
     return f
 
 
+def _quoted(packet) -> str:
+    """The packet an ICMP error refers to (it carries that packet's IP
+    header and first 8 bytes), e.g. ' for TCP 10.0.0.1:4242 > 10.0.0.2:80'."""
+    if IPerror not in packet:
+        return ""
+    inner = packet[IPerror]
+    for layer, name in ((TCPerror, "TCP"), (UDPerror, "UDP")):
+        if layer in packet:
+            q = packet[layer]
+            return f" for {name} {inner.src}:{int(q.sport)} > {inner.dst}:{int(q.dport)}"
+    return f" for IP protocol {int(inner.proto)} {inner.src} > {inner.dst}"
+
+
 def describe(packet, transport: str, sport, dport, tcp_flags: str):
     """Wireshark-style (display_protocol, info) for one packet."""
     if ARP in packet:
@@ -141,8 +165,10 @@ def describe(packet, transport: str, sport, dport, tcp_flags: str):
     if ICMP in packet:
         icmp = packet[ICMP]
         kind = ICMP_TYPES.get(int(icmp.type), f"Type {int(icmp.type)}")
-        extra = f" id=0x{int(icmp.id):04x} seq={int(icmp.seq)}" if int(icmp.type) in (0, 8) else f" (code {int(icmp.code)})"
-        return "ICMP", kind + extra
+        if int(icmp.type) in (0, 8):
+            return "ICMP", kind + f" id=0x{int(icmp.id):04x} seq={int(icmp.seq)}"
+        code = ICMP_CODES.get(int(icmp.type), {}).get(int(icmp.code), f"code {int(icmp.code)}")
+        return "ICMP", f"{kind} ({code})" + _quoted(packet)
     if IPv6 in packet and "ICMPv6" in type(packet.lastlayer()).__name__:
         return "ICMPv6", packet.lastlayer().name
     if DHCP in packet:

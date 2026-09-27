@@ -106,7 +106,7 @@ public partial class MainWindow : Window
             return;
         }
         MainContent.Content = new InvestigationView(CurrentAnalysis);
-        SetActiveNavigation(InvestigationButton);
+        // Investigation tab is temporarily disabled; navigation button is commented out.
     }
 
 

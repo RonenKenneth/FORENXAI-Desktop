@@ -341,11 +341,13 @@
                     </Button>
 
 
-                    <!-- INVESTIGATION -->
+                    <!-- INVESTIGATION TAB TEMPORARILY DISABLED -->
 
                     <Button x:Name="InvestigationButton"
                             Style="{StaticResource SidebarButtonStyle}"
-                            Click="Investigation_Click">
+                            Click="Investigation_Click"
+                            IsEnabled="False"
+                            ToolTip="Investigation is temporarily unavailable">
 
                         <StackPanel Orientation="Horizontal">
 
@@ -366,7 +368,6 @@
                         </StackPanel>
 
                     </Button>
-
 
                     <!-- REPORTS -->
 

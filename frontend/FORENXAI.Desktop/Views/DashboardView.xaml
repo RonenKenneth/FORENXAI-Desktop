@@ -319,7 +319,7 @@
                 <Grid Grid.Row="0" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="RULE-BASED DETECTION" Foreground="White" FontSize="16" FontWeight="Bold"/>
-                        <TextBlock Text="Flows flagged by each rule class. Tier 1 reads the flow records; Tier 2 reads the packets (scapy checks and Suricata). The line shows what backs each flow's class: a rule, the model alone, or uncertain."
+                        <TextBlock Text="Flows flagged by each rule class. Tier 1 reads the flow records; Tier 2 reads the packets (scapy checks and Suricata). Hybrid source (below) shows what backs each flow's class: a rule, the model alone, or uncertain."
                                    Foreground="#94A3B8" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                     <TextBlock x:Name="RulesVersionText" Text="" Foreground="#64748B" FontSize="11"
@@ -328,7 +328,6 @@
 
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
@@ -365,7 +364,7 @@
                     </Border>
 
                     <!-- TIER 2 -->
-                    <Border Grid.Column="1" Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,0,8,0">
+                    <Border Grid.Column="1" Background="#0F172A" CornerRadius="8" Padding="12">
                         <StackPanel>
                             <TextBlock Text="TIER 2 · PACKET RULES" Foreground="#A5B4FC" FontSize="12" FontWeight="Bold"/>
                             <TextBlock x:Name="Tier2SummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
@@ -394,53 +393,67 @@
                             </ScrollViewer>
                             <TextBlock x:Name="Tier2StatusText" Text="" Foreground="#64748B" FontSize="11"
                                        TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            <StackPanel x:Name="Tier2DetailsPanel" Margin="0,10,0,0" Visibility="Collapsed">
+                                <ToggleButton x:Name="Tier2DetailsToggle" HorizontalAlignment="Left" Cursor="Hand"
+                                              Checked="Tier2DetailsToggle_Changed" Unchecked="Tier2DetailsToggle_Changed">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="#1E293B" CornerRadius="6" Padding="10,5">
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <TextBlock x:Name="Tier2DetailsHeader" Foreground="#A5B4FC" FontSize="12" FontWeight="SemiBold"/>
+                                </ToggleButton>
+                                <Border x:Name="Tier2DetailsBody" Background="#1E293B" CornerRadius="6" Padding="10"
+                                        Margin="0,8,0,0" Visibility="Collapsed">
+                                    <ScrollViewer Padding="0,0,12,0" MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                        <TextBlock x:Name="Tier2DetailsText" Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
-                    <!-- HYBRID SOURCE: who backs each flow's class, as one stacked line -->
-                    <Border Grid.Column="2" Background="#0F172A" CornerRadius="8" Padding="12">
-                        <StackPanel>
+                </Grid>
+
+
+
+                <!-- HYBRID SOURCE: the combination of both tiers and the model,
+                     as one stacked line across the panel -->
+                <Border Grid.Row="2" Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,10,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="HYBRID SOURCE" Foreground="#BBF7D0" FontSize="12" FontWeight="Bold"/>
-                            <TextBlock x:Name="VerdictSummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
+                            <TextBlock x:Name="VerdictSummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
                             <Border CornerRadius="4" ClipToBounds="True" Height="14" Background="#1E293B">
                                 <Grid x:Name="VerdictBar"/>
                             </Border>
-                            <ItemsControl x:Name="VerdictLegend" Margin="0,10,0,0">
+                            <ItemsControl x:Name="VerdictLegend" Margin="0,8,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <DockPanel Margin="0,0,0,4" ToolTip="{Binding Tooltip}">
-                                            <Border DockPanel.Dock="Left" Width="10" Height="10" CornerRadius="2" Background="{Binding Brush}"
-                                                    VerticalAlignment="Top" Margin="0,3,6,0"/>
-                                            <TextBlock Text="{Binding Label}" Foreground="#CBD5E1" FontSize="11" TextWrapping="Wrap"/>
-                                        </DockPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,20,4" ToolTip="{Binding Tooltip}">
+                                            <Border Width="10" Height="10" CornerRadius="2" Background="{Binding Brush}"
+                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding Label}" Foreground="#CBD5E1" FontSize="11"/>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- TIER 2 EVIDENCE: full width and collapsed by default so the
-                     three cards above keep equal height -->
-                <StackPanel Grid.Row="2" x:Name="Tier2DetailsPanel" Margin="0,10,0,0" Visibility="Collapsed">
-                    <ToggleButton x:Name="Tier2DetailsToggle" HorizontalAlignment="Left" Cursor="Hand"
-                                  Checked="Tier2DetailsToggle_Changed" Unchecked="Tier2DetailsToggle_Changed">
-                        <ToggleButton.Template>
-                            <ControlTemplate TargetType="ToggleButton">
-                                <Border Background="#0F172A" CornerRadius="6" Padding="10,5">
-                                    <ContentPresenter/>
-                                </Border>
-                            </ControlTemplate>
-                        </ToggleButton.Template>
-                        <TextBlock x:Name="Tier2DetailsHeader" Foreground="#A5B4FC" FontSize="12" FontWeight="SemiBold"/>
-                    </ToggleButton>
-                    <Border x:Name="Tier2DetailsBody" Background="#0F172A" CornerRadius="8" Padding="12"
-                            Margin="0,8,0,0" Visibility="Collapsed">
-                        <ScrollViewer Padding="0,0,12,0" MaxHeight="180" VerticalScrollBarVisibility="Auto">
-                            <TextBlock x:Name="Tier2DetailsText" Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"/>
-                        </ScrollViewer>
-                    </Border>
-                </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
 
@@ -668,9 +681,12 @@
                     <!-- Filters: protocol, ML prediction, free text -->
                     <WrapPanel Grid.Row="1" Margin="0,0,0,10">
                         <ComboBox x:Name="ThreatProtocolFilter" Width="130" SelectionChanged="ThreatFilter_Changed"/>
-                        <ComboBox x:Name="ThreatClassFilter" Width="170" Margin="8,0,0,0" SelectionChanged="ThreatFilter_Changed"/>
+                        <ComboBox x:Name="ThreatClassFilter" Width="200" Margin="8,0,0,0" SelectionChanged="ThreatFilter_Changed"
+                                  ToolTip="Attack type predicted by the ML model"/>
+                        <ComboBox x:Name="ThreatEvidenceFilter" Width="220" Margin="8,0,0,0" SelectionChanged="ThreatFilter_Changed"
+                                  ToolTip="Attack type supported by the rule evidence"/>
                         <TextBox x:Name="ThreatSearchBox" Width="300" Margin="8,0,0,0" Style="{StaticResource FilterBox}"
-                                 ToolTip="IP address, port, class or info text" TextChanged="ThreatFilter_Changed"/>
+                                 ToolTip="Words separated by spaces; a row must contain all of them (IP, port, class, flag...)" TextChanged="ThreatFilter_Changed"/>
                         <TextBlock x:Name="ThreatFilterStatusText" Foreground="#94A3B8" FontSize="12"
                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                     </WrapPanel>
@@ -801,8 +817,10 @@
                     <WrapPanel Grid.Row="1" Margin="0,0,0,10">
                         <ComboBox x:Name="PacketProtocolFilter" Width="130" SelectionChanged="PacketFilter_Changed"/>
                         <ComboBox x:Name="PacketFlagFilter" Width="130" Margin="8,0,0,0" SelectionChanged="PacketFilter_Changed"/>
+                        <ComboBox x:Name="PacketAttackFilter" Width="220" Margin="8,0,0,0" SelectionChanged="PacketFilter_Changed"
+                                  ToolTip="Attack type the ML model gave the packet's flow"/>
                         <TextBox x:Name="PacketSearchBox" Width="300" Margin="8,0,0,0" Style="{StaticResource FilterBox}"
-                                 ToolTip="IP address, MAC address, port or info text" TextChanged="PacketFilter_Changed"/>
+                                 ToolTip="Words separated by spaces; a row must contain all of them (IP, MAC, port, flag...)" TextChanged="PacketFilter_Changed"/>
                         <TextBlock x:Name="PacketFilterStatusText" Foreground="#94A3B8" FontSize="12"
                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                     </WrapPanel>

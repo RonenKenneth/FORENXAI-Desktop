@@ -611,8 +611,9 @@ public partial class XaiView : UserControl
 
         ResetExplanationBullets();
 
+        // Blank while Qwen writes; the body text says what is happening.
         GenAiStatusText.Text =
-            "Generating...";
+            string.Empty;
 
         GenAiExplanationText.Text =
             "Writing a summary with the local Qwen model from this flow's facts...";

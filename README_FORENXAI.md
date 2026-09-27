@@ -76,6 +76,7 @@ Found while running the merged app end to end and fixed on this branch:
 | Dashboard, second round | Top row: Traffic classification (ML attack types; benign counted in the subtitle, not charted) beside Rule-based detected attacks (attack types backed by a Tier 1 / Tier 2 rule, with the tier). Rule panel's third card: Hybrid source as one stacked line (rule / model / uncertain, with counts and meanings). "Rule Hit" column removed; "Supporting Evidence" names the class and the rule tier. Detected threats gain Time, Protocol, Length and Info (per connection, from the packets) and filters (protocol, ML prediction, text). The Selected threat card and SHAP table were replaced by a filterable, scrollable Packets table (all parsed packets). Double-click a threat to open it in XAI | `Views/DashboardView.xaml(.cs)`, `Models/AnalysisModels.cs` |
 | Reports, XAI, Evidence, pop-up | Reports label ML results ("ML Prediction", "ML Confidence", "ML Benign", "ML Threats") and add Supporting Evidence; MITRE ATT&CK IDs removed from the XAI recommendation text (unreviewed static map, not used in detection); Evidence wording "Select a network capture…", "PCAP or PCAPng • up to 100 MB", "BROWSE FILE"; the progress pop-up has a working minimize button (minimized: app usable; restored: locked again) | `Views/ReportsView.xaml(.cs)`, `backend/app/services/report_service.py`, `Views/XaiView.xaml.cs`, `Views/EvidenceView.xaml(.cs)` |
 | Third round | Reports: summary numbers coloured by meaning (flows blue, benign green, threats red, confirmed orange, rejected teal, inconclusive amber). Dashboard: fixed column widths so both tables scroll horizontally as well as vertically; double-click a packet to open its flow in XAI, highlighted with its SHAP explanation (packets not in an analysed flow, or in a benign flow, say so) | `Views/ReportsView.xaml`, `Views/DashboardView.xaml(.cs)` |
+| Fourth round | New logo (`Assets/logo.png` / `logo.ico`, from `logo.jpg`) in the sidebar, the window and taskbar icon, and the progress pop-up. Evidence is acquired asynchronously in one streaming pass (1 MiB buffers, copy and SHA-256 together), then the copy is hashed again and must match [12]; the window no longer freezes on a 100 MB capture. Dashboard filters list only what the capture contains: protocol, attack by ML prediction, attack by supporting evidence (threats); protocol, TCP flag, attack of the packet's flow (packets); search boxes match every word typed. Tier 2 evidence toggle moved inside the Tier 2 card; Hybrid source is a full-width strip under both tiers. Reports: Rejected in red. XAI: no "Generating..." label; SHAP column labelled log-odds. `backend/run_tests.py` runs all maintained suites | `MainWindow.xaml`, `Views/*`, `FORENXAI.Desktop.csproj`, `backend/run_tests.py` |
 | Backend stability | The backend process crashed three times inside `xgboost.dll` (Windows error 0xC0000409) minutes after an analysis, with no request running; cause not yet found. `python run_backend.py --supervise` now restarts the server 3 s after a crash, and the app re-checks the backend before each analysis (restarting a packaged backend, or waiting up to 30 s for a supervised one) | `backend/run_backend.py`, `Services/BackendProcessService.cs`, `App.xaml.cs` |
 
 Running from source, start the backend with the app's data folder and the supervisor:
@@ -87,6 +88,48 @@ set FORENXAI_DATA_DIR=%LOCALAPPDATA%\FORENXAI
 ```
 
 Without `FORENXAI_DATA_DIR` a source-run backend looks for cases in `backend/cases` and the app's analysis fails with "Case directory not found".
+
+### Statistical audit (28 Sep 2026)
+
+Every figure the app computes or quotes was recomputed independently, on the
+TRUSTLab held-out test set (280,063 flows) and on a LabActivity2 case.
+
+| Quantity | Method | Result |
+|---|---|---|
+| Accuracy, macro F1 | Recomputed through the app's own preprocessing [9] | 0.9351 / 0.9305; with the abstain layer 0.9374 / 0.9332 at 1.54% abstention. Identical to the reported figures |
+| "ML Confidence" | Highest softmax probability. Calibration: expected calibration error, 15 equal-width bins [3, 7, 8], and the multiclass Brier score [2] | ECE 0.0040, Brier 0.0852; mean confidence 0.939 vs accuracy 0.935. Well calibrated in-distribution; the 0.47–0.87 bands are 1–3 points over-confident. On a capture from another network the confidence carries no such guarantee (LabActivity2: 94% DDoS on a port scan) |
+| Tuning gain | McNemar's test on the paired predictions [4]; percentile bootstrap of the macro-F1 difference [5] | 2,936 vs 1,871 discordant flows, exact p = 1.41e-53; 95% CI +0.0033 to +0.0044. Both match the reported values |
+| Out-of-distribution rule | Squared Mahalanobis distance to the training mean, limit at the training 99th percentile [6] | Flags 1.04% of held-out flows, as a 99th-percentile limit should |
+| Abstention | Per-class confidence thresholds fitted on a validation split, never on test [10] | Error rate 6.26% on kept flows vs 21.6% on abstained flows: the layer removes flows about 3.5 times as likely to be wrong |
+| TreeSHAP | Exact TreeSHAP for tree ensembles [1, 11] | Additivity holds for every flow (base value + sum of SHAP = model output for the predicted class, max error 2.4e-06). Values are in log-odds (margin) units, now labelled so in the XAI tab. Top-10 features, values, observed values and base values identical to an independent computation |
+| Observed values | Features recomputed from the packets with scapy | Match CICFlowMeter's CSV and the SHAP table for all sampled flows |
+| Dashboard and report numbers | Counts and percentages recomputed from `analysis.json` | All match |
+
+References (ACM)
+
+[1] Scott M. Lundberg, Gabriel Erion, Hugh Chen, Alex DeGrave, Jordan M. Prutkin, Bala Nair, Ronit Katz, Jonathan Himmelfarb, Nisha Bansal, and Su-In Lee. 2020. From local explanations to global understanding with explainable AI for trees. *Nature Machine Intelligence* 2, 1 (2020), 56–67. https://doi.org/10.1038/s42256-019-0138-9
+
+[2] Glenn W. Brier. 1950. Verification of forecasts expressed in terms of probability. *Monthly Weather Review* 78, 1 (1950), 1–3. https://doi.org/10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2
+
+[3] Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger. 2017. On calibration of modern neural networks. In *Proceedings of the 34th International Conference on Machine Learning (ICML '17)*, PMLR 70, 1321–1330.
+
+[4] Thomas G. Dietterich. 1998. Approximate statistical tests for comparing supervised classification learning algorithms. *Neural Computation* 10, 7 (1998), 1895–1923. https://doi.org/10.1162/089976698300017197
+
+[5] Bradley Efron and Robert J. Tibshirani. 1993. *An Introduction to the Bootstrap*. Chapman & Hall/CRC, New York, NY. https://doi.org/10.1201/9780429246593
+
+[6] Kimin Lee, Kibok Lee, Honglak Lee, and Jinwoo Shin. 2018. A simple unified framework for detecting out-of-distribution samples and adversarial attacks. In *Advances in Neural Information Processing Systems 31 (NeurIPS '18)*, 7167–7177.
+
+[7] Mahdi Pakdaman Naeini, Gregory F. Cooper, and Milos Hauskrecht. 2015. Obtaining well calibrated probabilities using Bayesian binning. In *Proceedings of the 29th AAAI Conference on Artificial Intelligence (AAAI '15)*, 2901–2907. https://doi.org/10.1609/aaai.v29i1.9602
+
+[8] Matthias Minderer, Josip Djolonga, Rob Romijnders, Frances Hubis, Xiaohua Zhai, Neil Houlsby, Dustin Tran, and Mario Lucic. 2021. Revisiting the calibration of modern neural networks. In *Advances in Neural Information Processing Systems 34 (NeurIPS '21)*, 15682–15694.
+
+[9] Marina Sokolova and Guy Lapalme. 2009. A systematic analysis of performance measures for classification tasks. *Information Processing & Management* 45, 4 (2009), 427–437. https://doi.org/10.1016/j.ipm.2009.03.002
+
+[10] Yonatan Geifman and Ran El-Yaniv. 2017. Selective classification for deep neural networks. In *Advances in Neural Information Processing Systems 30 (NIPS '17)*, 4878–4887.
+
+[11] Tianqi Chen and Carlos Guestrin. 2016. XGBoost: A scalable tree boosting system. In *Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD '16)*. ACM, 785–794. https://doi.org/10.1145/2939672.2939785
+
+[12] Karen Kent, Suzanne Chevalier, Tim Grance, and Hung Dang. 2006. *Guide to Integrating Forensic Techniques into Incident Response*. NIST Special Publication 800-86. National Institute of Standards and Technology. https://doi.org/10.6028/NIST.SP.800-86
 
 ### Backend crash fix: model pinned to the CPU
 
@@ -122,7 +165,7 @@ PortScan, decided by the Tier 1 rule for 2,001 of 2,016 flows.
 | Check | Result |
 |---|---|
 | Backend import (`import app.main`) | OK |
-| `test_rules.py`, `test_packet_rules.py`, `test_rag_pipeline.py`, `test_narration_rag.py`, `test_recommendations.py`, `test_recommendations_all_classes.py` | All pass |
+| `backend/run_tests.py` (7 suites: model preprocessing and CPU device, Tier 1 rules, Tier 2 packet rules, RAG index, AI summary, recommendations, all 16 classes) | 7/7 pass |
 | `test_classifier.py`, `test_model_service.py`, `test_shap.py`, `test_shap_service.py` | Fail on every branch: unchanged since the first commit, they call removed functions or need a local sample CSV |
 | Desktop build (`dotnet build`) | 0 errors, 0 warnings |
 | End-to-end in the app, LabActivity2 (1.04 MB, 10,584 packets, 2,016 ML flows) | Pass: 100 MB limit (183 MB capture refused), evidence intake, progress pop-up with live step and X button, Dashboard (rule panel, Tier 2 toggle, donut, Selected threat, tables, row selection), double-click to XAI, XAI, Investigation, Reports |

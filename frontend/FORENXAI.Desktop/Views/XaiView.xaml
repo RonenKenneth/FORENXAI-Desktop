@@ -729,7 +729,7 @@
                                                         Binding="{Binding RawValue, StringFormat={}{0:G6}}"
                                                         Width="*"/>
 
-                                    <DataGridTextColumn Header="SHAP Value"
+                                    <DataGridTextColumn Header="SHAP (log-odds)"
                                                         Binding="{Binding ShapValue, StringFormat={}{0:+0.0000;-0.0000}}"
                                                         Width="*"/>
 

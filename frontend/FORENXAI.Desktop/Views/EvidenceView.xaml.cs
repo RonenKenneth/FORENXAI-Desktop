@@ -62,7 +62,7 @@ public partial class EvidenceView : UserControl
     private const int MaxEvidenceMegabytes = 100;
     private const long MaxEvidenceBytes = MaxEvidenceMegabytes * 1024L * 1024L;
 
-    private void BrowsePcap_Click(
+    private async void BrowsePcap_Click(
         object sender,
         RoutedEventArgs e)
     {
@@ -115,7 +115,7 @@ public partial class EvidenceView : UserControl
             dialog.FileName;
 
 
-        ProcessEvidence();
+        await ProcessEvidenceAsync();
     }
 
 
@@ -123,7 +123,7 @@ public partial class EvidenceView : UserControl
     // PROCESS EVIDENCE
     // =========================================================
 
-    private void ProcessEvidence()
+    private async Task ProcessEvidenceAsync()
     {
         if (
             string.IsNullOrEmpty(
@@ -221,11 +221,18 @@ public partial class EvidenceView : UserControl
                 );
 
 
-            File.Copy(
-                selectedFilePath,
-                destinationPath,
-                true
-            );
+            // One streaming pass copies the capture and hashes the bytes
+            // read, off the UI thread; a second pass hashes the copy and
+            // must match (NIST SP 800-86: verify the working copy).
+            StatusText.Text = "Acquiring evidence (copy and SHA-256)...";
+            StatusText.Foreground = new SolidColorBrush(Colors.LightBlue);
+            string sourceHash = await CopyAndHashAsync(selectedFilePath, destinationPath);
+            string copyHash = await HashFileAsync(destinationPath);
+            if (sourceHash != copyHash)
+            {
+                throw new IOException(
+                    "The evidence copy does not match the original (SHA-256 differs). Acquisition stopped.");
+            }
 
 
             /*
@@ -242,9 +249,7 @@ public partial class EvidenceView : UserControl
             // =================================================
 
             string sha256 =
-                CalculateSha256(
-                    destinationPath
-                );
+                copyHash;
 
 
             // =================================================
@@ -332,29 +337,32 @@ public partial class EvidenceView : UserControl
     // CALCULATE SHA-256
     // =========================================================
 
-    private static string CalculateSha256(
-        string filePath)
+    // 1 MiB buffers and sequential-scan hints: the capture is read once,
+    // front to back, at disk speed; memory stays flat whatever the size.
+    private const int IoBufferSize = 1 << 20;
+
+    private static async Task<string> CopyAndHashAsync(string sourcePath, string destinationPath)
     {
-        using SHA256 sha256 =
-            SHA256.Create();
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            IoBufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using var destination = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None,
+            IoBufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        byte[] buffer = new byte[IoBufferSize];
+        int read;
+        while ((read = await source.ReadAsync(buffer)) > 0)
+        {
+            hash.AppendData(buffer, 0, read);
+            await destination.WriteAsync(buffer.AsMemory(0, read));
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
 
-
-        using FileStream stream =
-            File.OpenRead(
-                filePath
-            );
-
-
-        byte[] hash =
-            sha256.ComputeHash(
-                stream
-            );
-
-
-        return
-            Convert.ToHexString(
-                hash
-            );
+    private static async Task<string> HashFileAsync(string filePath)
+    {
+        await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            IoBufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return Convert.ToHexString(await SHA256.HashDataAsync(stream));
     }
 
 
@@ -486,7 +494,7 @@ public partial class EvidenceView : UserControl
         {
             Title = "FORENXAI Analysis",
             Width = 520,
-            Height = 260,
+            Height = 285,
             // Minimize (no maximize); a taskbar button brings it back.
             ResizeMode = ResizeMode.CanMinimize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -495,18 +503,31 @@ public partial class EvidenceView : UserControl
             ShowInTaskbar = true,
             WindowStyle = WindowStyle.SingleBorderWindow,
             ShowActivated = true,
-            Topmost = true
+            Topmost = true,
+            Icon = new System.Windows.Media.Imaging.BitmapImage(
+                new Uri("pack://application:,,,/Assets/logo.ico"))
         };
 
         StackPanel panel = new StackPanel { Margin = new Thickness(28) };
-        panel.Children.Add(new TextBlock
+        // Logo beside the title, as in the main window's sidebar.
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
+        header.Children.Add(new Image
+        {
+            Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/logo.png")),
+            Width = 32,
+            Height = 32,
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        header.Children.Add(new TextBlock
         {
             Text = "FORENXAI FORENSIC ANALYSIS",
             Foreground = Brushes.White,
             FontSize = 18,
             FontWeight = FontWeights.Bold,
-            Margin = new Thickness(0, 0, 0, 16)
+            VerticalAlignment = VerticalAlignment.Center
         });
+        panel.Children.Add(header);
 
         analysisStatusText = new TextBlock
         {

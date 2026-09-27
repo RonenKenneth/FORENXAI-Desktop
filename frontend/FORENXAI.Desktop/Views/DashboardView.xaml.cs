@@ -1216,6 +1216,10 @@ public partial class DashboardView : UserControl
                             ? (finding.RuleFindings == null ? "not run" : "--")
                             : $"{topHit.ClassName} (T{topHit.Tier})",
 
+                    EvidenceClass =
+                        finding.VerdictSource == "abstain" ? "Uncertain"
+                        : string.IsNullOrEmpty(finding.VerdictSource) ? "" : finding.Verdict ?? "",
+
                     VerdictDisplay =
                         string.IsNullOrEmpty(finding.VerdictSource)
                             ? "--"
@@ -1249,8 +1253,28 @@ public partial class DashboardView : UserControl
             }
         }
 
+        var attackByConnection = new Dictionary<string, string>();
+        foreach (MlFinding finding in currentAnalysis.MlAnalysis.Findings)
+        {
+            FlowMetadata? m = finding.Metadata;
+            if (m != null && finding.PredictedClass != "Benign")
+            {
+                attackByConnection.TryAdd(
+                    ConnectionKey(m.SrcIp, m.SrcPort, m.DstIp, m.DstPort, ProtocolName(m.Protocol)),
+                    finding.PredictedClass);
+            }
+        }
+        foreach (PacketRow packet in packetRows)
+        {
+            packet.Attack = attackByConnection.GetValueOrDefault(packet.Key, "");
+        }
+        FillFilter(PacketAttackFilter, "All attacks (ML)", packetRows.Select(p => p.Attack));
+        ApplyPacketFilter();
+
+        // Options list only what this capture actually contains.
         FillFilter(ThreatProtocolFilter, "All protocols", threats.Select(t => t.Protocol));
-        FillFilter(ThreatClassFilter, "All ML predictions", threats.Select(t => t.PredictedClass));
+        FillFilter(ThreatClassFilter, "All attacks (ML prediction)", threats.Select(t => t.PredictedClass));
+        FillFilter(ThreatEvidenceFilter, "All attacks (supporting evidence)", threats.Select(t => t.EvidenceClass));
         ApplyThreatFilter();
     }
 
@@ -1399,6 +1423,9 @@ public partial class DashboardView : UserControl
                 Protocol = protocol,
                 Length = packet.PacketLength,
                 Flags = FlagNames(packet.TcpFlags),
+                Key = packet.SourcePort.HasValue
+                    ? ConnectionKey(packet.SourceIp, packet.SourcePort, packet.DestinationIp, packet.DestinationPort, protocol)
+                    : "",
             };
             row.Info = packet.SourcePort.HasValue
                 ? $"{packet.SourcePort} → {packet.DestinationPort}" + (row.Flags.Length > 0 ? $" [{row.Flags}]" : "")
@@ -1451,23 +1478,30 @@ public partial class DashboardView : UserControl
     {
         string? protocol = Chosen(ThreatProtocolFilter);
         string? mlClass = Chosen(ThreatClassFilter);
-        string text = ThreatSearchBox.Text.Trim();
+        string? evidence = Chosen(ThreatEvidenceFilter);
         return (protocol == null || row.Protocol == protocol)
             && (mlClass == null || row.PredictedClass == mlClass)
-            && (text.Length == 0 || $"{row.FlowIndex} {row.Source} {row.Destination} {row.PredictedClass} {row.VerdictDisplay} {row.Info}"
-                .Contains(text, StringComparison.OrdinalIgnoreCase));
+            && (evidence == null || row.EvidenceClass == evidence)
+            && AllWordsIn(ThreatSearchBox.Text,
+                $"{row.FlowIndex} {row.Time} {row.Source} {row.Destination} {row.Protocol} {row.Length} {row.PredictedClass} {row.VerdictDisplay} {row.Info}");
     }
 
     private bool PacketMatches(PacketRow row)
     {
         string? protocol = Chosen(PacketProtocolFilter);
         string? flag = Chosen(PacketFlagFilter);
-        string text = PacketSearchBox.Text.Trim();
+        string? attack = Chosen(PacketAttackFilter);
         return (protocol == null || row.Protocol == protocol)
             && (flag == null || row.Flags.Split(", ").Contains(flag))
-            && (text.Length == 0 || $"{row.Number} {row.Source} {row.SourcePort} {row.Destination} {row.DestinationPort} {row.Info}"
-                .Contains(text, StringComparison.OrdinalIgnoreCase));
+            && (attack == null || row.Attack == attack)
+            && AllWordsIn(PacketSearchBox.Text,
+                $"{row.Number} {row.Time} {row.Source} {row.SourcePort} {row.Destination} {row.DestinationPort} {row.Protocol} {row.Length} {row.Flags} {row.Info} {row.Attack}");
     }
+
+    // Space-separated words, all of which must appear (any order, any case).
+    private static bool AllWordsIn(string query, string haystack) =>
+        query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .All(word => haystack.Contains(word, StringComparison.OrdinalIgnoreCase));
 
     private void ApplyThreatFilter()
     {
@@ -1549,6 +1583,8 @@ public partial class DashboardView : UserControl
         public int Length { get; set; }
         public string Flags { get; set; } = string.Empty;
         public string Info { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public string Attack { get; set; } = string.Empty;
     }
 
 
@@ -1839,6 +1875,8 @@ public partial class DashboardView : UserControl
         public long Length { get; set; }
 
         public string Info { get; set; } = string.Empty;
+
+        public string EvidenceClass { get; set; } = string.Empty;
     }
 
 

@@ -355,7 +355,7 @@
                     <TextBlock x:Name="RejectedReviewsText"
                                Text="0"
                                Style="{StaticResource SummaryNumberStyle}"
-                               Foreground="#2DD4BF"/>
+                               Foreground="#F87171"/>
                     <TextBlock Text="Rejected"
                                Style="{StaticResource SummaryLabelStyle}"/>
                 </StackPanel>

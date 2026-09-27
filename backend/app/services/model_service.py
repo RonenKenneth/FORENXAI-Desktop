@@ -14,6 +14,10 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from app.services.logging_service import (
+    logger,
+)
+
 from app.utils.runtime_paths import (
     get_model_directory,
 )
@@ -405,7 +409,7 @@ def verify_model_bundle() -> None:
 # LOAD MODEL BUNDLE
 # ============================================================
 
-def load_model_bundle() -> dict[str, Any]:
+def _load_model_bundle_impl() -> dict[str, Any]:
     """
     Load and cache the FORENXAI multiclass XGBoost bundle.
     """
@@ -516,6 +520,50 @@ def load_model_bundle() -> dict[str, Any]:
 
 
     return _cached_bundle
+
+
+# ============================================================
+# PUBLIC LOGGED MODEL LOADER
+# ============================================================
+
+def load_model_bundle() -> dict[str, Any]:
+    """
+    Load the FORENXAI model bundle with centralized
+    production logging.
+    """
+
+    global _cached_bundle
+
+    if _cached_bundle is not None:
+        return _cached_bundle
+
+    logger.info(
+        "Model bundle loading started | Directory: %s",
+        MODEL_DIRECTORY,
+    )
+
+    try:
+        bundle = _load_model_bundle_impl()
+
+    except Exception as error:
+        logger.exception(
+            "Model bundle loading failed | Directory: %s | "
+            "Error: %s: %s",
+            MODEL_DIRECTORY,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    logger.info(
+        "Model bundle loaded successfully | Model: %s | "
+        "Features: %s | Classes: %s",
+        MODEL_FILE,
+        len(bundle["features"]),
+        len(bundle["classes"]),
+    )
+
+    return bundle
 
 
 # ============================================================
@@ -655,6 +703,12 @@ def sanitize_model_input(
             flush=True
         )
 
+        logger.warning(
+            "Model input contained invalid numeric values | "
+            "Count: %s | Action: sanitize before inference",
+            invalid_count,
+        )
+
         row_indexes, column_indexes = np.where(
             invalid_mask
         )
@@ -777,6 +831,13 @@ def prepare_model_input(
 
 
     if missing_features:
+
+        logger.error(
+            "Model schema validation failed | Missing count: %s | "
+            "Missing features: %s",
+            len(missing_features),
+            ", ".join(missing_features),
+        )
 
         raise ValueError(
             "CICFlowMeter output is missing "
@@ -1353,7 +1414,7 @@ def classify_dataframe(
 # CLASSIFY CICFLOWMETER CSV
 # ============================================================
 
-def classify_flow_csv(
+def _classify_flow_csv_impl(
     flow_csv: Path | str
 ) -> dict[str, Any]:
     """
@@ -1436,6 +1497,61 @@ def classify_flow_csv(
         flow_csv
     )
 
+
+    return result
+
+
+# ============================================================
+# PUBLIC LOGGED CLASSIFICATION ENTRY POINT
+# ============================================================
+
+def classify_flow_csv(
+    flow_csv: Path | str
+) -> dict[str, Any]:
+    """
+    Classify a CICFlowMeter CSV with centralized
+    FORENXAI production logging.
+    """
+
+    flow_path = Path(
+        flow_csv
+    ).resolve()
+
+    logger.info(
+        "XGBoost classification started | CSV: %s",
+        flow_path,
+    )
+
+    try:
+        result = _classify_flow_csv_impl(
+            flow_path
+        )
+
+    except Exception as error:
+        logger.exception(
+            "XGBoost classification failed | CSV: %s | "
+            "Error: %s: %s",
+            flow_path,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    summary = result.get(
+        "summary",
+        {}
+    )
+
+    logger.info(
+        "XGBoost classification completed | CSV: %s | "
+        "Total flows: %s | Benign: %s | Threats: %s | "
+        "Threat percentage: %s%%",
+        flow_path,
+        summary.get("total_flows", 0),
+        summary.get("benign_flows", 0),
+        summary.get("threat_flows", 0),
+        summary.get("threat_percentage", 0),
+    )
 
     return result
 

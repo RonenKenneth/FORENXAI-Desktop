@@ -4,6 +4,11 @@ import shutil
 import subprocess
 
 from scapy.utils import PcapNgReader
+
+from app.services.logging_service import (
+    logger,
+)
+
 from app.utils.runtime_paths import (
     get_backend_directory,
     get_cases_directory,
@@ -855,6 +860,22 @@ def _run_cicflowmeter(
             flush=True
         )
 
+        logger.warning(
+            "CICFlowMeter Maven returned non-zero exit code "
+            "but produced a valid CSV | Exit code: %s | CSV: %s",
+            result.returncode,
+            generated_csv,
+        )
+
+    else:
+
+        logger.info(
+            "CICFlowMeter process completed normally | "
+            "Exit code: %s | CSV: %s",
+            result.returncode,
+            generated_csv,
+        )
+
 
     return (
         generated_csv,
@@ -866,7 +887,7 @@ def _run_cicflowmeter(
 # PUBLIC SERVICE FUNCTION
 # ============================================================
 
-def generate_flow_csv(
+def _generate_flow_csv_impl(
     evidence_file: Path | str,
     case_id: str
 ) -> Path:
@@ -1134,3 +1155,64 @@ def generate_flow_csv(
 
 
     return final_csv
+
+# ============================================================
+# PUBLIC LOGGED SERVICE ENTRY POINT
+# ============================================================
+
+def generate_flow_csv(
+    evidence_file: Path | str,
+    case_id: str
+) -> Path:
+    """
+    Run CICFlowMeter feature extraction with centralized
+    FORENXAI production logging.
+
+    The underlying extraction behavior is kept in
+    _generate_flow_csv_impl() so logging does not alter the
+    proven PCAP / PCAPNG processing workflow.
+    """
+
+    evidence_path = Path(
+        evidence_file
+    ).resolve()
+
+    logger.info(
+        "CICFlowMeter extraction started | Case ID: %s | Evidence: %s",
+        case_id,
+        evidence_path,
+    )
+
+    try:
+
+        final_csv = (
+            _generate_flow_csv_impl(
+                evidence_file=evidence_path,
+                case_id=case_id,
+            )
+        )
+
+    except Exception as error:
+
+        logger.exception(
+            "CICFlowMeter extraction failed | Case ID: %s | "
+            "Evidence: %s | Error: %s: %s",
+            case_id,
+            evidence_path,
+            type(error).__name__,
+            error,
+        )
+
+        raise
+
+    logger.info(
+        "CICFlowMeter extraction completed | Case ID: %s | "
+        "Evidence: %s | CSV: %s | CSV size: %s bytes",
+        case_id,
+        evidence_path,
+        final_csv,
+        final_csv.stat().st_size,
+    )
+
+    return final_csv
+

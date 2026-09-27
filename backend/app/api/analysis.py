@@ -14,6 +14,10 @@ from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
 from app.services.recommendation_service import get_recommendation
 
+from app.services.logging_service import (
+    logger,
+)
+
 from app.services.narration_service import (
     generate_flow_narration
 )
@@ -115,6 +119,13 @@ def start_analysis(
         f"[FORENXAI] File: "
         f"{request.file_name}",
         flush=True
+    )
+
+
+    logger.info(
+        "Analysis started | Case ID: %s | Evidence: %s",
+        request.case_id,
+        request.file_name,
     )
 
 
@@ -402,6 +413,18 @@ def start_analysis(
         )
 
 
+        logger.info(
+            "ML classification complete | Case ID: %s | "
+            "ML flows: %s | Benign: %s | Threats: %s | "
+            "Threat percentage: %.2f%%",
+            request.case_id,
+            ml_summary["total_flows"],
+            ml_summary["benign_flows"],
+            ml_summary["threat_flows"],
+            ml_summary["threat_percentage"],
+        )
+
+
         # =====================================================
         # PHASE 15.3
         # ATTACH RESPONSE RECOMMENDATIONS
@@ -684,6 +707,19 @@ def start_analysis(
         )
 
 
+        logger.info(
+            "Analysis completed successfully | Case ID: %s | "
+            "Evidence: %s | Packets: %s | Forensic flows: %s | "
+            "ML flows: %s | Threats: %s",
+            request.case_id,
+            safe_file_name,
+            traffic_summary["total_packets"],
+            len(flows),
+            ml_summary["total_flows"],
+            ml_summary["threat_flows"],
+        )
+
+
         # =====================================================
         # RETURN SUMMARY TO FRONTEND
         # =====================================================
@@ -769,7 +805,16 @@ def start_analysis(
         }
 
 
-    except HTTPException:
+    except HTTPException as error:
+
+        logger.warning(
+            "Analysis request rejected | Case ID: %s | "
+            "Evidence: %s | HTTP %s | %s",
+            request.case_id,
+            request.file_name,
+            error.status_code,
+            error.detail,
+        )
 
         raise
 
@@ -781,6 +826,16 @@ def start_analysis(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+
+        logger.exception(
+            "Analysis failed | Case ID: %s | Evidence: %s | "
+            "Error: %s: %s",
+            request.case_id,
+            request.file_name,
+            type(error).__name__,
+            error,
         )
 
 
@@ -813,6 +868,13 @@ def save_review(
         case_id
     ):
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Invalid case ID.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=400,
             detail="Invalid case ID."
@@ -824,6 +886,13 @@ def save_review(
     # ========================================================
 
     if request.flow_index < 0:
+
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Flow index cannot be negative.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=400,
@@ -849,6 +918,13 @@ def save_review(
 
     if not case_directory.exists():
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | Case directory not found.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail="Case directory not found."
@@ -857,6 +933,13 @@ def save_review(
 
     if not analysis_file.exists():
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | analysis.json not found.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail="analysis.json not found."
@@ -864,6 +947,13 @@ def save_review(
 
 
     if analysis_file.stat().st_size == 0:
+
+        logger.error(
+            "Review request failed | Case ID: %s | Flow: %s | "
+            "HTTP 500 | analysis.json is empty.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -888,6 +978,14 @@ def save_review(
 
 
     except json.JSONDecodeError as error:
+
+        logger.error(
+            "Review request failed because analysis data is invalid | "
+            "Case ID: %s | Flow: %s | HTTP 500 | %s",
+            case_id,
+            request.flow_index,
+            error,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -920,6 +1018,13 @@ def save_review(
         findings,
         list
     ):
+
+        logger.error(
+            "Review request failed | Case ID: %s | Flow: %s | "
+            "HTTP 500 | ML findings are not in the expected format.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -958,6 +1063,13 @@ def save_review(
 
     if selected_finding is None:
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | ML finding not found.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -987,6 +1099,13 @@ def save_review(
 
 
     if not predicted_class:
+
+        logger.error(
+            "Review request failed | Case ID: %s | Flow: %s | "
+            "HTTP 500 | Predicted class missing.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -1028,6 +1147,14 @@ def save_review(
 
     except ValueError as error:
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | %s",
+            case_id,
+            request.flow_index,
+            error,
+        )
+
         raise HTTPException(
             status_code=400,
             detail=str(error)
@@ -1035,6 +1162,14 @@ def save_review(
 
 
     except FileNotFoundError as error:
+
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | %s",
+            case_id,
+            request.flow_index,
+            error,
+        )
 
         raise HTTPException(
             status_code=404,
@@ -1049,6 +1184,15 @@ def save_review(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+        logger.exception(
+            "Review save failed | Case ID: %s | Flow: %s | "
+            "Error: %s: %s",
+            case_id,
+            request.flow_index,
+            type(error).__name__,
+            error,
         )
 
         raise HTTPException(
@@ -1296,6 +1440,13 @@ def get_flow_narration(
         case_id
     ):
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Invalid case ID.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=400,
             detail="Invalid case ID."
@@ -1303,6 +1454,13 @@ def get_flow_narration(
 
 
     if flow_index < 0:
+
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Flow index cannot be negative.",
+            case_id,
+            flow_index,
+        )
 
         raise HTTPException(
             status_code=400,
@@ -1328,6 +1486,13 @@ def get_flow_narration(
 
     if not case_directory.exists():
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | Case directory not found.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail="Case directory not found."
@@ -1335,6 +1500,13 @@ def get_flow_narration(
 
 
     if not analysis_file.exists():
+
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | analysis.json not found.",
+            case_id,
+            flow_index,
+        )
 
         raise HTTPException(
             status_code=404,
@@ -1359,6 +1531,14 @@ def get_flow_narration(
 
 
     except json.JSONDecodeError as error:
+
+        logger.error(
+            "Narration request failed because analysis data is invalid | "
+            "Case ID: %s | Flow: %s | HTTP 500 | %s",
+            case_id,
+            flow_index,
+            error,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -1433,6 +1613,13 @@ def get_flow_narration(
 
     if selected_finding is None:
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | ML finding not found.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -1472,6 +1659,13 @@ def get_flow_narration(
 
     if selected_shap is None:
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | SHAP explanation not found.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -1509,6 +1703,15 @@ def get_flow_narration(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+        logger.exception(
+            "Narration generation failed | Case ID: %s | Flow: %s | "
+            "Error: %s: %s",
+            case_id,
+            flow_index,
+            type(error).__name__,
+            error,
         )
 
 

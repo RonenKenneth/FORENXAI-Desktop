@@ -15,6 +15,10 @@
 
 from typing import Any
 
+from app.services.logging_service import (
+    logger,
+)
+
 from app.services.llm_provider import (
     get_llm,
 )
@@ -508,6 +512,23 @@ def generate_flow_narration(
     )
 
 
+    flow_index = finding.get(
+        "flow_index",
+        shap_explanation.get(
+            "flow_index",
+            -1
+        )
+    )
+
+
+    logger.info(
+        "Qwen narration generation started | Flow: %s | "
+        "Predicted class: %s",
+        flow_index,
+        predicted_class,
+    )
+
+
     raw_features = (
         _get_top_features(
             shap_explanation
@@ -597,6 +618,19 @@ def generate_flow_narration(
             )
 
 
+        logger.info(
+            "Qwen narration generation completed | Flow: %s | "
+            "Predicted class: %s | Features used: %s | "
+            "Fallback used: False",
+            flow_index,
+            predicted_class,
+            min(
+                len(normalized_features),
+                MAX_FEATURES
+            ),
+        )
+
+
         return {
 
             "available":
@@ -631,6 +665,17 @@ def generate_flow_narration(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+
+        logger.warning(
+            "Qwen narration unavailable; deterministic fallback used | "
+            "Flow: %s | Predicted class: %s | Error: %s: %s",
+            flow_index,
+            predicted_class,
+            type(error).__name__,
+            error,
+            exc_info=True,
         )
 
 

@@ -184,3 +184,16 @@ def get_llm_model_path() -> Path:
         / "qwen2.5-3b-q4.gguf"
     )
     
+def get_logs_directory() -> Path:
+    logs_directory = (
+        get_data_directory()
+        / "logs"
+    )
+
+    logs_directory.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    return logs_directory
+    

@@ -105,7 +105,10 @@ In the app:
 2. Start the analysis and wait for the progress window to finish.
 3. **View Results** opens the Dashboard; the XAI and Reports tabs then show the same case.
 
-Cases are stored in `%LOCALAPPDATA%\FORENXAI\cases\<case id>\` (`evidence\`, `flows\`, `analysis.json`, `packets.json`, reports).
+Cases are stored in `%LOCALAPPDATA%\FORENXAI\cases\<case id>\` (`evidence\` with a copy of the capture, `flows\`, `suricata\`, `analysis.json`, `packets.json`, reviews). A case is deleted in one of three ways:
+- **Delete Case** in the Cases tab removes it immediately.
+- **Schedule Deletion** removes it automatically at a chosen date and time. This is stored in `retention.json` and carried out by the backend, or at the next start if the app was closed at that time.
+- **The exit dialog** offers to delete the cases created in that session.
 
 ## 7. Optional settings (environment variables)
 

@@ -1,8 +1,114 @@
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 import json
+import threading
 
 from app.services.logging_service import logger
 from app.utils.runtime_paths import get_cases_directory
+
+
+# ============================================================
+# RETENTION: SCHEDULED DELETION
+# ============================================================
+#
+# An investigator can give a case a deletion time. It is stored in
+# retention.json in the case folder, so it survives restarts and travels
+# with the case. The backend deletes every case whose time has passed at
+# startup and then once a minute while it runs.
+#
+# ponytail: deletion happens only while FORENXAI runs; a deadline that
+# passes while the app is closed is carried out at the next start. A
+# Windows scheduled task would be needed to delete with the app closed.
+
+RETENTION_FILE = "retention.json"
+
+# Cases being analysed right now (start_analysis adds and removes them);
+# a scheduled deletion waits until the analysis has finished.
+ACTIVE_CASES: set[str] = set()
+
+
+def get_retention(case_directory: Path) -> Optional[str]:
+    """The case's scheduled deletion time (ISO 8601 with offset), or None."""
+    try:
+        value = json.loads((case_directory / RETENTION_FILE).read_text(encoding="utf-8"))
+        return value.get("delete_after")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return None
+
+
+def _parse_deadline(value: str) -> datetime:
+    deadline = datetime.fromisoformat(value)
+    if deadline.tzinfo is None:
+        # A time without an offset is read as this computer's local time.
+        deadline = deadline.astimezone()
+    return deadline
+
+
+def set_retention(case_id: str, delete_after: Optional[str]) -> dict:
+    """Schedule (or, with None, cancel) the deletion of one case."""
+    case_directory = _checked_case_directory(case_id)
+    target = case_directory / RETENTION_FILE
+
+    if delete_after is None:
+        target.unlink(missing_ok=True)
+        logger.warning("Case deletion schedule cleared | Case ID: %s", case_id)
+        return {"case_id": case_id, "delete_after": None}
+
+    try:
+        deadline = _parse_deadline(delete_after)
+    except ValueError:
+        raise ValueError("delete_after must be an ISO 8601 date and time.")
+
+    record = {
+        "delete_after": deadline.isoformat(),
+        "scheduled_at": datetime.now(timezone.utc).astimezone().isoformat(),
+    }
+    target.write_text(json.dumps(record, indent=2), encoding="utf-8")
+    logger.warning("Case deletion scheduled | Case ID: %s | Delete after: %s",
+                   case_id, record["delete_after"])
+    return {"case_id": case_id, "delete_after": record["delete_after"]}
+
+
+def purge_expired_cases(now: Optional[datetime] = None) -> list[str]:
+    """Delete every case whose scheduled deletion time has passed."""
+    now = now or datetime.now(timezone.utc)
+    cases_directory = get_cases_directory()
+    deleted = []
+    for case_directory in cases_directory.iterdir():
+        if not case_directory.is_dir() or case_directory.name in ACTIVE_CASES:
+            continue
+        value = get_retention(case_directory)
+        if value is None:
+            continue
+        try:
+            due = _parse_deadline(value) <= now
+        except ValueError:
+            continue
+        if due:
+            try:
+                delete_case(case_directory.name)
+                deleted.append(case_directory.name)
+            except Exception as error:      # keep purging the others
+                logger.error("Scheduled deletion failed | Case ID: %s | %s",
+                             case_directory.name, error)
+    if deleted:
+        logger.warning("Scheduled deletion completed | Cases: %s", ", ".join(deleted))
+    return deleted
+
+
+def start_retention_worker(interval_seconds: int = 60) -> None:
+    """Purge expired cases now and then every interval, on a daemon thread."""
+    def loop():
+        while True:
+            try:
+                purge_expired_cases()
+            except Exception as error:
+                logger.error("Retention worker error | %s", error)
+            stop.wait(interval_seconds)
+
+    stop = threading.Event()
+    threading.Thread(target=loop, name="forenxai-retention", daemon=True).start()
 
 
 def _case_summary(analysis_file: Path) -> dict:
@@ -99,6 +205,7 @@ def list_cases() -> list[dict]:
             "threat_percentage": None,
             "has_reviews": reviews_file.exists(),
             "analysis_exists": analysis_file.exists(),
+            "delete_after": get_retention(case_directory),
         }
 
         # ====================================================
@@ -466,6 +573,21 @@ def get_case_details(
     )
 
     return result
+def _checked_case_directory(case_id: str) -> Path:
+    """The existing case folder for a well-formed case id, or an error."""
+    import re
+
+    cases_directory = get_cases_directory().resolve()
+    if not re.fullmatch(r"FX-\d{8}-\d{6}", case_id):
+        raise ValueError("Invalid case ID.")
+    case_directory = (cases_directory / case_id).resolve()
+    if case_directory.parent != cases_directory:
+        raise ValueError("Invalid case path.")
+    if not case_directory.is_dir():
+        raise FileNotFoundError(f"Case not found: {case_id}")
+    return case_directory
+
+
 def delete_case(
     case_id: str
 ) -> dict:

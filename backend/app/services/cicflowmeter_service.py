@@ -1362,87 +1362,96 @@ def _generate_flow_csv_impl(
     )
 
 
-    # ========================================================
-    # Stage / convert evidence
-    # ========================================================
+    # The staged (and, for PCAPNG, converted) capture and CICFlowMeter's
+    # output are working copies of the evidence. They are removed as soon
+    # as the flow CSV is in the case folder, and also when a step fails,
+    # so no copy of the capture is left outside the case.
+    try:
+        # ========================================================
+        # Stage / convert evidence
+        # ========================================================
 
-    staged_capture = (
-        _prepare_input_file(
-            evidence_file,
-            input_directory
-        )
-    )
-
-
-    # ========================================================
-    # CICFlowMeter
-    # ========================================================
-
-    generated_csv, result = (
-        _run_cicflowmeter(
-            staged_capture,
-            output_directory
-        )
-    )
-
-
-    if not generated_csv.exists():
-        raise RuntimeError(
-            "Internal error: CICFlowMeter CSV "
-            "was located but no longer exists."
+        staged_capture = (
+            _prepare_input_file(
+                evidence_file,
+                input_directory
+            )
         )
 
 
-    if generated_csv.stat().st_size <= 0:
-        raise RuntimeError(
-            "CICFlowMeter generated an "
-            "empty CSV."
+        # ========================================================
+        # CICFlowMeter
+        # ========================================================
+
+        generated_csv, result = (
+            _run_cicflowmeter(
+                staged_capture,
+                output_directory
+            )
         )
 
 
-    # ========================================================
-    # Copy CSV into FORENXAI case
-    # ========================================================
-    #
-    # Keep the final artifact associated with the ORIGINAL
-    # evidence filename, not the temporary converted filename.
-    #
-    # Examples:
-    #
-    #   test.pcap
-    #       -> test.pcap_Flow.csv
-    #
-    #   capture.pcapng
-    #       -> capture.pcapng_Flow.csv
-    #
-    # ========================================================
+        if not generated_csv.exists():
+            raise RuntimeError(
+                "Internal error: CICFlowMeter CSV "
+                "was located but no longer exists."
+            )
 
-    final_csv = (
-        final_flow_directory
-        / (
-            evidence_file.name
-            + "_Flow.csv"
+
+        if generated_csv.stat().st_size <= 0:
+            raise RuntimeError(
+                "CICFlowMeter generated an "
+                "empty CSV."
+            )
+
+
+        # ========================================================
+        # Copy CSV into FORENXAI case
+        # ========================================================
+        #
+        # Keep the final artifact associated with the ORIGINAL
+        # evidence filename, not the temporary converted filename.
+        #
+        # Examples:
+        #
+        #   test.pcap
+        #       -> test.pcap_Flow.csv
+        #
+        #   capture.pcapng
+        #       -> capture.pcapng_Flow.csv
+        #
+        # ========================================================
+
+        final_csv = (
+            final_flow_directory
+            / (
+                evidence_file.name
+                + "_Flow.csv"
+            )
         )
-    )
 
 
-    shutil.copy2(
-        generated_csv,
-        final_csv
-    )
-
-
-    if not final_csv.exists():
-        raise RuntimeError(
-            "CICFlowMeter CSV could not be "
-            "copied into the case folder."
+        shutil.copy2(
+            generated_csv,
+            final_csv
         )
 
 
-    if final_csv.stat().st_size <= 0:
-        raise RuntimeError(
-            "Final CICFlowMeter CSV is empty."
-        )
+        if not final_csv.exists():
+            raise RuntimeError(
+                "CICFlowMeter CSV could not be "
+                "copied into the case folder."
+            )
+
+
+        if final_csv.stat().st_size <= 0:
+            raise RuntimeError(
+                "Final CICFlowMeter CSV is empty."
+            )
+
+
+    finally:
+        shutil.rmtree(staging_root, ignore_errors=True)
 
 
     # ========================================================

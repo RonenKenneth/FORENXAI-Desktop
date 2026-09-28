@@ -54,4 +54,28 @@ try:
     raise AssertionError("path outside the cases folder was accepted")
 except (ValueError, FileNotFoundError):
     pass
+
+# Scheduled deletion: past deadline deleted, future kept, busy case waits,
+# cancel removes the schedule, a bad id or date is refused.
+past, future, busy = "FX-20260102-000000", "FX-20260102-000001", "FX-20260102-000002"
+for cid in (past, future, busy):
+    write_case(cid, threats=1)
+case_service.set_retention(past, "2026-01-01T00:00:00+08:00")
+case_service.set_retention(future, "2999-01-01T00:00")                  # local time, no offset
+case_service.set_retention(busy, "2026-01-01T00:00:00Z")
+assert {r["case_id"]: r for r in case_service.list_cases()}[future]["delete_after"].startswith("2999-01-01T00:00:00")
+case_service.ACTIVE_CASES.add(busy)
+assert case_service.purge_expired_cases() == [past]
+assert not (root / "cases" / past).exists() and (root / "cases" / future).exists() and (root / "cases" / busy).exists()
+case_service.ACTIVE_CASES.discard(busy)
+assert case_service.purge_expired_cases() == [busy], "deleted once the analysis finished"
+case_service.set_retention(future, None)
+assert {r["case_id"]: r for r in case_service.list_cases()}[future]["delete_after"] is None
+for bad in (lambda: case_service.set_retention("../evil", None),
+            lambda: case_service.set_retention(future, "next tuesday")):
+    try:
+        bad()
+        raise AssertionError("bad retention request accepted")
+    except (ValueError, FileNotFoundError):
+        pass
 print("ALL CHECKS PASSED")

@@ -131,6 +131,8 @@ def calculate_sha256(
 # START ANALYSIS
 # ============================================================
 
+from app.services.case_service import ACTIVE_CASES
+
 # Current pipeline step per case, polled by the desktop progress window.
 ANALYSIS_STAGES: dict[str, str] = {}
 
@@ -142,6 +144,17 @@ def get_analysis_progress(case_id: str):
 
 @router.post("/start")
 def start_analysis(
+    request: AnalysisRequest
+):
+    # Marks the case as busy so a scheduled deletion waits for it.
+    ACTIVE_CASES.add(request.case_id)
+    try:
+        return _run_analysis(request)
+    finally:
+        ACTIVE_CASES.discard(request.case_id)
+
+
+def _run_analysis(
     request: AnalysisRequest
 ):
 

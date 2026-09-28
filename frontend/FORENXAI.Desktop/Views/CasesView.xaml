@@ -287,6 +287,14 @@
                         Style="{StaticResource SecondaryButtonStyle}"
                         Margin="0,0,10,0"/>
 
+                <Button x:Name="ScheduleDeletionButton"
+                        Content="Schedule Deletion"
+                        Click="ScheduleDeletion_Click"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Margin="0,0,10,0"
+                        IsEnabled="False"
+                        ToolTip="Delete the selected case automatically at a date and time you choose"/>
+
                 <Button x:Name="DeleteCaseButton"
                         Content="Delete Case"
                         Click="DeleteCase_Click"
@@ -587,6 +595,10 @@
                                         Binding="{Binding ThreatPercentage, StringFormat={}{0:F2}%, TargetNullValue=—}"
                                         Width="90"/>
 
+
+                    <DataGridTextColumn Header="Auto-delete"
+                                        Binding="{Binding DeleteAfterDisplay}"
+                                        Width="140"/>
 
                     <DataGridTemplateColumn Header="Reviewed"
                                             Width="90">

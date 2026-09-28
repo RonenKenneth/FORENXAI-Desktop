@@ -15,6 +15,10 @@ from app.services.logging_service import (
     logger,
 )
 
+from app.services.case_service import (
+    start_retention_worker,
+)
+
 from app.services.recommendation_service import (
     rag_status,
     start_rag_warmup,
@@ -36,6 +40,9 @@ async def lifespan(app: FastAPI):
     # waits only for whatever is still loading.
 
     start_rag_warmup()
+
+    # Carry out scheduled case deletions now and once a minute.
+    start_retention_worker()
 
     logger.info(
         "FORENXAI backend startup complete."

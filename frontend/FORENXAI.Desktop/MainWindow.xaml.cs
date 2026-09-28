@@ -143,6 +143,26 @@ public partial class MainWindow : Window
         }
     }
 
+    // "kept until deleted" or "deleted automatically on <date>", from the
+    // case's retention.json.
+    private static string RetentionLabel(string caseId)
+    {
+        try
+        {
+            string file = Path.Combine(EvidenceView.GetCasesDirectory(), caseId, "retention.json");
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
+            if (DateTimeOffset.TryParse(document.RootElement.GetProperty("delete_after").GetString(), out var when))
+            {
+                return $"deleted automatically on {when.LocalDateTime:yyyy-MM-dd HH:mm}";
+            }
+        }
+        catch (Exception)
+        {
+            // no schedule
+        }
+        return "kept until deleted";
+    }
+
     private async Task<bool> ConfirmExitAsync()
     {
         List<string> sessionCases = App.SessionCaseIds
@@ -150,23 +170,30 @@ public partial class MainWindow : Window
             .OrderBy(id => id)
             .ToList();
 
-        if (sessionCases.Count == 0)
+        // Step 1: always confirm. No stays in FORENXAI.
+        if (MessageBox.Show(this, "Exit FORENXAI?", "Exit FORENXAI",
+                MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
         {
-            return MessageBox.Show(this, "Exit FORENXAI?", "Exit FORENXAI",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+            return false;
         }
 
+        if (sessionCases.Count == 0)
+        {
+            return true;
+        }
+
+        // Step 2: what happens to this session's cases.
         MessageBoxResult choice = MessageBox.Show(this,
             $"{sessionCases.Count} case(s) created in this session are stored on this computer:\n"
-            + string.Join("\n", sessionCases.Take(8).Select(id => "  • " + id))
+            + string.Join("\n", sessionCases.Take(8).Select(id => "  • " + id + " — " + RetentionLabel(id)))
             + (sessionCases.Count > 8 ? $"\n  • … {sessionCases.Count - 8} more" : string.Empty)
             + "\n\nEach holds a copy of the evidence, its flow records, the analysis and the reviews,"
             + " which can contain personal data (IP addresses, hostnames, payload excerpts)."
             + " Export any report you need first (Reports tab).\n\n"
-            + "Yes: delete these cases and exit\n"
-            + "No: keep them and exit (they stay in the Cases tab)\n"
-            + "Cancel: return to FORENXAI",
-            "Exit FORENXAI", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning,
+            + "Yes: delete these cases now and exit\n"
+            + "No: keep them and exit (a scheduled deletion still applies; set one in the Cases tab)\n"
+            + "Cancel: stay in FORENXAI",
+            "Delete this session's cases?", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning,
             MessageBoxResult.Cancel);
 
         if (choice == MessageBoxResult.No)

@@ -45,6 +45,9 @@ public partial class CasesView : UserControl
             DeleteCaseButton.IsEnabled =
                 false;
 
+            ScheduleDeletionButton.IsEnabled =
+                false;
+
             CaseListResponse? response =
                 await _backendApiService
                     .GetCasesAsync();
@@ -136,6 +139,9 @@ public partial class CasesView : UserControl
         DeleteCaseButton.IsEnabled =
             selectedCase != null
             && !isCurrentCase;
+
+        ScheduleDeletionButton.IsEnabled =
+            selectedCase != null;
 
 
         if (selectedCase == null)
@@ -309,6 +315,44 @@ public partial class CasesView : UserControl
                 MessageBoxButton.OK,
                 MessageBoxImage.Error
             );
+        }
+    }
+
+
+    private async void ScheduleDeletion_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (CasesGrid.SelectedItem is not CaseSummary selectedCase)
+        {
+            return;
+        }
+
+        var dialog = new RetentionDialog(
+            Window.GetWindow(this), selectedCase.CaseId, selectedCase.DeleteAfterTime);
+
+        if (dialog.ShowDialog() != true || dialog.Result == null)
+        {
+            return;
+        }
+
+        try
+        {
+            DateTimeOffset? deleteAfter =
+                dialog.Result == RetentionDialog.Outcome.Scheduled ? dialog.DeleteAfter : null;
+
+            await _backendApiService.SetCaseRetentionAsync(selectedCase.CaseId, deleteAfter);
+            await LoadCasesAsync();
+
+            StatusText.Text = deleteAfter is DateTimeOffset when
+                ? $"Case {selectedCase.CaseId} will be deleted automatically on {when.LocalDateTime:yyyy-MM-dd HH:mm}."
+                : $"Scheduled deletion of {selectedCase.CaseId} removed; the case is kept until deleted.";
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(
+                "FORENXAI could not schedule the deletion of this case.\n\n" + error.Message,
+                "Schedule Deletion", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

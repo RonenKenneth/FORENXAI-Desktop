@@ -748,6 +748,31 @@ public class BackendApiService
         return result;
     }
 
+
+    // ========================================================
+    // SCHEDULE CASE DELETION (null cancels the schedule)
+    // ========================================================
+
+    public async Task SetCaseRetentionAsync(
+        string caseId,
+        DateTimeOffset? deleteAfter)
+    {
+        HttpResponseMessage response =
+            await _httpClient.PutAsJsonAsync(
+                $"/cases/{Uri.EscapeDataString(caseId)}/retention",
+                new Dictionary<string, string?>
+                {
+                    ["delete_after"] = deleteAfter?.ToString("yyyy-MM-ddTHH:mm:sszzz")
+                });
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception(
+                $"Python backend returned {(int)response.StatusCode} {response.StatusCode}\n\n"
+                + await response.Content.ReadAsStringAsync());
+        }
+    }
+
 }
 
 

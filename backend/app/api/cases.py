@@ -1,9 +1,13 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.services.case_service import (
     list_cases,
     get_case_details,
     delete_case,
+    set_retention,
 )
 from app.services.logging_service import logger
 
@@ -176,3 +180,27 @@ def remove_case(
             status_code=500,
             detail="Could not delete FORENXAI case.",
         )
+
+
+class RetentionRequest(BaseModel):
+    # ISO 8601 date and time; null cancels the scheduled deletion.
+    delete_after: Optional[str] = None
+
+
+@router.put("/{case_id}/retention")
+def schedule_case_deletion(
+    case_id: str,
+    request: RetentionRequest,
+):
+    """
+    Schedule the automatic deletion of one case, or cancel it.
+    """
+
+    try:
+        return set_retention(case_id, request.delete_after)
+
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error))

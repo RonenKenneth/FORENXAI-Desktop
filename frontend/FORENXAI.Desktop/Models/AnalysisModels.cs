@@ -798,6 +798,18 @@ public class CaseSummary
 
     [JsonPropertyName("analysis_exists")]
     public bool AnalysisExists { get; set; }
+
+    /// <summary>Scheduled automatic deletion (ISO 8601), null when none.</summary>
+    [JsonPropertyName("delete_after")]
+    public string? DeleteAfter { get; set; }
+
+    [JsonIgnore]
+    public DateTimeOffset? DeleteAfterTime =>
+        DateTimeOffset.TryParse(DeleteAfter, out DateTimeOffset when) ? when : null;
+
+    [JsonIgnore]
+    public string DeleteAfterDisplay =>
+        DeleteAfterTime is DateTimeOffset when ? when.LocalDateTime.ToString("yyyy-MM-dd HH:mm") : "—";
 }
 
 

@@ -1,3 +1,8 @@
+using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -90,6 +95,111 @@ public partial class MainWindow : Window
     public string GetCurrentCase()
     {
         return CurrentCaseId;
+    }
+
+
+    // =========================================================
+    // EXIT: WARNING AND SESSION CASES
+    // =========================================================
+
+    private bool exitConfirmed;
+    private bool exitPromptOpen;
+
+    // Every exit asks first. Cases created in this session hold a copy of
+    // the evidence, flow records and reviews, which can include personal
+    // data (IP addresses, hostnames, payload excerpts). The investigator
+    // decides whether they stay: deleting protects privacy (data
+    // minimisation), keeping preserves the forensic record.
+    protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (exitConfirmed)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
+        e.Cancel = true;
+
+        // A second close request (taskbar, Alt+F4) while the prompt is
+        // open or cases are being deleted is ignored.
+        if (exitPromptOpen)
+        {
+            return;
+        }
+
+        exitPromptOpen = true;
+        try
+        {
+            if (await ConfirmExitAsync())
+            {
+                exitConfirmed = true;
+                // Close() cannot run while this Closing event is in progress.
+                _ = Dispatcher.BeginInvoke(Close);
+            }
+        }
+        finally
+        {
+            exitPromptOpen = false;
+        }
+    }
+
+    private async Task<bool> ConfirmExitAsync()
+    {
+        List<string> sessionCases = App.SessionCaseIds
+            .Where(id => Directory.Exists(Path.Combine(EvidenceView.GetCasesDirectory(), id)))
+            .OrderBy(id => id)
+            .ToList();
+
+        if (sessionCases.Count == 0)
+        {
+            return MessageBox.Show(this, "Exit FORENXAI?", "Exit FORENXAI",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+        }
+
+        MessageBoxResult choice = MessageBox.Show(this,
+            $"{sessionCases.Count} case(s) created in this session are stored on this computer:\n"
+            + string.Join("\n", sessionCases.Take(8).Select(id => "  • " + id))
+            + (sessionCases.Count > 8 ? $"\n  • … {sessionCases.Count - 8} more" : string.Empty)
+            + "\n\nEach holds a copy of the evidence, its flow records, the analysis and the reviews,"
+            + " which can contain personal data (IP addresses, hostnames, payload excerpts)."
+            + " Export any report you need first (Reports tab).\n\n"
+            + "Yes: delete these cases and exit\n"
+            + "No: keep them and exit (they stay in the Cases tab)\n"
+            + "Cancel: return to FORENXAI",
+            "Exit FORENXAI", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning,
+            MessageBoxResult.Cancel);
+
+        if (choice == MessageBoxResult.No)
+        {
+            return true;
+        }
+
+        if (choice != MessageBoxResult.Yes)
+        {
+            return false;
+        }
+
+        IsEnabled = false;
+        var api = new BackendApiService();
+        var failed = new List<string>();
+        foreach (string caseId in sessionCases)
+        {
+            try
+            {
+                await api.DeleteCaseAsync(caseId);
+            }
+            catch (Exception ex)
+            {
+                failed.Add($"{caseId}: {ex.Message.Split('\n')[0]}");
+            }
+        }
+        IsEnabled = true;
+
+        return failed.Count == 0
+            || MessageBox.Show(this,
+                "These cases could not be deleted:\n" + string.Join("\n", failed)
+                + $"\n\nThey remain in {EvidenceView.GetCasesDirectory()}.\nExit anyway?",
+                "Exit FORENXAI", MessageBoxButton.YesNo, MessageBoxImage.Error) == MessageBoxResult.Yes;
     }
 
     public void SetCurrentAnalysis(AnalysisResponse response)

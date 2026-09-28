@@ -396,8 +396,6 @@
                         <StackPanel>
                             <TextBlock Text="TIER 1 · FLOW RULES" Foreground="#FDE68A" FontSize="12" FontWeight="Bold"/>
                             <TextBlock x:Name="Tier1SummaryText" Text="--" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,8"/>
-                            <TextBlock x:Name="Tier1CoverageText" Foreground="#64748B" FontSize="11"
-                                       TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <ScrollViewer Padding="0,0,12,0" MaxHeight="120" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="Tier1Bars">
                 <ItemsControl.ItemTemplate>

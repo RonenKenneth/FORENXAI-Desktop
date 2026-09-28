@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Windows;
 
 using FORENXAI.Desktop.Services;
@@ -8,6 +9,10 @@ namespace FORENXAI.Desktop;
 public partial class App : Application
 {
     private BackendProcessService? backendProcessService;
+
+    // Cases created since the app started. On exit the investigator
+    // chooses whether to delete them (MainWindow.OnClosing).
+    public static readonly HashSet<string> SessionCaseIds = new();
 
     // Restarts the backend if it has stopped since startup.
     public static System.Threading.Tasks.Task EnsureBackendAsync() =>

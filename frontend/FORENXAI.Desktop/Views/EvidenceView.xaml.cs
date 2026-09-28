@@ -209,6 +209,8 @@ public partial class EvidenceView : UserControl
                 evidenceDirectory
             );
 
+            App.SessionCaseIds.Add(caseId);
+
 
             // =================================================
             // COPY ORIGINAL EVIDENCE
@@ -413,7 +415,7 @@ public partial class EvidenceView : UserControl
     // GET FORENXAI CASES DIRECTORY
     // =========================================================
 
-    private static string GetCasesDirectory()  
+    internal static string GetCasesDirectory()
     {
         /*
          * If FORENXAI_DATA_DIR is configured,

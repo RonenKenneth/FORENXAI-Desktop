@@ -290,7 +290,6 @@ public partial class DashboardView : UserControl
         tier2Bars.Clear();
         EvidencePieCanvas.Children.Clear();
         EvidencePieTotalText.Text = "0";
-        Tier1CoverageText.Text = string.Empty;
         EvidenceNoteText.Text = string.Empty;
         attackLegend.Clear();
         Tier1SummaryText.Text = "--";
@@ -496,8 +495,10 @@ public partial class DashboardView : UserControl
 
         // What the flow records (Tier 1 and ML input) cover, measured from
         // the packets: CICFlowMeter drops single-packet conversations.
+        // Shown at the end of the Tier 1 dropdown; the card itself keeps
+        // only the count, the detected attacks and the dropdown.
         CaptureCoverage? coverage = currentAnalysis?.CaptureCoverage;
-        Tier1CoverageText.Text = coverage == null
+        string coverageText = coverage == null
             ? string.Empty
             : $"Flow records cover {coverage.InFlowRecords:N0} of {coverage.PacketConversations:N0} TCP/UDP conversations in the capture."
               + (coverage.NotInFlowRecords == 0 ? string.Empty
@@ -507,6 +508,12 @@ public partial class DashboardView : UserControl
                       : " Single-packet SYN probes (no TCP reply): " + string.Join("; ", coverage.UnansweredSynProbes.Take(4)
                             .Select(p => $"{p.Source} → {p.Destination} {p.Ports:N0} ports"))
                         + ". Tier 2 and the Packets table still read them."));
+        if (coverageText.Length > 0 && Tier1DetailsPanel.Visibility == Visibility.Visible)
+        {
+            Tier1DetailsText.Inlines.Add(new System.Windows.Documents.Run("Flow record coverage\n")
+                { FontWeight = FontWeights.SemiBold, Foreground = ToBrush("#CBD5E1") });
+            Tier1DetailsText.Inlines.Add(new System.Windows.Documents.Run(coverageText));
+        }
 
         ShowRuleMlAgreement();
         LoadAttackEvidencePie();

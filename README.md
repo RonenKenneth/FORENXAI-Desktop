@@ -62,6 +62,48 @@ python ..\rag\config\rag_index.py                  # after copying the 22 source
 Place `qwen2.5-3b-q4.gguf` in `backend/models/llm/`. Without Suricata the
 analysis still runs and records "Suricata not run".
 
+### Merge of `main` 38810d7 (Phase 22–25: Cases, Investigation, polish), 28 Sep 2026
+
+`main` added Case Management, the Investigation workspace, UI polish and two Dashboard cards. It did not change the model bundle, `model_service.py` or `shap_service.py`, so the branch keeps the tuned 66-feature XGBoost and its TreeSHAP (`main` still carries the older 74-feature bundle, unchanged since the branches split).
+
+**Taken from `main`:**
+- **Case Management:**
+  - Backend: `api/cases.py` and `services/case_service.py` add `GET /cases`, `GET /cases/{id}` and `DELETE /cases/{id}`.
+  - Desktop app: a new Cases page lists, opens and deletes cases. Deletion asks for confirmation, and the case that is open can't be deleted.
+  - Delete accepts only `FX-YYYYMMDD-HHMMSS` folders directly inside the cases folder.
+- **Investigation workspace:** `InvestigationView` gets search, review and priority filters, Next Unreviewed, review progress, and Review Selected, which opens XAI on the exact flow. It replaces our "Coming soon." page, and `MainWindow` keeps `main`'s `Investigation_Click`, which needs an open case.
+- **Dashboard:** two new cards, Total Packets and Forensic Flows (packet conversations), plus thousands separators.
+- **Visual styles:** `main`'s button and text-box styles on the XAI and Evidence pages.
+
+**Kept from this branch:**
+- **Dashboard layout:** `main` restyled the old Selected Threat card and SHAP table, which this branch had replaced.
+- **Evidence Start button:** its inline style keeps the dark disabled look used across the app. `main`'s `SuccessButtonStyle` still exists but isn't applied to this button.
+- **XAI bullet template:** kept alongside `main`'s styles.
+
+**Changed after the merge:**
+- **Investigation follows the verdict.**
+  - New columns: **Verdict (evidence)**, worded as the Dashboard's Supporting Evidence, **ML Prediction** and **ML Confidence**.
+  - Priority rules:
+
+    | Priority | Rule |
+    |---|---|
+    | High | A rule backs the verdict (`rule` / `agree`), or ML confidence ≥ 90% |
+    | Medium | ML confidence ≥ 70% |
+    | Low | Otherwise |
+    | **Uncertain** | The model abstained and no rule fired |
+
+  - Unreviewed flows are sorted High, Uncertain, Medium, Low.
+  - LabActivity2: 2,007 High, 6 Uncertain, 2 Medium, 0 Low. These match an independent count.
+- **Case list speed:** it read each case's full `analysis.json` (about 70 MB) on every refresh, taking 22 s for 35 cases. The totals are now cached in `summary.json` beside it and rebuilt when the analysis is newer, so a refresh takes 0.05 s after the first. Open now uses the same cached analysis call as the Dashboard, so a case is downloaded once, not twice. Covered by `test_cases.py`.
+
+**Checked:**
+- `dotnet build`: 0 errors, 0 warnings.
+- `run_tests.py`: 9/9 suites pass.
+- In the app:
+  - The Cases page lists 40 cases; opening `FX-20260928-071432` loads the Dashboard (10,584 packets, 6,996 forensic flows, 2,016 ML flows).
+  - Investigation lists 2,015 threat flows with the verdict column and correct priority counts.
+  - Review Selected opens flow 249 in XAI with its SHAP table.
+
 ### Changes after the merge (UI test round, 27 Sep 2026)
 
 Found while running the merged app end to end and fixed on this branch:

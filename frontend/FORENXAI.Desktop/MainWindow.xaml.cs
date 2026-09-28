@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
@@ -98,11 +98,6 @@ public partial class MainWindow : Window
         SetCurrentCase(response.CaseId);
     }
 
-    private void Investigation_Click(object sender, RoutedEventArgs e)
-    {
-        MainContent.Content = new InvestigationView();
-        SetActiveNavigation(InvestigationButton);
-    }
 
 
     // =========================================================
@@ -118,6 +113,7 @@ public partial class MainWindow : Window
             DashboardButton,
             XaiButton,
             InvestigationButton,
+            CasesButton,
             ReportsButton
         };
 
@@ -350,6 +346,91 @@ public partial class MainWindow : Window
 
         SetActiveNavigation(
             XaiButton
+        );
+    }
+
+
+    // =========================================================
+    // INVESTIGATION WORKSPACE
+    // =========================================================
+
+    private void Investigation_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (
+            !string.IsNullOrWhiteSpace(
+                CurrentCaseId
+            )
+        )
+        {
+            ShowInvestigation(
+                CurrentCaseId
+            );
+
+            return;
+        }
+
+
+        MessageBox.Show(
+            "No analyzed case is currently selected.\n\n" +
+            "Please analyze or open a case first.",
+            "FORENXAI",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information
+        );
+    }
+
+
+    public void ShowInvestigation(
+        string caseId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(
+                caseId
+            )
+        )
+        {
+            return;
+        }
+
+
+        CurrentCaseId =
+            caseId.Trim();
+
+
+        MainContent.Content =
+            new InvestigationView(
+                CurrentCaseId
+            );
+
+
+        SetActiveNavigation(
+            InvestigationButton
+        );
+    }
+
+
+    // =========================================================
+    // CASE MANAGEMENT
+    // =========================================================
+
+    private void Cases_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        ShowCases();
+    }
+
+
+    public void ShowCases()
+    {
+        MainContent.Content =
+            new CasesView();
+
+
+        SetActiveNavigation(
+            CasesButton
         );
     }
 

@@ -255,6 +255,16 @@ def main():
           and shipped["rules"]["T1-DDOS-01"].get("disabled_reason")
           and fired(flows(800, sources=srcs, step=0.05), "T1-DDOS-01", shipped=True)[0] == 0)
 
+    catalog = {r["rule_id"]: r for r in rs.rule_catalog(shipped, {"T1-PORTSCAN-01": 7})}
+    check("rule catalog: every rule, roles from decision.trust, scaled settings, flows flagged",
+          len(catalog) == len(shipped["rules"])
+          and catalog["T1-PORTSCAN-01"]["role"] == "decides"
+          and catalog["T1-PORTSCAN-01"]["settings"]["min_distinct_ports"] == ports
+          and catalog["T1-PORTSCAN-01"]["flows_flagged"] == 7
+          and catalog["T1-DDOS-01"]["role"] == "off"
+          and catalog["T1-SLOWLORIS-01"]["role"] == "evidence"
+          and all(r["basis"] for r in catalog.values()))
+
     print(f"\n{'ALL CHECKS PASSED' if not FAILED else f'{len(FAILED)} FAILED: {FAILED}'}")
     return len(FAILED)
 

@@ -531,6 +531,30 @@ def decide(finding: Dict[str, Any],
     return ml_class, "ml"
 
 
+_NOT_SETTINGS = {"class", "enabled", "severity", "description", "basis", "disabled_reason"}
+
+
+def rule_catalog(config: Dict[str, Any], flows_by_rule: Dict[str, int]) -> List[Dict[str, Any]]:
+    """Every Tier 1 rule as this case applied it: role (decides / evidence /
+    off), settings after the sensitivity factor, basis, and the flows it
+    flagged here. Saved in the case so the record keeps the thresholds used,
+    even if rules.json changes later."""
+    trust = config.get("decision", {}).get("trust", {})
+    catalog = []
+    for rule_id, rule in config.get("rules", {}).items():
+        role = ("off" if not rule.get("enabled", True)
+                else "decides" if trust.get(rule["class"]) == "rule" else "evidence")
+        catalog.append({
+            "rule_id": rule_id, "class": rule["class"], "role": role,
+            "description": rule.get("description", ""),
+            "settings": {k: v for k, v in rule.items() if k not in _NOT_SETTINGS and not isinstance(v, dict)},
+            "basis": rule.get("basis", ""),
+            "disabled_reason": rule.get("disabled_reason", ""),
+            "flows_flagged": int(flows_by_rule.get(rule_id, 0)),
+        })
+    return catalog
+
+
 def sort_hits(hits: List[Dict[str, Any]], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Most specific evidence first (rules.json -> priority)."""
     order = {c: i for i, c in enumerate(config.get("priority", []))}

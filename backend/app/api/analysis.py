@@ -17,7 +17,7 @@ from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
 from app.services.rule_service import evaluate as evaluate_rules
-from app.services.rule_service import decide, load_config as load_rule_config, sort_hits
+from app.services.rule_service import decide, load_config as load_rule_config, rule_catalog, sort_hits
 from app.services.packet_rule_service import (
     PacketInspector,
     evaluate as evaluate_packet_rules,
@@ -784,6 +784,14 @@ def start_analysis(
                 # class and per rule, for each tier.
                 "tier1_chart":
                     summarise_rule_hits(ml_findings, 1),
+
+                # Every Tier 1 rule with the settings this case used,
+                # its basis and the flows it flagged (Dashboard list).
+                "tier1_rules":
+                    rule_catalog(
+                        rule_config,
+                        summarise_rule_hits(ml_findings, 1).get("by_rule", {})
+                    ) if rule_config else [],
 
                 "tier2_chart":
                     summarise_rule_hits(ml_findings, 2),

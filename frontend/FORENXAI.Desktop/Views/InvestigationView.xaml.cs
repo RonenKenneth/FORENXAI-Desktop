@@ -677,7 +677,9 @@ public partial class InvestigationView : UserControl
             completionPercentage;
 
         ReviewProgressText.Text =
-            $"{completionPercentage:F1}% reviewed";
+            completionPercentage > 0 && completionPercentage < 0.1
+                ? "<0.1% reviewed"
+                : $"{completionPercentage:F1}% reviewed";
 
 
         if (

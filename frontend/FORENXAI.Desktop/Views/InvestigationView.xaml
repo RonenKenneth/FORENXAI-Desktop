@@ -294,7 +294,8 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6">
                             <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -334,7 +335,8 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6">
                             <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -423,6 +425,7 @@
                     Content="Review Selected Flow"
                     Click="ReviewSelectedButton_Click"
                     Style="{StaticResource PrimaryButtonStyle}"
+                    VerticalAlignment="Center"
                     IsEnabled="False"/>
 
         </Grid>
@@ -772,9 +775,26 @@
 
                 <DataGrid.CellStyle>
                     <Style TargetType="DataGridCell">
-                        <Setter Property="Padding" Value="10,7"/>
+                        <Setter Property="Padding" Value="12,6"/>
                         <Setter Property="BorderThickness" Value="0"/>
-                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1E3A8A"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
                     </Style>
                 </DataGrid.CellStyle>
 
@@ -825,7 +845,8 @@
                                         Background="#334155"
                                         CornerRadius="10"
                                         Padding="8,3"
-                                        HorizontalAlignment="Left">
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center">
 
                                     <TextBlock x:Name="PriorityBadgeText"
                                                Text="{Binding Priority}"
@@ -912,7 +933,8 @@
                                         Background="#334155"
                                         CornerRadius="10"
                                         Padding="8,3"
-                                        HorizontalAlignment="Left">
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center">
 
                                     <TextBlock x:Name="ReviewBadgeText"
                                                Text="{Binding ReviewDecision}"

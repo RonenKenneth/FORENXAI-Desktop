@@ -96,7 +96,7 @@ prevalence, because the capped test set is ~6% benign where the corpus is ~57%.
 
 ```
 mean external ROC-AUC   0.4698      (0.50 is a coin flip; 10 of 15 below it)
-below chance            11 of 15
+below chance            10 of 15
 best external accuracy  0.6329      vs published baseline 0.8963
 internal F1             0.95 – 0.99
 ```
@@ -121,7 +121,42 @@ equivalence. Two concrete causes:
    untrained weights.
 
 The reported figures therefore measure genuine failure to generalise *and*
-feature-space incompatibility, and the design cannot separate them.
+feature-space incompatibility. The harmonisation run below separates the part
+that can be repaired without retraining.
+
+### Harmonisation check — how much of the gap is fixable at scoring time
+
+`src/harmonise.py` repairs the three documented encoding differences on the
+test side only (no model is retrained), and `--harmonise` in scripts 06 and 13
+writes to `results/harmonised/<variant>/`; `17_harmonisation_report.py` builds
+`results/tables/10_harmonisation_before_after.csv`. Macro recall (binary: mean
+of attack and benign recall, chance 0.50; 16-class: mean recall on the eight
+shared classes, chance about 0.06), mean of all models:
+
+| Experiment | Original | Harmonised | Harmonised + flows ≤ 120 s |
+|---|---|---|---|
+| Binary → TRUSTLab, macro recall | 0.474 | 0.469 | 0.491 |
+| Binary → TRUSTLab, ROC-AUC | 0.470 | 0.459 | 0.508 |
+| 16-class TRUSTLab → others, macro recall | 0.165 | 0.165 | 0.165 |
+| 16-class, TRUSTLab reference on the same classes | 0.869 | 0.869 | 0.863 |
+
+XGBoost: binary combined arm 0.473 → 0.520 macro recall (ROC-AUC 0.487 →
+0.554) on the timeout-matched subset; 16-class 0.203 in every variant.
+
+What each repair showed:
+- **Dead features** (set to their constant training value): no gain; the
+  models were not being misled by them.
+- **−1 sentinels** (set to 0): no prediction changed. After scaling, −1 and 0
+  differ by 0.00003 SD, because Init Win Bytes has a spread of about 30,000.
+- **Flow timeout** (only TRUSTLab flows ≤ 120 s, 412,971 of 480,000): the only
+  repair with an effect, +0.02 to +0.05, still at chance. The 16-class
+  reference barely moves (0.884 → 0.878), so long flows do not inflate it.
+
+Conclusion: the documented encoding differences explain little of the gap.
+What remains is feature definitions that differ between the exporters (a
+domain classifier separates the datasets with AUC 1.0, mainly on Packet Length
+Min) and genuinely different networks — both need retraining or a common
+re-extraction to address, not scoring-time repair.
 
 ### Multiclass — five architectures converge
 
@@ -239,10 +274,14 @@ results/       every metric, table and confusion matrix
 
 ## 8. Limitations
 
-- **Feature incompatibility is unresolved.** Cross-dataset figures conflate
-  failure to generalise with schema mismatch; the design cannot separate them.
-- **Multiclass transfer was not evaluated.** Six TRUSTLab classes have no
-  counterpart elsewhere, so no interpretable score exists.
+- **Feature incompatibility is only partly resolved.** Scoring-time
+  harmonisation (sentinels, dead features, flow timeout) recovers at most
+  +0.05 macro recall; the rest needs retraining or a common re-extraction,
+  which TRUSTLab's flow-only release does not allow.
+- **Multiclass transfer covers eight of sixteen classes.** Script 13 scores
+  only the TRUSTLab classes with a counterpart in the public datasets; the
+  mapping is judgement and is written in the script. Recall is the only
+  metric, because the external sets lack the other classes.
 - **Temporal splitting was run with one architecture**, not five. The
   random-vs-temporal comparison uses XGBoost only.
 - **PortScan is truncated at source** to 62.9%; its temporal result is

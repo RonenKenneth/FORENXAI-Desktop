@@ -1,0 +1,17 @@
+{
+  "CSE-CIC-IDS2018": {
+    "features_shifted_over_3_sd": 1,
+    "constant_in_external": [
+      "Bwd Packet/Bulk Avg"
+    ],
+    "negative_values_absent_in_trustlab": [
+      "Bwd Init Win Bytes",
+      "FWD Init Win Bytes"
+    ]
+  },
+  "TII-SSRC-23": {
+    "features_shifted_over_3_sd": 4,
+    "constant_in_external": [],
+    "negative_values_absent_in_trustlab": []
+  }
+}

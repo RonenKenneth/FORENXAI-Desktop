@@ -54,6 +54,15 @@ Usage:
   python scripts/13_reverse_transfer.py
   python scripts/13_reverse_transfer.py --model-dir artifacts/mc_random
   python scripts/13_reverse_transfer.py --no-dedup
+  python scripts/13_reverse_transfer.py --harmonise                    # sensitivity run
+  python scripts/13_reverse_transfer.py --harmonise --timeout-subset
+
+--harmonise applies src/harmonise.py to the external features before scoring
+(the -1 sentinels become 0; features constant in TRUSTLab training take that
+value). --timeout-subset also computes the TRUSTLab reference only on flows of
+at most 120 s, the external datasets' timeout. Outputs go to
+results/harmonised/<variant>/reverse_transfer_mc/; the main results are left
+untouched.
 """
 import sys
 import argparse
@@ -88,9 +97,17 @@ ap.add_argument("--model-dir", type=Path,
                      "plus scaler.pkl, features.pkl, label_encoder.pkl")
 ap.add_argument("--no-dedup", action="store_true",
                 help="keep duplicate external rows")
+ap.add_argument("--harmonise", action="store_true",
+                help="harmonise the external features first (src/harmonise.py)")
+ap.add_argument("--timeout-subset", action="store_true",
+                help="with --harmonise: TRUSTLab reference on flows of at most 120 s")
 args = ap.parse_args()
+if args.timeout_subset and not args.harmonise:
+    ap.error("--timeout-subset needs --harmonise")
+VARIANT = ("fixes_120s" if args.timeout_subset else "fixes") if args.harmonise else None
+OUT_PARTS = ("harmonised", VARIANT) if VARIANT else ()
 
-OUT = RESULTS_DIR / "reverse_transfer_mc"
+OUT = RESULTS_DIR.joinpath(*OUT_PARTS, "reverse_transfer_mc")
 OUT.mkdir(parents=True, exist_ok=True)
 MIN_N = 100
 
@@ -201,6 +218,12 @@ def predict(name, Xs, batch=8192):
 # --------------------------------------------------------------------------
 banner(log, "DATA")
 te = pd.read_parquet(PROCESSED_DIR / "mc_test_random.parquet")
+if args.timeout_subset:
+    from src.harmonise import timeout_mask
+    keep = timeout_mask(te)
+    log.info(f"TRUSTLab reference on the timeout-matched subset: "
+             f"{int(keep.sum()):,} of {len(te):,} held-out flows end within 120 s")
+    te = te[keep].reset_index(drop=True)
 Xs_ref = scaler.transform(clean_features(te, feats).values)
 y_ref = te["folder_class"].astype(str).values
 
@@ -210,8 +233,12 @@ tr = pd.read_parquet(PROCESSED_DIR / "mc_train_random.parquet",
 # sends infinities and gaps to 0, so an uncleaned minimum can be -inf for a
 # column whose real floor is 0, and the "never negative in TRUSTLab" check
 # would then silently skip it.
-train_min = clean_features(tr, feats).min()
-del tr
+train_clean = clean_features(tr, feats)
+train_min = train_clean.min()
+if args.harmonise:
+    from src.harmonise import training_profile, harmonise, describe
+    profile = training_profile(train_clean)
+del tr, train_clean
 
 ext = {}
 for name, (path, cmap) in EXTERNAL.items():
@@ -226,7 +253,12 @@ for name, (path, cmap) in EXTERNAL.items():
     log.info(f"{name}: {human(n0)} rows"
              + (f", {human(n0 - len(df))} exact duplicates dropped, "
                 f"{human(len(df))} kept" if not args.no_dedup else ""))
-    ext[name] = (df, scaler.transform(clean_features(df, feats).values), cmap)
+    raw_ext = clean_features(df, feats)
+    if args.harmonise:
+        raw_ext, changed = harmonise(raw_ext, profile)
+        for line in describe(changed):
+            log.info(f"  {name} harmonised: {line}")
+    ext[name] = (df, scaler.transform(raw_ext.values), cmap)
 
 banner(log, "SHIFT DIAGNOSTIC -- how far do the external features move?")
 shift = {}
@@ -247,7 +279,7 @@ for name, (df, Xs, _cmap) in ext.items():
     if neg:
         log.info(f"      negative in >1% of rows, never negative in "
                  f"TRUSTLab: {', '.join(neg)}")
-save_json(shift, "reverse_transfer_mc", "shift.json")
+save_json(shift, *OUT_PARTS, "reverse_transfer_mc", "shift.json")
 
 # Classes mapped in at least one external set, for the TRUSTLab reference.
 mapped_tl = sorted({c for _n, (_p, cm) in EXTERNAL.items()
@@ -397,7 +429,7 @@ log.info("  Compare ref_macro_recall_mapped with the external columns: that "
 save_json({"models": recs, "mapped_trustlab_classes": mapped_tl,
            "min_n": MIN_N, "dedup": not args.no_dedup,
            "mapping_note": "Mappings are judgement; see the script header."},
-          "reverse_transfer_mc", "reverse_transfer_mc.json")
+          *OUT_PARTS, "reverse_transfer_mc", "reverse_transfer_mc.json")
 log.info(f"\nOutputs -> {OUT}")
 banner(log, "FOR THE WRITE-UP")
 log.info("  * Same trained models as script 10, applied unchanged to other "

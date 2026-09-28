@@ -43,6 +43,15 @@ Usage:
   python scripts/06_validate_external.py
   python scripts/06_validate_external.py --threshold-sweep
   python scripts/06_validate_external.py --threshold 0.5
+  python scripts/06_validate_external.py --harmonise                  # sensitivity run
+  python scripts/06_validate_external.py --harmonise --timeout-subset
+
+--harmonise applies src/harmonise.py to the TRUSTLab test features before
+scoring (features constant in an arm's training data are set to that value;
+negative values in features never negative in training are set to 0).
+--timeout-subset also keeps only TRUSTLab flows of at most 120 s, the
+public datasets' flow timeout. Both write to results/harmonised/<variant>/
+and leave the main results untouched.
 """
 import sys
 import json
@@ -77,7 +86,16 @@ ap.add_argument("--threshold-sweep", action="store_true")
 ap.add_argument("--threshold", type=float,
                 default=TRUSTLAB_BASELINE["threshold"],
                 help="decision threshold (default: the baseline's 0.445)")
+ap.add_argument("--harmonise", action="store_true",
+                help="harmonise the test features first (src/harmonise.py); "
+                     "writes to results/harmonised/")
+ap.add_argument("--timeout-subset", action="store_true",
+                help="with --harmonise: only TRUSTLab flows of at most 120 s")
 args = ap.parse_args()
+if args.timeout_subset and not args.harmonise:
+    ap.error("--timeout-subset needs --harmonise")
+VARIANT = ("fixes_120s" if args.timeout_subset else "fixes") if args.harmonise else None
+OUT_PARTS = ("harmonised", VARIANT) if VARIANT else ()
 
 test_path = PROCESSED_DIR / "test_trustlab.parquet"
 if not test_path.exists():
@@ -87,7 +105,14 @@ if not test_path.exists():
 feats = joblib.load(ARTIFACTS_DIR / "shared_features.pkl")
 tlb = pd.read_parquet(test_path)
 
-X_raw = clean_features(tlb, feats).values
+if args.timeout_subset:
+    from src.harmonise import timeout_mask
+    keep = timeout_mask(tlb)
+    log.info(f"Timeout-matched subset: {int(keep.sum()):,} of {len(tlb):,} TRUSTLab "
+             f"flows end within 120 s")
+    tlb = tlb[keep].reset_index(drop=True)
+X_clean = clean_features(tlb, feats)
+X_raw = X_clean.values
 y = tlb["binary_label"].values.astype(int)
 cls = tlb["folder_class"].values
 
@@ -103,6 +128,11 @@ _np = ARTIFACTS_DIR / "trustlab_native_counts.json"
 if _np.exists():
     _nd = json.load(open(_np, encoding="utf-8"))
     NATIVE, TRUNCATED = _nd["counts"], _nd.get("truncated", [])
+    if args.timeout_subset:
+        # A class with no flow under 120 s cannot be reweighted; the others
+        # keep their corpus counts, so the subset is read at native prevalence.
+        _present = set(pd.Series(cls).unique())
+        NATIVE = {c: n for c, n in NATIVE.items() if c in _present}
 
 # Per-row weights that carry the capped test set to the corpus's prevalence:
 # a row of class c stands for NATIVE[c] / (rows of c in the test set) rows of
@@ -173,7 +203,16 @@ for arm_dir in sorted(d for d in arms if d.is_dir()):
                   f"shared_features.pkl -- re-run 04 and 05. Skipped.")
         continue
     scaler = joblib.load(scaler_p)
-    Xs = scaler.transform(X_raw)        # transform only, never refit
+    if args.harmonise:
+        from src.harmonise import training_profile, harmonise, describe
+        train_p = PROCESSED_DIR / f"train_{arm}.parquet"
+        profile = training_profile(clean_features(pd.read_parquet(train_p, columns=feats), feats))
+        X_h, changed = harmonise(X_clean, profile)
+        for line in describe(changed):
+            log.info(f"  {arm} harmonised: {line}")
+        Xs = scaler.transform(X_h.values)
+    else:
+        Xs = scaler.transform(X_raw)        # transform only, never refit
 
     banner(log, f"ARM: {arm}")
 
@@ -310,7 +349,10 @@ for arm_dir in sorted(d for d in arms if d.is_dir()):
                          f"benign {r['benign_recall']:.4f}  "
                          f"attack {r['attack_recall']:.4f}{mark}")
 
-        save_json(payload, "external", f"{arm}__{name}.json")
+        if args.harmonise:
+            payload["harmonised"] = {"variant": VARIANT, "changed": changed,
+                                     "rows": int(len(y))}
+        save_json(payload, *OUT_PARTS, "external", f"{arm}__{name}.json")
         rows.append({"arm": arm, "model": name,
                      "threshold": args.threshold,
                      "acc_native_prevalence": rew,
@@ -340,7 +382,8 @@ rank_on = ("acc_native_prevalence"
            and df["acc_native_prevalence"].notna().all() else "accuracy")
 df = df.sort_values(rank_on, ascending=False)
 log.info("\n" + df.to_string(index=False))
-df.to_csv(RESULTS_DIR / "external_validation.csv", index=False)
+RESULTS_DIR.joinpath(*OUT_PARTS).mkdir(parents=True, exist_ok=True)
+df.to_csv(RESULTS_DIR.joinpath(*OUT_PARTS, "external_validation.csv"), index=False)
 
 best = df.iloc[0]
 if rank_on == "acc_native_prevalence":

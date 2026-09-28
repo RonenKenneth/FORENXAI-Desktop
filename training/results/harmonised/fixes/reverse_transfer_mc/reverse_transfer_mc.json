@@ -1,0 +1,92 @@
+{
+  "models": [
+    {
+      "model": "MLP",
+      "ref_accuracy": 0.9204214765963372,
+      "ref_macro_recall_all_mapped": 0.8868870907163002,
+      "cse_exact": 0.1666564806682405,
+      "cse_family": 0.3037008193333272,
+      "cse_ref": 0.8789927141669128,
+      "tii_exact": 0.1493326082375443,
+      "tii_family": 0.17851929521750445,
+      "tii_ref": 0.8538742677485754,
+      "ref_macro_recall_mapped": 0.8664334909577441,
+      "mean_ext_exact": 0.1579945444528924,
+      "mean_ext_family": 0.24111005727541585,
+      "gap_exact": 0.7084389465048517
+    },
+    {
+      "model": "CNN1D",
+      "ref_accuracy": 0.9258416856207353,
+      "ref_macro_recall_all_mapped": 0.8927616402894707,
+      "cse_exact": 0.10315410695457236,
+      "cse_family": 0.10315410695457236,
+      "cse_ref": 0.8821951424881996,
+      "tii_exact": 0.34200119804685186,
+      "tii_family": 0.35855457903829685,
+      "tii_ref": 0.8496337066450382,
+      "ref_macro_recall_mapped": 0.8659144245666189,
+      "mean_ext_exact": 0.2225776525007121,
+      "mean_ext_family": 0.2308543429964346,
+      "gap_exact": 0.6433367720659069
+    },
+    {
+      "model": "LSTM",
+      "ref_accuracy": 0.9108950486140618,
+      "ref_macro_recall_all_mapped": 0.8806200567758586,
+      "cse_exact": 0.11330430067953283,
+      "cse_family": 0.2317214093345106,
+      "cse_ref": 0.864914920993126,
+      "tii_exact": 0.06113109607444662,
+      "tii_family": 0.1390440516586491,
+      "tii_ref": 0.8417976411165352,
+      "ref_macro_recall_mapped": 0.8533562810548305,
+      "mean_ext_exact": 0.08721769837698973,
+      "mean_ext_family": 0.18538273049657986,
+      "gap_exact": 0.7661385826778409
+    },
+    {
+      "model": "CNN_BiLSTM",
+      "ref_accuracy": 0.9257809849926624,
+      "ref_macro_recall_all_mapped": 0.8950257030400233,
+      "cse_exact": 0.20404830929090492,
+      "cse_family": 0.2045635456617223,
+      "cse_ref": 0.8866410632957967,
+      "tii_exact": 0.10217926022938563,
+      "tii_family": 0.1150095953987282,
+      "tii_ref": 0.860798865624166,
+      "ref_macro_recall_mapped": 0.8737199644599813,
+      "mean_ext_exact": 0.15311378476014528,
+      "mean_ext_family": 0.15978657053022524,
+      "gap_exact": 0.7206061796998361
+    },
+    {
+      "model": "XGBoost",
+      "ref_accuracy": 0.935078892963369,
+      "ref_macro_recall_all_mapped": 0.9076961796896925,
+      "cse_exact": 0.2080680252833417,
+      "cse_family": 0.27808177029663944,
+      "cse_ref": 0.8956446283290116,
+      "tii_exact": 0.1987550276752415,
+      "tii_family": 0.20879985364500597,
+      "tii_ref": 0.8716373400708946,
+      "ref_macro_recall_mapped": 0.8836409841999531,
+      "mean_ext_exact": 0.20341152647929162,
+      "mean_ext_family": 0.2434408119708227,
+      "gap_exact": 0.6802294577206615
+    }
+  ],
+  "mapped_trustlab_classes": [
+    "Benign",
+    "Bruteforce",
+    "C2Beaconing",
+    "DDoS",
+    "DoS",
+    "PortScan",
+    "Slowloris",
+    "WebBased"
+  ],
+  "min_n": 100,
+  "dedup": true,
+  "mapping_note": "Mappings are judgement; see the script header."
+}

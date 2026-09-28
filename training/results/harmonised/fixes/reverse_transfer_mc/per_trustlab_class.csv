@@ -1,0 +1,56 @@
+model,test_set,trustlab_class,n,exact_recall,family_recall,external_classes,in_macro
+MLP,CSE-CIC-IDS2018,Benign,358365,0.5177,0.5177,Benign,True
+MLP,CSE-CIC-IDS2018,Bruteforce,13822,0.0048,0.0048,FTP-BruteForce; SSH-Bruteforce,True
+MLP,CSE-CIC-IDS2018,C2Beaconing,21700,0.0,0.0,Bot,True
+MLP,CSE-CIC-IDS2018,DDoS,130278,0.4923,0.4923,DDOS attack-HOIC; DDOS attack-LOIC-UDP; DDoS attacks-LOIC-HTTP,True
+MLP,CSE-CIC-IDS2018,DoS,45277,0.0286,0.8575,DoS attacks-GoldenEye; DoS attacks-Hulk,True
+MLP,CSE-CIC-IDS2018,Slowloris,1597,0.0,0.0,DoS attacks-SlowHTTPTest; DoS attacks-Slowloris,True
+MLP,CSE-CIC-IDS2018,WebBased,138,0.1232,0.2536,Brute Force -Web; Brute Force -XSS; SQL Injection,True
+MLP,TII-SSRC-23,Benign,1289,0.5671,0.5671,Audio; Background; Text; Video,True
+MLP,TII-SSRC-23,Bruteforce,1590,0.0,0.0,Bruteforce,True
+MLP,TII-SSRC-23,DoS,341320,0.0302,0.147,DoS,True
+MLP,TII-SSRC-23,PortScan,48029,0.0,0.0,Information Gathering,True
+CNN1D,CSE-CIC-IDS2018,Benign,358365,0.7221,0.7221,Benign,True
+CNN1D,CSE-CIC-IDS2018,Bruteforce,13822,0.0,0.0,FTP-BruteForce; SSH-Bruteforce,True
+CNN1D,CSE-CIC-IDS2018,C2Beaconing,21700,0.0,0.0,Bot,True
+CNN1D,CSE-CIC-IDS2018,DDoS,130278,0.0,0.0,DDOS attack-HOIC; DDOS attack-LOIC-UDP; DDoS attacks-LOIC-HTTP,True
+CNN1D,CSE-CIC-IDS2018,DoS,45277,0.0,0.0,DoS attacks-GoldenEye; DoS attacks-Hulk,True
+CNN1D,CSE-CIC-IDS2018,Slowloris,1597,0.0,0.0,DoS attacks-SlowHTTPTest; DoS attacks-Slowloris,True
+CNN1D,CSE-CIC-IDS2018,WebBased,138,0.0,0.0,Brute Force -Web; Brute Force -XSS; SQL Injection,True
+CNN1D,TII-SSRC-23,Benign,1289,0.4383,0.4383,Audio; Background; Text; Video,True
+CNN1D,TII-SSRC-23,Bruteforce,1590,0.0,0.0,Bruteforce,True
+CNN1D,TII-SSRC-23,DoS,341320,0.0005,0.0667,DoS,True
+CNN1D,TII-SSRC-23,PortScan,48029,0.9292,0.9292,Information Gathering,True
+LSTM,CSE-CIC-IDS2018,Benign,358365,0.3048,0.3048,Benign,True
+LSTM,CSE-CIC-IDS2018,Bruteforce,13822,0.0,0.0,FTP-BruteForce; SSH-Bruteforce,True
+LSTM,CSE-CIC-IDS2018,C2Beaconing,21700,0.0012,0.0012,Bot,True
+LSTM,CSE-CIC-IDS2018,DDoS,130278,0.4871,0.4871,DDOS attack-HOIC; DDOS attack-LOIC-UDP; DDoS attacks-LOIC-HTTP,True
+LSTM,CSE-CIC-IDS2018,DoS,45277,0.0,0.8289,DoS attacks-GoldenEye; DoS attacks-Hulk,True
+LSTM,CSE-CIC-IDS2018,Slowloris,1597,0.0,0.0,DoS attacks-SlowHTTPTest; DoS attacks-Slowloris,True
+LSTM,CSE-CIC-IDS2018,WebBased,138,0.0,0.0,Brute Force -Web; Brute Force -XSS; SQL Injection,True
+LSTM,TII-SSRC-23,Benign,1289,0.0853,0.0853,Audio; Background; Text; Video,True
+LSTM,TII-SSRC-23,Bruteforce,1590,0.0,0.0,Bruteforce,True
+LSTM,TII-SSRC-23,DoS,341320,0.0099,0.3216,DoS,True
+LSTM,TII-SSRC-23,PortScan,48029,0.1492,0.1492,Information Gathering,True
+CNN_BiLSTM,CSE-CIC-IDS2018,Benign,358365,0.3496,0.3496,Benign,True
+CNN_BiLSTM,CSE-CIC-IDS2018,Bruteforce,13822,0.9918,0.9918,FTP-BruteForce; SSH-Bruteforce,True
+CNN_BiLSTM,CSE-CIC-IDS2018,C2Beaconing,21700,0.0,0.0,Bot,True
+CNN_BiLSTM,CSE-CIC-IDS2018,DDoS,130278,0.0,0.0025,DDOS attack-HOIC; DDOS attack-LOIC-UDP; DDoS attacks-LOIC-HTTP,True
+CNN_BiLSTM,CSE-CIC-IDS2018,DoS,45277,0.0,0.0011,DoS attacks-GoldenEye; DoS attacks-Hulk,True
+CNN_BiLSTM,CSE-CIC-IDS2018,Slowloris,1597,0.0,0.0,DoS attacks-SlowHTTPTest; DoS attacks-Slowloris,True
+CNN_BiLSTM,CSE-CIC-IDS2018,WebBased,138,0.087,0.087,Brute Force -Web; Brute Force -XSS; SQL Injection,True
+CNN_BiLSTM,TII-SSRC-23,Benign,1289,0.2909,0.2909,Audio; Background; Text; Video,True
+CNN_BiLSTM,TII-SSRC-23,Bruteforce,1590,0.0,0.0,Bruteforce,True
+CNN_BiLSTM,TII-SSRC-23,DoS,341320,0.0032,0.0545,DoS,True
+CNN_BiLSTM,TII-SSRC-23,PortScan,48029,0.1146,0.1146,Information Gathering,True
+XGBoost,CSE-CIC-IDS2018,Benign,358365,0.6276,0.6276,Benign,True
+XGBoost,CSE-CIC-IDS2018,Bruteforce,13822,0.0,0.0,FTP-BruteForce; SSH-Bruteforce,True
+XGBoost,CSE-CIC-IDS2018,C2Beaconing,21700,0.0,0.0,Bot,True
+XGBoost,CSE-CIC-IDS2018,DDoS,130278,0.0,0.4901,DDOS attack-HOIC; DDOS attack-LOIC-UDP; DDoS attacks-LOIC-HTTP,True
+XGBoost,CSE-CIC-IDS2018,DoS,45277,0.8289,0.8289,DoS attacks-GoldenEye; DoS attacks-Hulk,True
+XGBoost,CSE-CIC-IDS2018,Slowloris,1597,0.0,0.0,DoS attacks-SlowHTTPTest; DoS attacks-Slowloris,True
+XGBoost,CSE-CIC-IDS2018,WebBased,138,0.0,0.0,Brute Force -Web; Brute Force -XSS; SQL Injection,True
+XGBoost,TII-SSRC-23,Benign,1289,0.3483,0.3483,Audio; Background; Text; Video,True
+XGBoost,TII-SSRC-23,Bruteforce,1590,0.0,0.0,Bruteforce,True
+XGBoost,TII-SSRC-23,DoS,341320,0.0176,0.0578,DoS,True
+XGBoost,TII-SSRC-23,PortScan,48029,0.4291,0.4291,Information Gathering,True

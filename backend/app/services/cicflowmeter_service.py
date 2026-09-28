@@ -13,6 +13,7 @@ from app.services.logging_service import (
 from app.utils.runtime_paths import (
     get_backend_directory,
     get_cases_directory,
+    find_tool,
     get_java_home,
     get_toolchain_directory,
 )
@@ -20,37 +21,53 @@ from app.utils.runtime_paths import (
 # ============================================================
 # CICFLOWMETER CONFIGURATION
 # ============================================================
+#
+# Resolved, not hard-coded (see find_tool): an environment variable, then
+# the project tools/ folder, then PATH, then the development machine's
+# C:\Tools layout. A missing tool leaves the default path in place so the
+# error message below names where it was expected and which variable to set.
 
-CICFLOWMETER_ROOT = Path(
-    r"C:\Tools\CICFlowMeter\CICFlowMeter-master"
-)
+CICFLOWMETER_ROOT = find_tool(
+    "FORENXAI_CICFLOWMETER_DIR",
+    ["CICFlowMeter/CICFlowMeter-master", "CICFlowMeter-master", "CICFlowMeter"],
+    fallbacks=[r"C:\Tools\CICFlowMeter\CICFlowMeter-master"],
+) or Path(r"C:\Tools\CICFlowMeter\CICFlowMeter-master")
 
-MAVEN_EXECUTABLE = Path(
-    r"C:\Tools\apache-maven-3.9.16-bin"
-    r"\apache-maven-3.9.16\bin\mvn.cmd"
-)
+MAVEN_EXECUTABLE = find_tool(
+    "FORENXAI_MAVEN",
+    ["apache-maven*/bin/mvn.cmd", "apache-maven*/apache-maven*/bin/mvn.cmd"],
+    command="mvn",
+    fallbacks=[r"C:\Tools\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd"],
+) or Path(r"C:\Tools\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd")
 
-EDITCAP_EXECUTABLE = Path(
-    r"C:\Program Files\Wireshark\editcap.exe"
-)
+EDITCAP_EXECUTABLE = find_tool(
+    "FORENXAI_EDITCAP",
+    ["wireshark/editcap.exe", "Wireshark/editcap.exe"],
+    command="editcap",
+    fallbacks=[
+        os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Wireshark", "editcap.exe"),
+    ],
+) or Path(r"C:\Program Files\Wireshark\editcap.exe")
 
 
 # ============================================================
 # NATIVE LIBRARY CONFIGURATION
 # ============================================================
 
-JNETPCAP_NATIVE_DIR = Path(
-    r"C:\Tools\CICFlowMeter\CICFlowMeter-master"
-    r"\jnetpcap\win\jnetpcap-1.4.r1425"
+# Both relative to the CICFlowMeter checkout, wherever it was found.
+JNETPCAP_NATIVE_DIR = (
+    CICFLOWMETER_ROOT
+    / "jnetpcap" / "win" / "jnetpcap-1.4.r1425"
 )
 
-INSTALLED_NATIVE_DIR = Path(
-    r"C:\Tools\CICFlowMeter\installed"
-    r"\CICFlowMeter-4.0\lib\native"
+INSTALLED_NATIVE_DIR = (
+    CICFLOWMETER_ROOT.parent
+    / "installed" / "CICFlowMeter-4.0" / "lib" / "native"
 )
 
-NPCAP_NATIVE_DIR = Path(
-    r"C:\Windows\System32\Npcap"
+NPCAP_NATIVE_DIR = (
+    Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    / "System32" / "Npcap"
 )
 
 JNETPCAP_NATIVE_CANDIDATES = [
@@ -102,13 +119,16 @@ def _validate_configuration() -> None:
     if not CICFLOWMETER_ROOT.exists():
         raise RuntimeError(
             "CICFlowMeter directory was not found:\n"
-            f"{CICFLOWMETER_ROOT}"
+            f"{CICFLOWMETER_ROOT}\n\n"
+            "Place it under tools/ or set FORENXAI_CICFLOWMETER_DIR."
         )
 
     if not MAVEN_EXECUTABLE.exists():
         raise RuntimeError(
             "Maven executable was not found:\n"
-            f"{MAVEN_EXECUTABLE}"
+            f"{MAVEN_EXECUTABLE}\n\n"
+            "Place it under tools/, put mvn on PATH, "
+            "or set FORENXAI_MAVEN to mvn.cmd."
         )
 
     pom_file = (
@@ -172,9 +192,8 @@ def _convert_pcapng_to_pcap(
             "Wireshark editcap.exe was not found.\n\n"
             "Expected location:\n"
             f"{EDITCAP_EXECUTABLE}\n\n"
-            "Install Wireshark or update "
-            "EDITCAP_EXECUTABLE in "
-            "cicflowmeter_service.py."
+            "Install Wireshark, put editcap on PATH, "
+            "or set FORENXAI_EDITCAP to editcap.exe."
         )
 
     destination_file.parent.mkdir(

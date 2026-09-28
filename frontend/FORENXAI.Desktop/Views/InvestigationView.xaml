@@ -627,7 +627,7 @@
 
                     <StackPanel Grid.Column="0"
                                 Margin="0,0,16,0">
-                        <TextBlock Text="TOTAL THREATS"
+                        <TextBlock Text="TO REVIEW"
                                    Foreground="#64748B"
                                    FontSize="10"
                                    FontWeight="SemiBold"/>

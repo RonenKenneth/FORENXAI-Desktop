@@ -9,10 +9,16 @@
                TargetType="Button">
 
             <Setter Property="Height"
-                    Value="38"/>
+                    Value="34"/>
+
+            <Setter Property="MinWidth"
+                    Value="96"/>
+
+            <Setter Property="FontSize"
+                    Value="13"/>
 
             <Setter Property="Padding"
-                    Value="16,0"/>
+                    Value="14,0"/>
 
             <Setter Property="Background"
                     Value="#2563EB"/>
@@ -41,7 +47,8 @@
 
                             <ContentPresenter
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
+                                VerticalAlignment="Center"
+                                Margin="{TemplateBinding Padding}"/>
 
                         </Border>
 
@@ -89,10 +96,16 @@
                TargetType="Button">
 
             <Setter Property="Height"
-                    Value="38"/>
+                    Value="34"/>
+
+            <Setter Property="MinWidth"
+                    Value="96"/>
+
+            <Setter Property="FontSize"
+                    Value="13"/>
 
             <Setter Property="Padding"
-                    Value="16,0"/>
+                    Value="14,0"/>
 
             <Setter Property="Background"
                     Value="#1E293B"/>
@@ -126,7 +139,8 @@
 
                             <ContentPresenter
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
+                                VerticalAlignment="Center"
+                                Margin="{TemplateBinding Padding}"/>
 
                         </Border>
 
@@ -274,7 +288,7 @@
                         Margin="0,0,10,0"/>
 
                 <Button x:Name="DeleteCaseButton"
-                        Content="Delete Selected Case"
+                        Content="Delete Case"
                         Click="DeleteCase_Click"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Background="#7F1D1D"
@@ -284,7 +298,7 @@
                         IsEnabled="False"/>
 
                 <Button x:Name="OpenCaseButton"
-                        Content="Open Selected Case"
+                        Content="Open Case"
                         Click="OpenCase_Click"
                         Style="{StaticResource PrimaryButtonStyle}"
                         IsEnabled="False"/>
@@ -408,7 +422,7 @@
                     <Style TargetType="DataGridCell">
 
                         <Setter Property="Padding"
-                                Value="10,7"/>
+                                Value="12,6"/>
 
                         <Setter Property="BorderThickness"
                                 Value="0"/>
@@ -417,8 +431,29 @@
                                 Value="{Binding Foreground,
                                     RelativeSource={RelativeSource AncestorType=DataGridRow}}"/>
 
-                        <Setter Property="VerticalContentAlignment"
-                                Value="Center"/>
+                        <Setter Property="FocusVisualStyle"
+                                Value="{x:Null}"/>
+
+                        <Setter Property="Background"
+                                Value="Transparent"/>
+
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1E3A8A"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
 
                     </Style>
 
@@ -454,6 +489,7 @@
                             <DataTemplate>
 
                                 <Border x:Name="StatusBadge"
+                                        VerticalAlignment="Center"
                                         Background="#374151"
                                         CornerRadius="10"
                                         Padding="9,3"
@@ -532,23 +568,23 @@
 
 
                     <DataGridTextColumn Header="Evidence"
-                                        Binding="{Binding EvidenceFile}"
+                                        Binding="{Binding EvidenceFile, TargetNullValue=—}"
                                         Width="*"/>
 
                     <DataGridTextColumn Header="Packets"
-                                        Binding="{Binding TotalPackets}"
+                                        Binding="{Binding TotalPackets, StringFormat={}{0:N0}, TargetNullValue=—}"
                                         Width="90"/>
 
                     <DataGridTextColumn Header="ML Flows"
-                                        Binding="{Binding MlTotalFlows}"
+                                        Binding="{Binding MlTotalFlows, StringFormat={}{0:N0}, TargetNullValue=—}"
                                         Width="90"/>
 
                     <DataGridTextColumn Header="Threats"
-                                        Binding="{Binding ThreatFlows}"
+                                        Binding="{Binding ThreatFlows, StringFormat={}{0:N0}, TargetNullValue=—}"
                                         Width="85"/>
 
                     <DataGridTextColumn Header="Threat %"
-                                        Binding="{Binding ThreatPercentage, StringFormat={}{0:F2}%}"
+                                        Binding="{Binding ThreatPercentage, StringFormat={}{0:F2}%, TargetNullValue=—}"
                                         Width="90"/>
 
 
@@ -560,6 +596,7 @@
                             <DataTemplate>
 
                                 <Border x:Name="ReviewBadge"
+                                        VerticalAlignment="Center"
                                         Background="#334155"
                                         CornerRadius="10"
                                         Padding="9,3"

@@ -421,6 +421,26 @@
                 </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                            <!-- Every Tier 1 rule: role, thresholds, basis, flows flagged -->
+                            <StackPanel x:Name="Tier1DetailsPanel" Margin="0,10,0,0" Visibility="Collapsed">
+                                <ToggleButton x:Name="Tier1DetailsToggle" HorizontalAlignment="Left" Cursor="Hand"
+                                              Checked="Tier1DetailsToggle_Changed" Unchecked="Tier1DetailsToggle_Changed">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="#1E293B" CornerRadius="6" Padding="10,5">
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <TextBlock x:Name="Tier1DetailsHeader" Foreground="#FDE68A" FontSize="12" FontWeight="SemiBold"/>
+                                </ToggleButton>
+                                <Border x:Name="Tier1DetailsBody" Background="#1E293B" CornerRadius="6" Padding="10"
+                                        Margin="0,8,0,0" Visibility="Collapsed">
+                                    <ScrollViewer Padding="0,0,12,0" MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                                        <TextBlock x:Name="Tier1DetailsText" Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

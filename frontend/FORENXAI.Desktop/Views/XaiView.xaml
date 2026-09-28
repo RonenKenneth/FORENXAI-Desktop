@@ -775,6 +775,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto" MinHeight="180"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
 
@@ -797,7 +798,7 @@
                             <DataGrid x:Name="ShapDataGrid"
                                       Grid.Row="1"
                                       RowHeight="30"
-                                      MaxHeight="360"
+                                      MaxHeight="420"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       CanUserAddRows="False"
@@ -822,7 +823,7 @@
                                 <DataGrid.Columns>
 
                                     <DataGridTextColumn Header="#"
-                                                        Binding="{Binding Rank}"
+                                                        Binding="{Binding RankDisplay}"
                                                         Width="45"/>
 
                                     <DataGridTextColumn Header="Feature"
@@ -830,20 +831,29 @@
                                                         Width="2*"/>
 
                                     <DataGridTextColumn Header="Observed Value"
-                                                        Binding="{Binding RawValue, StringFormat={}{0:G6}}"
+                                                        Binding="{Binding RawDisplay}"
                                                         Width="*"/>
 
                                     <DataGridTextColumn Header="SHAP (log-odds)"
                                                         Binding="{Binding ShapValue, StringFormat={}{0:+0.0000;-0.0000}}"
-                                                        Width="*"/>
+                                                        Width="*" MinWidth="145"/>
 
                                     <DataGridTextColumn Header="Direction"
                                                         Binding="{Binding DirectionDisplay}"
-                                                        Width="*"/>
+                                                        Width="*"
+                                                        MinWidth="175"/>
 
                                 </DataGrid.Columns>
 
                             </DataGrid>
+
+                            <!-- How the table adds up to the model's score and confidence -->
+                            <TextBlock x:Name="ShapSumText"
+                                       Grid.Row="2"
+                                       Foreground="#94A3B8"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Margin="0,10,0,0"/>
 
                         </Grid>
 

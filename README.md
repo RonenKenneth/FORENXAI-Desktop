@@ -353,12 +353,23 @@ Two statements in Table 16 describe training only:
 - The app computes SHAP on the CPU (see "Backend crash fix").
 - The app lists the top 10 contributors per flow, not 6.
 
+### Packaging, Tier 1 list, SHAP sum, uncertain flows (28 Sep 2026)
+
+| Change | What it does | Where |
+|---|---|---|
+| No hard-coded tool paths | CICFlowMeter, Maven, editcap and Suricata are found by `find_tool`. Order: environment variable, then the `tools\` folder beside the backend (or its .exe), then the standard install location, then `PATH`. The jNetPcap and Npcap folders follow from the CICFlowMeter folder and `%SystemRoot%`. `model_facts.json` and the ET Open rules resolve through `runtime_paths` too. Nothing points at the build machine | `backend/app/utils/runtime_paths.py`, `cicflowmeter_service.py`, `packet_rule_service.py`, `model_facts.py` |
+| .exe build | The spec also collects scapy's layers and pypdf, which are loaded at runtime and invisible to PyInstaller. The model bundle is read from beside the .exe or, failing that, from the copy packed inside it. SETUP.md section 10 has the build commands and the folder layout | `backend/FORENXAI.Backend.spec`, `SETUP.md` |
+| Tier 1 rules list | The Tier 1 card has a "Show Tier 1 rules" dropdown like Tier 2's. Each rule shows its role (decides / evidence / off), the flows it flagged, its description, thresholds and basis. The list comes from `rules.json` through `rule_catalog()` (`tier1_rules` in analysis.json) | `rule_service.py`, `DashboardView` |
+| SHAP table adds up | Below the top 10, one row "Other N features (sum)". Under the table: base value + top 10 + other N = the class's log-odds score, and the note that softmax over the 16 scores gives the confidence. SHAP values add up to the score, not to the percentage. Checked on all 2,016 explained flows (error 0) | `shap_service.py` (`rest_count`, `rest_shap_sum`, `margin`), `XaiView` |
+| Uncertain flows reviewable | XAI and Investigation list every abstained flow, including one the model called Benign. The fresh LabActivity2 case lists 2,015 threats + 1 uncertain = 2,016 to review | `XaiView`, `InvestigationView` |
+| Cases page | Buttons 34 px high ("Refresh", "Delete Case", "Open Case"). Cells centred with the header padding, selection drawn on the cells, numbers with separators, "—" for a case without totals | `CasesView.xaml` |
+
 ### Checks on this branch
 
 | Check | Result |
 |---|---|
 | Backend import (`import app.main`) | OK |
-| `backend/run_tests.py` (8 suites: model preprocessing and CPU device, Tier 1 rules, Tier 2 packet rules, packet parsing and store, RAG index, AI summary, recommendations, all 16 classes) | 8/8 pass |
+| `backend/run_tests.py` (9 suites: model preprocessing and CPU device, Tier 1 rules, Tier 2 packet rules, packet parsing and store, case list, RAG index, AI summary, recommendations, all 16 classes) | 9/9 pass |
 | `test_classifier.py`, `test_model_service.py`, `test_shap.py`, `test_shap_service.py` | Fail on every branch: unchanged since the first commit, they call removed functions or need a local sample CSV |
 | Desktop build (`dotnet build`) | 0 errors, 0 warnings |
 | End-to-end in the app, LabActivity2 (1.04 MB, 10,584 packets, 2,016 ML flows) | Pass: 100 MB limit (183 MB capture refused), evidence intake, progress pop-up with live step and X button, Dashboard (rule panel, Tier 2 toggle, donut, Selected threat, tables, row selection), double-click to XAI, XAI, Investigation, Reports |

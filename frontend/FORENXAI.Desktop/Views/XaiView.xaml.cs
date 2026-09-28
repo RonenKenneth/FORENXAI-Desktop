@@ -144,7 +144,7 @@ public partial class XaiView : UserControl
                 "Loading analysis...";
 
             threats.Clear();
-            shapRows.Clear();
+            shapRows.Clear(); ShapSumText.Text = string.Empty;
 
             currentAnalysis =
                 null;
@@ -209,7 +209,7 @@ public partial class XaiView : UserControl
                 null;
 
             threats.Clear();
-            shapRows.Clear();
+            shapRows.Clear(); ShapSumText.Text = string.Empty;
 
             ThreatList.SelectedItem =
                 null;
@@ -252,7 +252,7 @@ public partial class XaiView : UserControl
     private void LoadThreats()
     {
         threats.Clear();
-        shapRows.Clear();
+        shapRows.Clear(); ShapSumText.Text = string.Empty;
 
         ThreatList.SelectedItem =
             null;
@@ -295,6 +295,7 @@ public partial class XaiView : UserControl
         {
             if (
                 !finding.IsThreat
+                && !finding.Abstained
             )
             {
                 continue;
@@ -322,13 +323,16 @@ public partial class XaiView : UserControl
         }
 
 
+        int uncertainBenign = currentAnalysis.MlAnalysis.Findings
+            .Count(f => f.Abstained && !f.IsThreat);
         ThreatCountText.Text =
-            $"{threats.Count} threat flow" +
+            $"{threats.Count - uncertainBenign} threat flow" +
             (
-                threats.Count == 1
+                threats.Count - uncertainBenign == 1
                     ? ""
                     : "s"
-            );
+            )
+            + (uncertainBenign == 0 ? "" : $" + {uncertainBenign} uncertain (model abstained on a Benign prediction)");
 
 
         if (
@@ -477,7 +481,7 @@ public partial class XaiView : UserControl
     private void LoadShapExplanation(
         int flowIndex)
     {
-        shapRows.Clear();
+        shapRows.Clear(); ShapSumText.Text = string.Empty;
 
         ShapDataGrid.SelectedItem =
             null;
@@ -572,6 +576,31 @@ public partial class XaiView : UserControl
                 }
             );
         }
+
+        // The rest of the 66 features as one row, then the sum:
+        // base + all contributions = the class's log-odds score, and the
+        // softmax over the 16 class scores gives the confidence.
+        if (explanation.RestCount is int restCount && restCount > 0 && explanation.RestShapSum is double rest)
+        {
+            shapRows.Add(new ShapRow
+            {
+                Rank = 0,
+                Feature = $"Other {restCount} features (sum)",
+                IsSummary = true,
+                ShapValue = rest,
+                Direction = rest > 0 ? "supports_prediction" : rest < 0 ? "opposes_prediction" : "neutral",
+            });
+        }
+
+        double top = explanation.Contributors.Sum(c => c.ShapValue);
+        ShapSumText.Text = explanation.BaseValue is double baseValue && explanation.Margin is double margin
+            ? $"Base value {baseValue:+0.000;-0.000} + top {explanation.Contributors.Count} {top:+0.000;-0.000}"
+              + $" + other {explanation.RestCount} {explanation.RestShapSum ?? 0:+0.000;-0.000}"
+              + $" = {margin:+0.000;-0.000} log-odds, the model's score for {explanation.PredictedClass}."
+              + $" The softmax over the 16 class scores turns it into the {explanation.Confidence:P2} confidence;"
+              + " SHAP values add up to the score, not to the percentage."
+            : "SHAP values are in log-odds: they add up to the model's score for the class, not to the confidence percentage."
+              + " (This case was analysed before the full sum was saved; re-analyse it to see the complete breakdown.)";
     }
 
 
@@ -1755,6 +1784,17 @@ public partial class XaiView : UserControl
 
 
         public double RawValue { get; set; }
+
+
+        public bool IsSummary { get; set; }
+
+
+        public string RankDisplay =>
+            IsSummary ? "" : Rank.ToString();
+
+
+        public string RawDisplay =>
+            IsSummary ? "—" : RawValue.ToString("G6");
 
 
         public double ShapValue { get; set; }

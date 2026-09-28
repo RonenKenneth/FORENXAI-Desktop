@@ -613,10 +613,24 @@ def _generate_shap_explanations_impl(
                 ranked_contributors,
         }
 
+        # The features left out of the top list, as one sum, so the
+        # table adds up: base + top + rest = margin (log-odds score of
+        # the predicted class; softmax over the class margins gives the
+        # confidence).
+        rest = contributors[top_n:]
+        explanation["rest_count"] = len(rest)
+        explanation["rest_shap_sum"] = float(
+            sum(item["shap_value"] for item in rest)
+        )
+
         if base_value is not None:
             explanation[
                 "base_value"
             ] = base_value
+            explanation["margin"] = float(
+                base_value
+                + sum(item["shap_value"] for item in contributors)
+            )
 
         explanations.append(
             explanation

@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 import os
+import shutil
 import sys
 
 
@@ -158,11 +159,25 @@ def get_cases_directory() -> Path:
     return cases_directory
 
 def get_model_directory() -> Path:
-    return (
-        get_backend_directory()
-        / "models"
-        / "forenxai"
-    )
+    """
+    Model bundle: FORENXAI_MODEL_DIR, else models/forenxai beside the
+    backend (development, or a copy shipped next to the .exe), else the
+    copy PyInstaller packed inside the .exe (sys._MEIPASS).
+    """
+
+    configured_path = os.environ.get("FORENXAI_MODEL_DIR")
+
+    if configured_path:
+        return Path(configured_path).resolve()
+
+    beside = get_backend_directory() / "models" / "forenxai"
+
+    bundled = getattr(sys, "_MEIPASS", None)
+
+    if not beside.is_dir() and bundled:
+        return Path(bundled) / "models" / "forenxai"
+
+    return beside
 
 
 def get_model_file_path() -> Path:
@@ -290,6 +305,51 @@ def get_toolchain_directory() -> Path:
 
     # Development: tools/ sits beside backend/.
     return backend_directory.parent / "tools"
+
+
+def find_tool(
+    env_var: str,
+    patterns: Iterable[str],
+    command: Optional[str] = None,
+    fallbacks: Iterable[str] = (),
+) -> Optional[Path]:
+    """
+    Locate an external program or folder, first hit wins:
+
+      1. the environment variable env_var
+      2. glob patterns under the tools/ directory (get_toolchain_directory)
+      3. fallbacks (the standard install locations)
+      4. command on PATH (last: PATH may hold an unrelated copy, e.g. an
+         editor's bundled Maven)
+
+    Returns None when nothing exists, so the caller can raise a message
+    that names env_var. Keeps every machine-specific path out of the code
+    so the packaged .exe runs on a machine laid out differently.
+    """
+
+    configured = os.environ.get(env_var)
+
+    if configured and Path(configured).exists():
+        return Path(configured)
+
+    toolchain = get_toolchain_directory()
+
+    if toolchain.is_dir():
+        for pattern in patterns:
+            # sorted() so the same match wins on every run.
+            for match in sorted(toolchain.glob(pattern)):
+                return match
+
+    for fallback in fallbacks:
+        if fallback and Path(fallback).exists():
+            return Path(fallback)
+
+    if command:
+        found = shutil.which(command)
+        if found:
+            return Path(found)
+
+    return None
 
 
 def get_java_home() -> Optional[Path]:

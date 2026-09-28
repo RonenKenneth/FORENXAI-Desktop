@@ -130,7 +130,9 @@ public partial class InvestigationView : UserControl
                 in analysis.MlAnalysis.Findings
             )
             {
-                if (!finding.IsThreat)
+                // Threats plus flows the model abstained on (Uncertain),
+                // including an abstained Benign prediction.
+                if (!finding.IsThreat && !finding.Abstained)
                 {
                     continue;
                 }
@@ -648,7 +650,7 @@ public partial class InvestigationView : UserControl
 
 
         ThreatCountText.Text =
-            $"{totalCount} threat flow(s)";
+            $"{totalCount} flow(s) to review";
 
         ReviewCountText.Text =
             $"{reviewedCount} reviewed";

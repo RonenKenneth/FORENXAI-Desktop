@@ -20,7 +20,7 @@ FORENXAI has two processes:
 | Npcap | any | packet library for CICFlowMeter and Suricata | https://npcap.com, **as Administrator**, tick "WinPcap API-compatible Mode" |
 | Suricata | 7.0.10 | Tier 2 signatures | `winget install --id OISF.Suricata --exact` |
 
-The paths above are the ones `backend\app\services\cicflowmeter_service.py` expects (`C:\Tools\...`, `C:\Program Files\Wireshark\editcap.exe`). If you install elsewhere, change the constants at the top of that file.
+The paths above are defaults, not requirements. `runtime_paths.find_tool` looks for each tool in this order: its environment variable (section 7), then the project `tools\` folder (`tools\CICFlowMeter\CICFlowMeter-master`, `tools\apache-maven-*\bin\mvn.cmd`, `tools\wireshark\editcap.exe`, `tools\suricata\suricata.exe`), then the default location above, then `PATH`. No code change is needed when the tools are installed elsewhere.
 
 Check the installation:
 
@@ -79,7 +79,7 @@ With the venv active, in `backend\`:
 
 ```powershell
 python verify_bundle.py          # bundle hashes, held-out accuracy, SHAP additivity: ALL CHECKS PASSED
-python run_tests.py              # 8 suites: model, Tier 1, Tier 2, packet parsing, RAG, AI summary, recommendations
+python run_tests.py              # 9 suites: model, Tier 1, Tier 2, packet parsing, cases, RAG, AI summary, recommendations
 ```
 
 `run_tests.py` needs the language model for its RAG and summary suites and takes a few minutes.
@@ -113,7 +113,14 @@ Cases are stored in `%LOCALAPPDATA%\FORENXAI\cases\<case id>\` (`evidence\`, `fl
 |---|---|
 | `FORENXAI_DATA_DIR` | Folder for cases and logs. The app uses `%LOCALAPPDATA%\FORENXAI` by default, but a backend run from source uses `backend\cases` unless this is set, and the analysis then fails with "Case directory not found". Set it to the same folder for both. |
 | `FORENXAI_JAVA_HOME` | Use this JDK for CICFlowMeter instead of `tools\jdk*` or `JAVA_HOME`. |
-| `FORENXAI_SURICATA` | Path to `suricata.exe` if it is not in `C:\Program Files\Suricata\`. |
+| `FORENXAI_SURICATA` | Path to `suricata.exe` if it is not in `tools\suricata\` or `C:\Program Files\Suricata\`. |
+| `FORENXAI_CICFLOWMETER_DIR` | CICFlowMeter checkout (the folder holding `pom.xml`). |
+| `FORENXAI_MAVEN` | Path to `mvn.cmd`. |
+| `FORENXAI_EDITCAP` | Path to `editcap.exe`. |
+| `FORENXAI_TOOLS_DIR` | Use this folder instead of `tools\` for all of the above and the JDK. |
+| `FORENXAI_MODEL_DIR` | XGBoost bundle folder, instead of `backend\models\forenxai` or the copy inside the .exe. |
+| `FORENXAI_RAG_DIR` | Retrieval assets folder, instead of `backend\rag` or `..\rag`. |
+| `FORENXAI_BACKEND_EXE` | (desktop app) Path to `FORENXAI.Backend.exe` if it is not in `backend\` beside the app. |
 | `FORENXAI_PRELOAD_LLM` | Load the language model at startup instead of on first use. |
 
 Rule thresholds, sensitivity and the allowlist are in `backend\app\rules\rules.json`. Each rule has a `basis` saying where its threshold comes from.
@@ -140,7 +147,47 @@ The datasets (CSE-CIC-IDS2018, TII-SSRC-23, TRUSTLab; about 13 GB) are not in Gi
 | `Port 8000 is already in use` | Another backend is running: `Get-NetTCPConnection -LocalPort 8000` and stop that process. |
 | `UnsatisfiedLinkError ... dlopen` from CICFlowMeter | Npcap missing or installed without WinPcap API-compatible mode. |
 | `Source option 8 is no longer supported` | Maven is using JDK 24+. Unpack JDK 8 into `tools\jdk8\`. |
-| `editcap.exe was not found` | Install Wireshark to its default folder. |
+| `editcap.exe was not found` | Install Wireshark, or set `FORENXAI_EDITCAP`. |
+| `CICFlowMeter directory was not found` / `Maven executable was not found` | Put them under `tools\` or set `FORENXAI_CICFLOWMETER_DIR` / `FORENXAI_MAVEN` (section 1). |
 | Tier 2 says "Suricata not run" | Install Suricata or set `FORENXAI_SURICATA`; run `update_suricata_rules.py`. |
 | `Model artifact size or hash mismatch` | A bundle file changed (for example Git line endings). Re-checkout `backend\models\forenxai\`. |
 | Build error "the file is locked" | Close the running app (`FORENXAI.Desktop.exe`) before `dotnet build`. |
+
+## 10. Packaging as .exe
+
+The backend becomes one `FORENXAI.Backend.exe` (PyInstaller, `backend\FORENXAI.Backend.spec`). The desktop app starts it from a `backend\` folder beside `FORENXAI.Desktop.exe`.
+
+```powershell
+# Backend (venv active, in backend\)
+pip install pyinstaller
+pyinstaller FORENXAI.Backend.spec --noconfirm     # dist\FORENXAI.Backend.exe
+
+# Desktop app (in frontend\FORENXAI.Desktop\)
+dotnet publish -c Release -r win-x64 --self-contained true -o ..\..\publish
+```
+
+Inside the .exe: the Python runtime and packages (FastAPI, uvicorn, scapy, XGBoost, SHAP, scikit-learn, pandas, NumPy, llama-cpp, pypdf), the `app` package, `app\rules\` (rules.json, rules_tuning.json) and the XGBoost bundle `models\forenxai\`.
+
+Beside it, because they are large or are separate programs:
+
+```
+publish\
+  FORENXAI.Desktop.exe
+  backend\
+    FORENXAI.Backend.exe
+    models\llm\qwen2.5-3b-q4.gguf        language model (section 4)
+    rag\config\  rag\knowledge\  rag\.rag_index.json  rag\_sources\  rag\_extracted\
+    tools\
+      jdk8\                              JDK 8 (or jdk.path naming one)
+      CICFlowMeter\CICFlowMeter-master\  with jnetpcap\win\jnetpcap-1.4.r1425\
+      apache-maven-3.9.16\bin\mvn.cmd
+      suricata\et-open.rules             (suricata.exe here, or installed)
+```
+
+Every one of these is found relative to the .exe (`backend\app\utils\runtime_paths.py`), or through the variables in section 7. Nothing points at the build machine. Cases and logs go to `%LOCALAPPDATA%\FORENXAI`.
+
+The target machine still needs **Npcap** (WinPcap-compatible mode) and **Wireshark** (for editcap), because they install drivers or system DLLs. Suricata can be installed or placed in `tools\suricata\`.
+
+Two things to know:
+- CICFlowMeter runs through Maven, which downloads its dependencies into `%USERPROFILE%\.m2` on the first analysis. That first run needs internet. For an offline machine, run one analysis on a connected machine and copy `.m2\repository`.
+- CICFlowMeter writes its temporary files and `target\` build into its own folder, so install the package in a folder the user can write to (for example `%LOCALAPPDATA%\Programs\FORENXAI`), not `C:\Program Files`.

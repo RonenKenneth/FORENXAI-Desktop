@@ -77,6 +77,23 @@ public class RuleAnalysis
 
     [JsonPropertyName("verdict_sources")]
     public Dictionary<string, int> VerdictSources { get; set; } = new();
+
+    /// <summary>Every Tier 1 rule as the case applied it (absent in
+    /// cases analysed before it was saved).</summary>
+    [JsonPropertyName("tier1_rules")]
+    public List<Tier1RuleInfo> Tier1Rules { get; set; } = new();
+}
+
+public class Tier1RuleInfo
+{
+    [JsonPropertyName("rule_id")] public string RuleId { get; set; } = string.Empty;
+    [JsonPropertyName("class")] public string ClassName { get; set; } = string.Empty;
+    [JsonPropertyName("role")] public string Role { get; set; } = string.Empty;
+    [JsonPropertyName("description")] public string Description { get; set; } = string.Empty;
+    [JsonPropertyName("settings")] public Dictionary<string, JsonElement> Settings { get; set; } = new();
+    [JsonPropertyName("basis")] public string Basis { get; set; } = string.Empty;
+    [JsonPropertyName("disabled_reason")] public string DisabledReason { get; set; } = string.Empty;
+    [JsonPropertyName("flows_flagged")] public int FlowsFlagged { get; set; }
 }
 
 public class RuleChart
@@ -697,6 +714,17 @@ public class ShapExplanation
 
     [JsonPropertyName("contributors")]
     public List<ShapContributor> Contributors { get; set; } = new();
+
+    /// <summary>Features outside the top list and their summed SHAP;
+    /// margin = base + all contributions (absent in older cases).</summary>
+    [JsonPropertyName("rest_count")]
+    public int? RestCount { get; set; }
+
+    [JsonPropertyName("rest_shap_sum")]
+    public double? RestShapSum { get; set; }
+
+    [JsonPropertyName("margin")]
+    public double? Margin { get; set; }
 }
 
 

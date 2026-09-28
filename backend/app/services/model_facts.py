@@ -33,10 +33,9 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple
 
-FACTS_FILE = (
-    Path(__file__).resolve().parents[2]
-    / "models" / "forenxai" / "model_facts.json"
-)
+from app.utils.runtime_paths import get_model_directory
+
+FACTS_FILE = get_model_directory() / "model_facts.json"
 
 
 # A class is worth flagging as uncertain below this test F1. Set from the

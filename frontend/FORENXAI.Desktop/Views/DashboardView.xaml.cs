@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -297,6 +298,8 @@ public partial class DashboardView : UserControl
         Tier2StatusText.Text = string.Empty;
         Tier2DetailsText.Text = string.Empty;
         Tier2DetailsPanel.Visibility = Visibility.Collapsed;
+        Tier1DetailsText.Text = string.Empty;
+        Tier1DetailsPanel.Visibility = Visibility.Collapsed;
         RuleMlAgreementText.Text = string.Empty;
         RulesVersionText.Text = string.Empty;
     }
@@ -307,6 +310,62 @@ public partial class DashboardView : UserControl
             ? Visibility.Visible
             : Visibility.Collapsed;
         UpdateTier2DetailsHeader();
+    }
+
+    private void Tier1DetailsToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        Tier1DetailsBody.Visibility = Tier1DetailsToggle.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        UpdateTier1DetailsHeader();
+    }
+
+    private void UpdateTier1DetailsHeader()
+    {
+        Tier1DetailsHeader.Text = (Tier1DetailsToggle.IsChecked == true ? "▾ Hide" : "▸ Show")
+            + " Tier 1 rules";
+    }
+
+    // Every Tier 1 rule as this case applied it. Cases analysed before the
+    // list was saved show the rules that fired, from the chart.
+    private void ShowTier1Rules(RuleAnalysis rules)
+    {
+        Tier1DetailsText.Inlines.Clear();
+        void Line(string text, bool bold = false, string? colour = null)
+        {
+            var run = new System.Windows.Documents.Run(text + "\n");
+            if (bold) run.FontWeight = FontWeights.SemiBold;
+            if (colour != null) run.Foreground = ToBrush(colour);
+            Tier1DetailsText.Inlines.Add(run);
+        }
+
+        if (rules.Tier1Rules.Count == 0)
+        {
+            Line("Rule settings were not saved with this case (analysed before this list existed). Rules that fired:", colour: "#CBD5E1");
+            foreach (var (rule, count) in rules.Tier1Chart?.ByRule ?? new Dictionary<string, int>())
+            {
+                Line($"• {rule}: {count:N0} flows");
+            }
+            Tier1DetailsPanel.Visibility = Visibility.Visible;
+            return;
+        }
+
+        Line($"{rules.Tier1Rules.Count} rules · 60 s windows · sensitivity {rules.Sensitivity}. "
+             + "\"decides\" sets the verdict; \"evidence\" only supports it; \"off\" is disabled.\n", colour: "#CBD5E1");
+        foreach (Tier1RuleInfo rule in rules.Tier1Rules
+                     .OrderByDescending(r => r.FlowsFlagged)
+                     .ThenBy(r => r.Role == "decides" ? 0 : r.Role == "evidence" ? 1 : 2))
+        {
+            string colour = rule.Role switch { "decides" => "#86EFAC", "off" => "#64748B", _ => "#FDE68A" };
+            Line($"{rule.RuleId} · {rule.ClassName} · {rule.Role} · {rule.FlowsFlagged:N0} flows flagged", bold: true, colour: colour);
+            if (!string.IsNullOrEmpty(rule.Description)) Line(rule.Description);
+            string settings = string.Join(", ", rule.Settings
+                .Where(s => s.Value.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
+                .Select(s => $"{s.Key.Replace('_', ' ')} {s.Value}"));
+            if (settings.Length > 0) Line("Thresholds: " + settings);
+            Line("Basis: " + (string.IsNullOrEmpty(rule.DisabledReason) ? rule.Basis : rule.DisabledReason + " " + rule.Basis) + "\n");
+        }
+        Tier1DetailsPanel.Visibility = Visibility.Visible;
     }
 
     private void UpdateTier2DetailsHeader()
@@ -372,6 +431,9 @@ public partial class DashboardView : UserControl
                 ? $"No flow rule fired on {total:N0} flows."
                 : $"{flagged:N0} of {total:N0} flows flagged";
             FillBars(tier1Bars, rules.Tier1Chart, total);
+            ShowTier1Rules(rules);
+            Tier1DetailsToggle.IsChecked = false;
+            UpdateTier1DetailsHeader();
         }
 
         // Tier 2
@@ -1795,7 +1857,8 @@ public partial class DashboardView : UserControl
             return;
         }
 
-        if (!threats.Any(t => t.FlowIndex == flowIndex))
+        if (!threats.Any(t => t.FlowIndex == flowIndex)
+            && currentAnalysis?.MlAnalysis?.Findings.FirstOrDefault(f => f.FlowIndex == flowIndex)?.Abstained != true)
         {
             MessageBox.Show(
                 $"Packet {packet.Number} belongs to flow {flowIndex}, which the model classified as benign. The XAI tab lists detected threats only.",

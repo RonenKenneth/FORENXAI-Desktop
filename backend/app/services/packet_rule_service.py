@@ -58,6 +58,7 @@ from scapy.layers.l2 import ARP
 from scapy.packet import Padding
 
 from app.services import rule_service as rs
+from app.utils.runtime_paths import get_toolchain_directory
 
 HTTP_METHODS = (b"GET ", b"POST ", b"PUT ", b"DELETE ", b"PATCH ", b"HEAD ", b"OPTIONS ")
 
@@ -82,7 +83,7 @@ FAILED_LOGIN = [                      # (server port, reply prefix, description)
 ]
 
 # Written by update_suricata_rules.py; used when rules.json names no rules_file.
-DEFAULT_RULES_FILE = Path(__file__).resolve().parents[3] / "tools" / "suricata" / "et-open.rules"
+DEFAULT_RULES_FILE = get_toolchain_directory() / "suricata" / "et-open.rules"
 
 MAX_OPEN_REQUESTS = 100_000
 MAX_TAILS = 200_000
@@ -578,12 +579,12 @@ class PacketInspector:
 # ------------------------------------------------------------------
 
 def _suricata_binary(cfg: Dict[str, Any]) -> Optional[str]:
-    backend = Path(__file__).resolve().parents[2]
+    tools = get_toolchain_directory()
     candidates = [os.environ.get("FORENXAI_SURICATA"), cfg.get("binary"),
-                  backend.parent / "tools" / "suricata" / "suricata.exe",
-                  backend.parent / "tools" / "suricata" / "suricata",
+                  tools / "suricata" / "suricata.exe",
+                  tools / "suricata" / "suricata",
                   shutil.which("suricata"),
-                  "C:/Program Files/Suricata/suricata.exe"]
+                  os.path.join(os.environ.get("ProgramFiles", "C:/Program Files"), "Suricata", "suricata.exe")]
     for c in candidates:
         if c and Path(c).is_file():
             return str(c)

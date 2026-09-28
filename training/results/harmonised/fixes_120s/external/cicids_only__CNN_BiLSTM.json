@@ -1,68 +1,68 @@
 {
   "arm": "cicids_only",
-  "model": "XGBoost",
+  "model": "CNN_BiLSTM",
   "threshold": 0.445,
-  "accuracy_native_prevalence": 0.5281060234340885,
-  "accuracy_native_excluding_truncated": 0.5395243424039222,
+  "accuracy_native_prevalence": 0.5726989767154165,
+  "accuracy_native_excluding_truncated": 0.5866897799126749,
   "truncated_classes": [
     "PortScan"
   ],
   "external_validation": {
-    "accuracy": 0.07903218385794644,
-    "precision": 0.8808889917814562,
-    "recall": 0.03867901752245899,
-    "f1": 0.07410418893159969,
-    "f2": 0.047823797272346785,
-    "benign_recall": 0.8943314849044979,
-    "attack_recall": 0.03867901752245899,
-    "false_alarm_rate": 0.10566851509550215,
-    "miss_rate": 0.961320982477541,
+    "accuracy": 0.05115855592765594,
+    "precision": 0.9774436090225563,
+    "recall": 0.004294844915437299,
+    "f1": 0.008552112219905674,
+    "f2": 0.005362665314471137,
+    "benign_recall": 0.9979975354282193,
+    "attack_recall": 0.004294844915437299,
+    "false_alarm_rate": 0.002002464571780653,
+    "miss_rate": 0.9957051550845627,
     "confusion": {
-      "tn": 17418,
-      "fp": 2058,
-      "fn": 378275,
-      "tp": 15220
+      "tn": 19437,
+      "fp": 39,
+      "fn": 391805,
+      "tp": 1690
     },
-    "roc_auc": 0.5266250755499104,
-    "pr_auc": 0.9473440923404594
+    "roc_auc": 0.5707301613849718,
+    "pr_auc": 0.9675171880359847
   },
   "external_validation_native_prevalence": {
-    "accuracy": 0.5281060234340885,
-    "precision": 0.22030261589708336,
-    "recall": 0.03980844530310241,
-    "f1": 0.06743200073540861,
-    "f2": 0.047609796880419775,
-    "benign_recall": 0.894331484904496,
-    "attack_recall": 0.039808445303096955,
-    "false_alarm_rate": 0.105668515095504,
-    "miss_rate": 0.9601915546969031,
+    "accuracy": 0.5726989767154165,
+    "precision": 0.6786188996741566,
+    "recall": 0.005637758829943582,
+    "f1": 0.011182615897866777,
+    "f2": 0.007032592379318153,
+    "benign_recall": 0.9979975354282196,
+    "attack_recall": 0.0056377588299435085,
+    "false_alarm_rate": 0.002002464571780477,
+    "miss_rate": 0.9943622411700564,
     "confusion": {
-      "tn": 2300568,
-      "fp": 271820,
-      "fn": 1852500,
-      "tp": 76803
+      "tn": 2567237,
+      "fp": 5151,
+      "fn": 1918426,
+      "tp": 10877
     },
-    "roc_auc": 0.5106744596178096,
-    "pr_auc": 0.41585375392094354
+    "roc_auc": 0.5334892518305647,
+    "pr_auc": 0.5384804018338009
   },
   "external_validation_native_excluding_truncated": {
-    "accuracy": 0.5395243424039222,
-    "precision": 0.2051644694305482,
-    "recall": 0.03851451013367565,
-    "f1": 0.06485425251766899,
-    "f2": 0.04598500340934266,
-    "benign_recall": 0.894331484904496,
-    "attack_recall": 0.03851451013366982,
-    "false_alarm_rate": 0.105668515095504,
-    "miss_rate": 0.9614854898663302,
+    "accuracy": 0.5866897799126749,
+    "precision": 0.6759251540599082,
+    "recall": 0.005897555297361431,
+    "f1": 0.01169308654064516,
+    "f2": 0.007355898772777548,
+    "benign_recall": 0.9979975354282196,
+    "attack_recall": 0.005897555297361324,
+    "false_alarm_rate": 0.002002464571780477,
+    "miss_rate": 0.9941024447026386,
     "confusion": {
-      "tn": 2300568,
-      "fp": 271820,
-      "fn": 1751561,
-      "tp": 70163
+      "tn": 2567237,
+      "fp": 5151,
+      "fn": 1810980,
+      "tp": 10744
     },
-    "roc_auc": 0.5204922902881565,
-    "pr_auc": 0.4081941293283595
+    "roc_auc": 0.5280255298246149,
+    "pr_auc": 0.5124564291457049
   },
   "baseline": {
     "accuracy": 0.8963,
@@ -76,18 +76,18 @@
     "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
   },
   "delta_vs_baseline": {
-    "accuracy": -0.8173,
-    "f2": -0.8872,
-    "roc_auc": -0.441,
-    "attack_recall": -0.9111,
-    "benign_recall": 0.0714
+    "accuracy": -0.8451,
+    "f2": -0.9296,
+    "roc_auc": -0.3969,
+    "attack_recall": -0.9455,
+    "benign_recall": 0.1751
   },
   "delta_vs_baseline_native_prevalence": {
-    "accuracy": -0.3682,
-    "f2": -0.8874,
-    "roc_auc": -0.4569,
-    "attack_recall": -0.91,
-    "benign_recall": 0.0714
+    "accuracy": -0.3236,
+    "f2": -0.928,
+    "roc_auc": -0.4341,
+    "attack_recall": -0.9442,
+    "benign_recall": 0.1751
   },
   "per_class_accuracy": {
     "API": {
@@ -96,11 +96,11 @@
     },
     "Benign": {
       "n": 19476,
-      "accuracy": 0.8943
+      "accuracy": 0.998
     },
     "Bruteforce": {
       "n": 23366,
-      "accuracy": 0.0021
+      "accuracy": 0.0001
     },
     "BufferOverflow": {
       "n": 28343,
@@ -108,19 +108,19 @@
     },
     "C2Beaconing": {
       "n": 28960,
-      "accuracy": 0.0043
+      "accuracy": 0.0
     },
     "DDoS": {
       "n": 30000,
-      "accuracy": 0.1755
+      "accuracy": 0.0487
     },
     "DNS": {
       "n": 28809,
-      "accuracy": 0.0614
+      "accuracy": 0.0
     },
     "DoS": {
       "n": 30000,
-      "accuracy": 0.001
+      "accuracy": 0.0
     },
     "Evasion": {
       "n": 29937,
@@ -128,19 +128,19 @@
     },
     "Exfiltration": {
       "n": 28197,
-      "accuracy": 0.0591
+      "accuracy": 0.0001
     },
     "Exploitation": {
       "n": 27722,
-      "accuracy": 0.001
+      "accuracy": 0.0023
     },
     "MITM": {
       "n": 29144,
-      "accuracy": 0.1372
+      "accuracy": 0.0
     },
     "PortScan": {
       "n": 29877,
-      "accuracy": 0.0617
+      "accuracy": 0.0012
     },
     "Slowloris": {
       "n": 30000,
@@ -148,11 +148,11 @@
     },
     "TLSSSL": {
       "n": 23272,
-      "accuracy": 0.0
+      "accuracy": 0.0004
     },
     "WebBased": {
       "n": 15394,
-      "accuracy": 0.0289
+      "accuracy": 0.0073
     }
   },
   "harmonised": {

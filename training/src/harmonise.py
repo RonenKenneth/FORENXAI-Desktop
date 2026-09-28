@@ -66,7 +66,10 @@ def harmonise(test: pd.DataFrame, profile: Dict[str, object]) -> Tuple[pd.DataFr
             if negative.any():
                 changed["sentinels"][c] = round(float(negative.mean()), 4)
                 out.loc[negative, c] = 0.0
-    return out, changed
+    # Keep the input's dtypes (float32 from clean_features): the neural models
+    # reject float64 input, and a column overwritten with a Python float
+    # would otherwise come back as float64.
+    return out.astype(test.dtypes.to_dict()), changed
 
 
 def timeout_mask(frame: pd.DataFrame) -> np.ndarray:

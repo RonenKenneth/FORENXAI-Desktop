@@ -135,21 +135,26 @@ shared classes, chance about 0.06), mean of all models:
 
 | Experiment | Original | Harmonised | Harmonised + flows ≤ 120 s |
 |---|---|---|---|
-| Binary → TRUSTLab, macro recall | 0.474 | 0.469 | 0.491 |
-| Binary → TRUSTLab, ROC-AUC | 0.470 | 0.459 | 0.508 |
+| Binary → TRUSTLab, macro recall (15 models) | 0.474 | 0.477 | 0.481 |
+| Binary → TRUSTLab, ROC-AUC (15 models) | 0.470 | 0.491 | 0.489 |
 | 16-class TRUSTLab → others, macro recall | 0.165 | 0.165 | 0.165 |
 | 16-class, TRUSTLab reference on the same classes | 0.869 | 0.869 | 0.863 |
 
-XGBoost: binary combined arm 0.473 → 0.520 macro recall (ROC-AUC 0.487 →
-0.554) on the timeout-matched subset; 16-class 0.203 in every variant.
+XGBoost: binary combined arm 0.473 → 0.522 macro recall (ROC-AUC 0.487 →
+0.556) on the timeout-matched subset; 16-class 0.203 in every variant. Per
+model the changes go both ways (10 of 15 improve on the subset, from −0.06 to
++0.11), and no binary model moves clearly away from chance.
 
 What each repair showed:
-- **Dead features** (set to their constant training value): no gain; the
-  models were not being misled by them.
+- **Dead features** (set to their constant training value): no effect on
+  XGBoost, which cannot split on a feature that never varied; mixed for the
+  neural models, which take such a column unscaled (ROC-AUC mean 0.470 →
+  0.491).
 - **−1 sentinels** (set to 0): no prediction changed. After scaling, −1 and 0
   differ by 0.00003 SD, because Init Win Bytes has a spread of about 30,000.
 - **Flow timeout** (only TRUSTLab flows ≤ 120 s, 412,971 of 480,000): the only
-  repair with an effect, +0.02 to +0.05, still at chance. The 16-class
+  repair with a consistent effect on XGBoost (+0.00 to +0.05), still near
+  chance. The 16-class
   reference barely moves (0.884 → 0.878), so long flows do not inflate it.
 
 Conclusion: the documented encoding differences explain little of the gap.
@@ -275,8 +280,8 @@ results/       every metric, table and confusion matrix
 ## 8. Limitations
 
 - **Feature incompatibility is only partly resolved.** Scoring-time
-  harmonisation (sentinels, dead features, flow timeout) recovers at most
-  +0.05 macro recall; the rest needs retraining or a common re-extraction,
+  harmonisation (sentinels, dead features, flow timeout) moves the binary
+  mean macro recall only from 0.474 to 0.481, and the 16-class not at all; the rest needs retraining or a common re-extraction,
   which TRUSTLab's flow-only release does not allow.
 - **Multiclass transfer covers eight of sixteen classes.** Script 13 scores
   only the TRUSTLab classes with a counterpart in the public datasets; the

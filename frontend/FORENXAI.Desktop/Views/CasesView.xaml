@@ -282,6 +282,15 @@
                         Orientation="Horizontal"
                         VerticalAlignment="Center">
 
+                <Button x:Name="ClearAllButton"
+                        Content="Clear All"
+                        Click="ClearAll_Click"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Foreground="#FCA5A5"
+                        Margin="0,0,10,0"
+                        IsEnabled="False"
+                        ToolTip="Delete every stored case (asks you to type DELETE first)"/>
+
                 <Button Content="Refresh"
                         Click="Refresh_Click"
                         Style="{StaticResource SecondaryButtonStyle}"

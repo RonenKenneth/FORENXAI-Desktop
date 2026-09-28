@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -66,6 +68,9 @@ public partial class CasesView : UserControl
 
             CaseCountText.Text =
                 $"{response.TotalCases} case(s)";
+
+            ClearAllButton.IsEnabled =
+                response.TotalCases > 0;
 
             StatusText.Text =
                 response.TotalCases == 0
@@ -316,6 +321,102 @@ public partial class CasesView : UserControl
                 MessageBoxImage.Error
             );
         }
+    }
+
+
+    // Deletes every stored case except the one open in the app. Bulk and
+    // irreversible, so the investigator has to type DELETE; a case being
+    // analysed is refused by the backend and reported.
+    private async void ClearAll_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (CasesGrid.ItemsSource is not IEnumerable<CaseSummary> all)
+        {
+            return;
+        }
+
+        string current = (Window.GetWindow(this) as MainWindow)?.GetCurrentCase() ?? string.Empty;
+        List<CaseSummary> targets = all
+            .Where(c => !string.Equals(c.CaseId, current, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (targets.Count == 0)
+        {
+            StatusText.Text = "The only stored case is open. Open another case before deleting it.";
+            return;
+        }
+
+        int reviewed = targets.Count(c => c.HasReviews);
+        string message =
+            $"Permanently delete {targets.Count} case(s)?\n\n"
+            + "This removes each case's evidence copy, flow records, analysis, Suricata logs"
+            + (reviewed > 0 ? $" and investigator reviews ({reviewed} case(s) have reviews)" : " and reviews")
+            + ". Export any report you need first. This cannot be undone."
+            + (current.Length > 0 && targets.Count < all.Count() ? $"\n\nThe open case {current} is kept." : string.Empty)
+            + "\n\nType DELETE to confirm:";
+
+        if (!ConfirmByTyping(message, "DELETE"))
+        {
+            StatusText.Text = "Clear all cancelled.";
+            return;
+        }
+
+        ClearAllButton.IsEnabled = false;
+        var failed = new List<string>();
+        for (int i = 0; i < targets.Count; i++)
+        {
+            StatusText.Text = $"Deleting {i + 1} of {targets.Count}: {targets[i].CaseId}...";
+            try
+            {
+                await _backendApiService.DeleteCaseAsync(targets[i].CaseId);
+            }
+            catch (Exception error)
+            {
+                failed.Add($"{targets[i].CaseId}: {error.Message.Split('\n')[0]}");
+            }
+        }
+
+        await LoadCasesAsync();
+        StatusText.Text = $"Deleted {targets.Count - failed.Count} of {targets.Count} case(s).";
+        if (failed.Count > 0)
+        {
+            MessageBox.Show("These cases could not be deleted:\n\n" + string.Join("\n", failed),
+                "Clear All", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+
+    // A small modal that returns true only when the exact word is typed.
+    private bool ConfirmByTyping(string message, string word)
+    {
+        var input = new TextBox { Margin = new Thickness(0, 10, 0, 0), Padding = new Thickness(6, 4, 6, 4) };
+        var delete = new Button
+        {
+            Content = "Delete All", MinWidth = 96, Height = 32, IsEnabled = false,
+            Margin = new Thickness(8, 0, 0, 0), Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x7F, 0x1D, 0x1D)),
+        };
+        var cancel = new Button { Content = "Cancel", MinWidth = 96, Height = 32, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
+        input.TextChanged += (_, _) => delete.IsEnabled = input.Text == word;
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
+        buttons.Children.Add(cancel);
+        buttons.Children.Add(delete);
+        var panel = new StackPanel { Margin = new Thickness(20) };
+        panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(input);
+        panel.Children.Add(buttons);
+
+        var dialog = new Window
+        {
+            Title = "Clear All Cases", Owner = Window.GetWindow(this), Width = 480,
+            SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel,
+        };
+        delete.Click += (_, _) => dialog.DialogResult = true;
+        dialog.Loaded += (_, _) => input.Focus();
+        return dialog.ShowDialog() == true;
     }
 
 

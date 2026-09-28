@@ -623,6 +623,9 @@ def delete_case(
         / case_id
     ).resolve()
 
+    if case_id in ACTIVE_CASES:
+        raise ValueError("The case is being analysed; delete it when the analysis has finished.")
+
     # ========================================================
     # SAFETY CHECK
     # ========================================================

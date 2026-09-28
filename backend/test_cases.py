@@ -67,6 +67,11 @@ assert {r["case_id"]: r for r in case_service.list_cases()}[future]["delete_afte
 case_service.ACTIVE_CASES.add(busy)
 assert case_service.purge_expired_cases() == [past]
 assert not (root / "cases" / past).exists() and (root / "cases" / future).exists() and (root / "cases" / busy).exists()
+try:
+    case_service.delete_case(busy)
+    raise AssertionError("a case under analysis was deleted")
+except ValueError:
+    pass
 case_service.ACTIVE_CASES.discard(busy)
 assert case_service.purge_expired_cases() == [busy], "deleted once the analysis finished"
 case_service.set_retention(future, None)

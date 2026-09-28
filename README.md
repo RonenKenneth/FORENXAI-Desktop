@@ -353,7 +353,7 @@ Two statements in Table 16 describe training only:
 - The app computes SHAP on the CPU (see "Backend crash fix").
 - The app lists the top 10 contributors per flow, not 6.
 
-### Packaging, Tier 1 list, SHAP sum, uncertain flows (28 Sep 2026)
+### Packaging, Tier 1 card, SHAP sum, uncertain flows (28 Sep 2026)
 
 | Change | What it does | Where |
 |---|---|---|
@@ -363,11 +363,41 @@ Two statements in Table 16 describe training only:
 | SHAP table adds up | Below the top 10, one row "Other N features (sum)". Under the table: base value + top 10 + other N = the class's log-odds score, and the note that softmax over the 16 scores gives the confidence. SHAP values add up to the score, not to the percentage. Checked on all 2,016 explained flows (error 0) | `shap_service.py` (`rest_count`, `rest_shap_sum`, `margin`), `XaiView` |
 | Uncertain flows reviewable | XAI and Investigation list every abstained flow, including one the model called Benign. The fresh LabActivity2 case lists 2,015 threats + 1 uncertain = 2,016 to review | `XaiView`, `InvestigationView` |
 | Tier 1 card | Shows only the flagged count, the detected attacks and the dropdown. The flow-record coverage note moved to the end of the dropdown | `DashboardView` |
+| Cases page | Buttons 34 px high ("Clear All", "Refresh", "Schedule Deletion", "Delete Case", "Open Case"). Cells centred with the header padding, selection drawn on the cells, numbers with separators, "—" for a case without totals | `CasesView.xaml` |
+
+### Data retention and privacy (28 Sep 2026)
+
+What the app keeps, where, and how the investigator removes it. Nothing
+leaves the machine: the backend listens on 127.0.0.1 only and the language
+model runs locally.
+
+- **Kept per case** in `%LOCALAPPDATA%\FORENXAI\cases\<case id>\`:
+  - a copy of the capture (`evidence\`) and its SHA-256
+  - the flow table (`flows\`)
+  - the Suricata logs (`suricata\`)
+  - the analysis (`analysis.json`, `packets.json`)
+  - the investigator's reviews
+
+  This record is what makes a case reproducible. It can contain personal data (IP addresses, hostnames, payload excerpts).
+- **Not kept:** the working copies made for CICFlowMeter. They are deleted once the flow table is saved.
+- **Deleting a case:** the investigator chooses one of four ways:
+
+| Way | When it deletes |
+|---|---|
+| Delete Case (Cases tab) | Now, one case |
+| Schedule Deletion (Cases tab) | At a chosen date and time |
+| Exit dialog | Now, the cases created in this session |
+| Clear All (Cases tab) | Now, every case except the open one, after typing DELETE |
+
+Deletion removes the case folder. It does not securely wipe the disk.
+Reports exported elsewhere and the original capture are not touched.
+
+| Change | What it does | Where |
+|---|---|---|
 | Exit warning and session cases | Closing the app asks "Exit FORENXAI?"; No stays in the app. If cases were created in this session, a second dialog lists them with their scheduled deletion time, and explains that each holds a copy of the evidence, flows, analysis and reviews (personal data such as IP addresses). Yes deletes them now and exits, No keeps them and exits, Cancel stays. Cases that fail to delete are listed before exit | `MainWindow.xaml.cs`, `App.SessionCaseIds`, `EvidenceView` |
 | Scheduled case deletion | Cases tab: "Schedule Deletion" sets a date and time (or removes the schedule), and the "Auto-delete" column shows it. The time is stored in the case's `retention.json`. The backend deletes due cases at startup and once a minute. A case being analysed is deleted only after its analysis finishes. A deadline that passes while the app is closed is carried out at the next start. `PUT /cases/{id}/retention` with `{"delete_after": ISO 8601 or null}`. Deletion removes the case folder; it is not a secure wipe | `case_service.py` (`set_retention`, `purge_expired_cases`, `start_retention_worker`), `api/cases.py`, `RetentionDialog.cs`, `CasesView` |
 | Clear All (Cases tab) | Deletes every stored case except the one open in the app. The dialog states the count, how many cases have investigator reviews, and that it cannot be undone; "Delete All" is enabled only after typing DELETE. Each case goes through the same backend delete as Delete Case, which now refuses a case that is being analysed. Failures are listed | `CasesView`, `case_service.delete_case` |
 | Working copies removed | The staged (and, for PCAPNG, converted) capture and CICFlowMeter's output under `CICFlowMeter-master\data\forenxai\<case>` are deleted as soon as the flow CSV is in the case folder, and also when a step fails. Earlier versions left them there | `cicflowmeter_service.py` |
-| Cases page | Buttons 34 px high ("Refresh", "Delete Case", "Open Case"). Cells centred with the header padding, selection drawn on the cells, numbers with separators, "—" for a case without totals | `CasesView.xaml` |
 
 ### Checks on this branch
 
@@ -377,6 +407,9 @@ Two statements in Table 16 describe training only:
 | `backend/run_tests.py` (9 suites: model preprocessing and CPU device, Tier 1 rules, Tier 2 packet rules, packet parsing and store, case list, RAG index, AI summary, recommendations, all 16 classes) | 9/9 pass |
 | `test_classifier.py`, `test_model_service.py`, `test_shap.py`, `test_shap_service.py` | Fail on every branch: unchanged since the first commit, they call removed functions or need a local sample CSV |
 | Desktop build (`dotnet build`) | 0 errors, 0 warnings |
+| Case list, retention and deletion (`test_cases.py`, part of `run_tests.py`) | Pass: totals and cache, path outside the cases folder refused, past deadline deleted, future kept, case under analysis neither purged nor deletable until it finishes, schedule cleared, invalid id and date refused |
+| Retention, exit and Clear All in the app | Pass: a case scheduled for 20:57 while its analysis ran was kept until the analysis finished (21:01:39) and deleted at 21:02:25; the schedule dialog writes `retention.json` and Cancel writes nothing; exit step 1 No stays; step 2 Cancel stays, Yes deletes the session case; CICFlowMeter working copy gone after the run; Clear All stays disabled until DELETE is typed and deleted 41 of 41 cases |
+| Fresh case FX-20260928-201148 (new SHAP fields, Tier 1 list) | Pass: independent checks 25/25 (model), 15/15 (dashboard values), 12/12 (charts, SHAP log-odds); base + top 10 + other = margin on all 2,016 explained flows |
 | End-to-end in the app, LabActivity2 (1.04 MB, 10,584 packets, 2,016 ML flows) | Pass: 100 MB limit (183 MB capture refused), evidence intake, progress pop-up with live step and X button, Dashboard (rule panel, Tier 2 toggle, donut, Selected threat, tables, row selection), double-click to XAI, XAI, Investigation, Reports |
 | Backend supervisor | Pass: server killed on purpose, back and healthy within about 20 s |
 | Model, abstain layer, TreeSHAP (independent recomputation from the raw CSV and bundle files) | Pass, 25/25: bundle SHA-256 = manifest; 66 features in one order across `features.pkl`, manifest and OOD stats; 16 classes; class and confidence (max softmax) identical for every flow; Mahalanobis distance and abstain decisions identical; SHAP additivity (base + sum = model margin, max error 3e-06); top-10 contributors, SHAP values, observed values and base values identical; dashboard counts and threat percentage correct |
@@ -386,6 +419,9 @@ Two statements in Table 16 describe training only:
 
 - Measure the real capture-size limit (time and memory on a larger capture such as the 183 MB LabActivity3) and set `MaxEvidenceMegabytes` from it.
 - Open a pull request `merge-main-forenxai-v3` → `main`.
+- Run the first PyInstaller build (`pyinstaller FORENXAI.Backend.spec`, SETUP.md section 10) and test it on a machine without the development tools.
+- Scheduled deletion runs only while FORENXAI runs; a Windows scheduled task would delete on time with the app closed. Optional hardening: encrypt case folders at rest (DPAPI or EFS) and wipe instead of delete.
+- Versions before this one left CICFlowMeter working copies in `C:\Tools\CICFlowMeter\CICFlowMeter-master\data\forenxai\`; they can be deleted by hand.
 - Open items from `finetuned-xgboost` still apply: Tier 2 statistical validation needs labelled packet captures; DNS spoofing detection, Suricata HTTP / DNS logs and custom API signatures are not yet implemented (see `README_finetuned-xgboost.md`, "Tier 2: improvements" and "Known limitations").
 
 ## Architecture
@@ -1139,30 +1175,24 @@ Inconclusive
 
 # 17. Case Files
 
-FORENXAI stores development case output under:
+FORENXAI stores cases under `%LOCALAPPDATA%\FORENXAI\cases\`, or under
+`FORENXAI_DATA_DIR\cases\` when that variable is set. A backend run from
+source without it uses `backend\cases\`. Each case has its own folder:
 
 ```text
-backend\cases\
+%LOCALAPPDATA%\FORENXAI\cases\FX-20260928-201148\
+    evidence\          copy of the capture (SHA-256 recorded)
+    flows\             CICFlowMeter flow table
+    suricata\          eve.json, fast.log, stats
+    reviews\           investigator reviews
+    analysis.json       classification, SHAP, rules, recommendations
+    packets.json        packet table
+    summary.json        totals for the case list
+    retention.json      scheduled deletion time (only when set)
 ```
 
-Each case receives its own directory.
-
-Example:
-
-```text
-backend\cases\FX-20260919-014919\
-```
-
-Generated artifacts may include:
-
-```text
-evidence\
-flows\
-reviews\
-analysis.json
-```
-
-Reports are also generated from the case data.
+Reports are generated from the case data. To remove cases, see "Data
+retention and privacy" above.
 
 ---
 

@@ -20,7 +20,7 @@ Two questions, deliberately separated because they need different data.
 | Scripts | 01–07 | 08–12 |
 | Trained on | CICIDS2018 + TII-SSRC-23 | TRUSTLab |
 | Tested on | **TRUSTLab — never trained on** | TRUSTLab held-out 20% |
-| Answer | **No** — mean ROC-AUC 0.4665 | Yes, within one environment — 0.9337 |
+| Answer | **No** — mean ROC-AUC 0.4698 (10 of 15 detectors below 0.50) | Yes, within one environment — 0.9337 |
 
 The multiclass experiment stays inside one dataset by necessity: six of
 TRUSTLab's sixteen classes (API, MITM, Evasion, TLSSSL, Exfiltration,
@@ -95,7 +95,7 @@ prevalence, because the capped test set is ~6% benign where the corpus is ~57%.
 ### Binary — transfer fails
 
 ```
-mean external ROC-AUC   0.4665      (0.50 is a coin flip)
+mean external ROC-AUC   0.4698      (0.50 is a coin flip; 10 of 15 below it)
 below chance            11 of 15
 best external accuracy  0.6329      vs published baseline 0.8963
 internal F1             0.95 – 0.99

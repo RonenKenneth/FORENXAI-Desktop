@@ -1,0 +1,24 @@
+{
+  "started": "2026-09-06T16:32:24",
+  "finished": "2026-09-06T16:32:32",
+  "total_seconds": 7.2,
+  "python": "3.11.9",
+  "quick": false,
+  "skip_done": false,
+  "stages": [
+    {
+      "script": "00_verify_environment.py",
+      "status": "ok",
+      "seconds": 7.2,
+      "args": []
+    }
+  ],
+  "packages": {
+    "pandas": "3.0.5",
+    "numpy": "2.4.6",
+    "scikit-learn": "1.9.0",
+    "torch": "2.13.0",
+    "xgboost": "3.2.0",
+    "pyarrow": "25.0.1"
+  }
+}

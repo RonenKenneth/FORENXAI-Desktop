@@ -1,0 +1,20 @@
+{
+  "pair": [
+    "Slowloris",
+    "DoS"
+  ],
+  "importance_correlation": 0.897488,
+  "shared_top10": [
+    "Average Packet Size",
+    "Bwd Bulk Rate Avg",
+    "Bwd Header Length",
+    "Bwd Packet/Bulk Avg",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Mean",
+    "Fwd Segment Size Avg",
+    "Protocol"
+  ],
+  "rank_among_all_pairs": 2,
+  "n_pairs": 120,
+  "n_sample": 8000
+}

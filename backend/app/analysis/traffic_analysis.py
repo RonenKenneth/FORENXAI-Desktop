@@ -17,15 +17,25 @@ def build_traffic_summary(
         for packet in packets
     )
 
+    # Non-IP frames (ARP and other link-layer packets) are kept in the
+    # packet list for the Investigation view, with MAC addresses in their
+    # address fields and protocol_number 0. The top-IP lists count IP
+    # packets only.
+    ip_packets = [
+        packet
+        for packet in packets
+        if packet.get("protocol_number")
+    ]
+
     source_counter = Counter(
         packet["source_ip"]
-        for packet in packets
+        for packet in ip_packets
         if packet["source_ip"]
     )
 
     destination_counter = Counter(
         packet["destination_ip"]
-        for packet in packets
+        for packet in ip_packets
         if packet["destination_ip"]
     )
 

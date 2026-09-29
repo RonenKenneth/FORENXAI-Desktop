@@ -1,0 +1,105 @@
+{
+  "tests": {
+    "split_comparison": {
+      "random": {
+        "accuracy": 0.9322081103180356,
+        "macro_f1": 0.9280227490067166,
+        "per_class_f1": {
+          "API": 0.9991875,
+          "Benign": 0.9782717407611141,
+          "Bruteforce": 0.9447498193925307,
+          "BufferOverflow": 0.8063782822126314,
+          "C2Beaconing": 0.9532062391681109,
+          "DDoS": 0.993396050090337,
+          "DNS": 1.0,
+          "DoS": 0.6801581257026802,
+          "Evasion": 0.9984388659922567,
+          "Exfiltration": 0.999562582015872,
+          "Exploitation": 0.7938707085261437,
+          "MITM": 0.9984099766173032,
+          "PortScan": 0.9660021188481172,
+          "Slowloris": 0.7578768251180151,
+          "TLSSSL": 0.9842892533475494,
+          "WebBased": 0.9945658963148033
+        }
+      },
+      "temporal": {
+        "accuracy": 0.8435642857142858,
+        "macro_f1": 0.8320213500414798,
+        "per_class_f1": {
+          "API": 0.9974721468027338,
+          "Benign": 0.9319736382245744,
+          "Bruteforce": 0.9037780781360623,
+          "BufferOverflow": 0.7810109158423765,
+          "C2Beaconing": 0.9145242386870316,
+          "DDoS": 0.9961394769613948,
+          "DNS": 0.9999062412101134,
+          "DoS": 0.43615077098800686,
+          "Evasion": 0.9981564228353592,
+          "Exfiltration": 0.9997500624843789,
+          "Exploitation": 0.6770499964440652,
+          "MITM": 0.9979377577802775,
+          "PortScan": 0.8479240946459616,
+          "Slowloris": 0.31863354037267083,
+          "TLSSSL": 0.9791488146243931,
+          "WebBased": 0.5327854046242775
+        }
+      },
+      "accuracy_drop": 0.08864382460374987,
+      "macro_f1_drop": 0.09600139896523674
+    },
+    "ablation": {
+      "baseline": {
+        "n_features": 66,
+        "accuracy": 0.8435642857142858,
+        "macro_f1": 0.8320213500414798
+      },
+      "minus_1": {
+        "removed": [
+          "FWD Init Win Bytes"
+        ],
+        "n_features": 65,
+        "accuracy": 0.8435392857142857,
+        "macro_f1": 0.8317001440196399,
+        "delta_accuracy": -2.5000000000052758e-05,
+        "delta_macro_f1": -0.00032120602183993707
+      },
+      "minus_2": {
+        "removed": [
+          "FWD Init Win Bytes",
+          "Bwd Init Win Bytes"
+        ],
+        "n_features": 64,
+        "accuracy": 0.8441892857142858,
+        "macro_f1": 0.8333470991261344,
+        "delta_accuracy": 0.0006249999999999867,
+        "delta_macro_f1": 0.0013257490846545483
+      },
+      "minus_3": {
+        "removed": [
+          "FWD Init Win Bytes",
+          "Bwd Init Win Bytes",
+          "Flow IAT Min"
+        ],
+        "n_features": 63,
+        "accuracy": 0.8449821428571429,
+        "macro_f1": 0.8347711426076685,
+        "delta_accuracy": 0.0014178571428571374,
+        "delta_macro_f1": 0.00274979256618868
+      },
+      "minus_4": {
+        "removed": [
+          "FWD Init Win Bytes",
+          "Bwd Init Win Bytes",
+          "Flow IAT Min",
+          "Dst Port"
+        ],
+        "n_features": 62,
+        "accuracy": 0.8487321428571428,
+        "macro_f1": 0.8330674626754707,
+        "delta_accuracy": 0.0051678571428570574,
+        "delta_macro_f1": 0.0010461126339909033
+      }
+    }
+  }
+}

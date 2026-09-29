@@ -1,0 +1,80 @@
+{
+  "started": "2026-09-06T21:21:37",
+  "finished": "2026-09-07T15:21:41",
+  "total_seconds": 64804.4,
+  "python": "3.11.9",
+  "git": {
+    "commit": "f7d28f2c23dffc54b6f1b79c52284b41eae7e903",
+    "dirty": false
+  },
+  "quick": false,
+  "skip_done": true,
+  "stages": [
+    {
+      "script": "06_validate_external.py",
+      "status": "ok",
+      "seconds": 410.7,
+      "args": [
+        "--threshold-sweep"
+      ]
+    },
+    {
+      "script": "07_aggregate_results.py",
+      "status": "ok",
+      "seconds": 0.8,
+      "args": []
+    },
+    {
+      "script": "08_build_multiclass.py",
+      "status": "skipped",
+      "seconds": 0.0,
+      "args": [
+        "--strategy",
+        "both"
+      ]
+    },
+    {
+      "script": "09_train_multiclass.py",
+      "status": "ok",
+      "seconds": 63366.6,
+      "args": [
+        "--strategy",
+        "random",
+        "--resume"
+      ]
+    },
+    {
+      "script": "10_evaluate_multiclass.py",
+      "status": "ok",
+      "seconds": 109.7,
+      "args": [
+        "--strategy",
+        "random"
+      ]
+    },
+    {
+      "script": "11_session_artifact_test.py",
+      "status": "ok",
+      "seconds": 912.0,
+      "args": []
+    },
+    {
+      "script": "12_phase2_protocol.py",
+      "status": "ok",
+      "seconds": 4.7,
+      "args": [
+        "--phase1",
+        "all",
+        "--resume"
+      ]
+    }
+  ],
+  "packages": {
+    "pandas": "3.0.5",
+    "numpy": "2.4.6",
+    "scikit-learn": "1.9.0",
+    "torch": "2.13.0",
+    "xgboost": "3.2.0",
+    "pyarrow": "25.0.1"
+  }
+}

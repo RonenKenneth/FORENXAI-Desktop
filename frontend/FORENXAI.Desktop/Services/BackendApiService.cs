@@ -25,13 +25,25 @@ public class BackendApiService
 
     public BackendApiService()
     {
-        _httpClient = new HttpClient
+        // The backend gzips large responses (analysis.json is mostly
+        // repeated recommendation text).
+        _httpClient = new HttpClient(new HttpClientHandler
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.All
+        })
         {
             BaseAddress = new Uri(
                 "http://127.0.0.1:8000"
             ),
 
-            Timeout = TimeSpan.FromMinutes(5)
+            // A capture with several attack classes needs one language-model
+            // generation per class. On a CPU-only llama-cpp build that is
+            // ~136 s each, so a five-class capture runs past five minutes
+            // and the client abandoned a request the backend was still
+            // serving. Sized for the worst case, not the common one; the
+            // real fix is a CUDA build of llama-cpp-python, which takes
+            // generation to single-digit seconds.
+            Timeout = TimeSpan.FromMinutes(45)
         };
     }
 
@@ -46,6 +58,19 @@ public class BackendApiService
             .GetStringAsync(
                 "/health"
             );
+    }
+
+
+    // ========================================================
+    // ANALYSIS PROGRESS
+    // ========================================================
+
+    public async Task<string> GetAnalysisStageAsync(string caseId)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(
+            await _httpClient.GetStringAsync(
+                $"/analysis/{Uri.EscapeDataString(caseId)}/progress"));
+        return document.RootElement.GetProperty("stage").GetString() ?? "";
     }
 
 
@@ -139,6 +164,27 @@ public class BackendApiService
     // GET EXISTING ANALYSIS
     // ========================================================
 
+    private static string? cachedAnalysisCaseId;
+    private static AnalysisDocument? cachedAnalysis;
+
+    // =========================================================
+    // PACKETS: one filtered page from the backend
+    // =========================================================
+
+    public async Task<PacketPage> GetPacketsAsync(string caseId, int offset, int limit, PacketQuery query)
+    {
+        string E(string? value) => Uri.EscapeDataString(value ?? "");
+        string url = $"/analysis/{E(caseId)}/packets?offset={offset}&limit={limit}"
+            + $"&protocol={E(query.Protocol)}&flag={E(query.Flag)}&source={E(query.Source)}"
+            + $"&destination={E(query.Destination)}&port={E(query.Port)}&ip_version={E(query.IpVersion)}"
+            + $"&interface={E(query.Interface)}&q={E(query.Text)}"
+            + (query.MinLength.HasValue ? $"&min_length={query.MinLength}" : "")
+            + (query.MaxLength.HasValue ? $"&max_length={query.MaxLength}" : "");
+        using HttpResponseMessage response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PacketPage>() ?? new PacketPage();
+    }
+
     public async Task<AnalysisDocument?> GetAnalysisAsync(
         string caseId)
     {
@@ -154,16 +200,19 @@ public class BackendApiService
         }
 
 
-        HttpResponseMessage response =
+        // One analysis is shared by the Dashboard and XAI tabs: fetched
+        // once per case, then reused.
+        if (cachedAnalysis != null && cachedAnalysisCaseId == caseId)
+        {
+            return cachedAnalysis;
+        }
+
+        using HttpResponseMessage response =
             await _httpClient
                 .GetAsync(
-                    $"/analysis/{caseId}"
+                    $"/analysis/{caseId}",
+                    HttpCompletionOption.ResponseHeadersRead
                 );
-
-
-        string responseBody =
-            await response.Content
-                .ReadAsStringAsync();
 
 
         if (
@@ -174,16 +223,23 @@ public class BackendApiService
                 $"Python backend returned " +
                 $"{(int)response.StatusCode} " +
                 $"{response.StatusCode}\n\n" +
-                responseBody
+                await response.Content.ReadAsStringAsync()
             );
         }
 
 
+        // Deserialised straight from the (decompressed) stream.
         AnalysisDocument? result =
             await response.Content
                 .ReadFromJsonAsync<
                     AnalysisDocument
                 >();
+
+        if (result != null)
+        {
+            cachedAnalysisCaseId = caseId;
+            cachedAnalysis = result;
+        }
 
 
         if (result == null)
@@ -507,6 +563,234 @@ public class BackendApiService
         return result;
     }
 
+
+    // ========================================================
+    // PHASE 22
+    // GET CASE LIST
+    // ========================================================
+
+    public async Task<CaseListResponse?>
+        GetCasesAsync()
+    {
+        HttpResponseMessage response =
+            await _httpClient
+                .GetAsync(
+                    "/cases"
+                );
+
+
+        string responseBody =
+            await response.Content
+                .ReadAsStringAsync();
+
+
+        if (
+            !response.IsSuccessStatusCode
+        )
+        {
+            throw new Exception(
+                $"Python backend returned " +
+                $"{(int)response.StatusCode} " +
+                $"{response.StatusCode}\n\n" +
+                responseBody
+            );
+        }
+
+
+        CaseListResponse? result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    CaseListResponse
+                >();
+
+
+        if (result == null)
+        {
+            throw new Exception(
+                "Python backend returned an empty " +
+                "or invalid case-list response."
+            );
+        }
+
+
+        return result;
+    }
+
+
+    // ========================================================
+    // PHASE 22
+    // OPEN EXISTING CASE
+    // ========================================================
+
+    public async Task<CaseDetailsResponse?>
+        GetCaseDetailsAsync(
+            string caseId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(
+                caseId
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Case ID cannot be empty."
+            );
+        }
+
+
+        HttpResponseMessage response =
+            await _httpClient
+                .GetAsync(
+                    $"/cases/{caseId}"
+                );
+
+
+        string responseBody =
+            await response.Content
+                .ReadAsStringAsync();
+
+
+        if (
+            !response.IsSuccessStatusCode
+        )
+        {
+            throw new Exception(
+                $"Python backend returned " +
+                $"{(int)response.StatusCode} " +
+                $"{response.StatusCode}\n\n" +
+                responseBody
+            );
+        }
+
+
+        CaseDetailsResponse? result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    CaseDetailsResponse
+                >();
+
+
+        if (result == null)
+        {
+            throw new Exception(
+                "Python backend returned an empty " +
+                "or invalid case-detail response."
+            );
+        }
+
+
+        return result;
+    }
+
+
+    // ========================================================
+    // PHASE 22
+    // DELETE CASE
+    // ========================================================
+
+    public async Task<DeleteCaseResponse?>
+        DeleteCaseAsync(
+            string caseId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(
+                caseId
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Case ID cannot be empty."
+            );
+        }
+
+
+        HttpResponseMessage response =
+            await _httpClient
+                .DeleteAsync(
+                    $"/cases/{caseId}"
+                );
+
+
+        string responseBody =
+            await response.Content
+                .ReadAsStringAsync();
+
+
+        if (
+            !response.IsSuccessStatusCode
+        )
+        {
+            throw new Exception(
+                $"Python backend returned " +
+                $"{(int)response.StatusCode} " +
+                $"{response.StatusCode}\n\n" +
+                responseBody
+            );
+        }
+
+
+        DeleteCaseResponse? result =
+            await response.Content
+                .ReadFromJsonAsync<
+                    DeleteCaseResponse
+                >();
+
+
+        if (result == null)
+        {
+            throw new Exception(
+                "Python backend returned an empty " +
+                "or invalid case-delete response."
+            );
+        }
+
+
+        return result;
+    }
+
+
+    // ========================================================
+    // SCHEDULE CASE DELETION (null cancels the schedule)
+    // ========================================================
+
+    public async Task SetCaseRetentionAsync(
+        string caseId,
+        DateTimeOffset? deleteAfter)
+    {
+        HttpResponseMessage response =
+            await _httpClient.PutAsJsonAsync(
+                $"/cases/{Uri.EscapeDataString(caseId)}/retention",
+                new Dictionary<string, string?>
+                {
+                    ["delete_after"] = deleteAfter?.ToString("yyyy-MM-ddTHH:mm:sszzz")
+                });
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception(
+                $"Python backend returned {(int)response.StatusCode} {response.StatusCode}\n\n"
+                + await response.Content.ReadAsStringAsync());
+        }
+    }
+
+}
+
+
+// ============================================================
+// PHASE 22
+// DELETE CASE RESPONSE
+// ============================================================
+
+public class DeleteCaseResponse
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; }
+        = string.Empty;
+
+
+    [JsonPropertyName("case_id")]
+    public string CaseId { get; set; }
+        = string.Empty;
 }
 
 
@@ -723,6 +1007,67 @@ public class PacketRecord
     [JsonPropertyName("destination_port")] public int? DestinationPort { get; set; }
     [JsonPropertyName("packet_length")] public int PacketLength { get; set; }
     [JsonPropertyName("tcp_flags")] public string? TcpFlags { get; set; }
+    [JsonPropertyName("display_protocol")] public string? DisplayProtocol { get; set; }
+    [JsonPropertyName("info")] public string? Info { get; set; }
+    [JsonPropertyName("flags")] public List<string>? Flags { get; set; }
+    [JsonPropertyName("wire_length")] public int? WireLength { get; set; }
+    [JsonPropertyName("captured_length")] public int? CapturedLength { get; set; }
+    [JsonPropertyName("interface")] public string? Interface { get; set; }
+    [JsonPropertyName("comment")] public string? Comment { get; set; }
+    [JsonPropertyName("src_mac")] public string? SourceMac { get; set; }
+    [JsonPropertyName("dst_mac")] public string? DestinationMac { get; set; }
+    [JsonPropertyName("ether_type")] public string? EtherType { get; set; }
+    [JsonPropertyName("vlan")] public int? Vlan { get; set; }
+    [JsonPropertyName("ip_version")] public int? IpVersion { get; set; }
+    [JsonPropertyName("ttl")] public int? Ttl { get; set; }
+    [JsonPropertyName("ip_id")] public int? IpId { get; set; }
+    [JsonPropertyName("ip_flags")] public string? IpFlags { get; set; }
+    [JsonPropertyName("fragment_offset")] public int? FragmentOffset { get; set; }
+    [JsonPropertyName("dscp")] public int? Dscp { get; set; }
+    [JsonPropertyName("ecn")] public int? Ecn { get; set; }
+    [JsonPropertyName("ip_header_length")] public int? IpHeaderLength { get; set; }
+    [JsonPropertyName("ip_total_length")] public int? IpTotalLength { get; set; }
+    [JsonPropertyName("tcp_seq")] public long? TcpSeq { get; set; }
+    [JsonPropertyName("tcp_ack")] public long? TcpAck { get; set; }
+    [JsonPropertyName("tcp_window")] public int? TcpWindow { get; set; }
+    [JsonPropertyName("tcp_header_length")] public int? TcpHeaderLength { get; set; }
+    [JsonPropertyName("tcp_options")] public string? TcpOptions { get; set; }
+    [JsonPropertyName("udp_length")] public int? UdpLength { get; set; }
+    [JsonPropertyName("icmp_type")] public int? IcmpType { get; set; }
+    [JsonPropertyName("icmp_code")] public int? IcmpCode { get; set; }
+    [JsonPropertyName("payload_length")] public int? PayloadLength { get; set; }
+}
+
+/// <summary>Packet filters; empty values are not applied.</summary>
+public class PacketQuery
+{
+    public string? Protocol { get; set; }
+    public string? Flag { get; set; }
+    public string? Source { get; set; }
+    public string? Destination { get; set; }
+    public string? Port { get; set; }
+    public string? IpVersion { get; set; }
+    public string? Interface { get; set; }
+    public int? MinLength { get; set; }
+    public int? MaxLength { get; set; }
+    public string? Text { get; set; }
+}
+
+public class PacketPage
+{
+    [JsonPropertyName("total")] public int Total { get; set; }
+    [JsonPropertyName("matched")] public int Matched { get; set; }
+    [JsonPropertyName("offset")] public int Offset { get; set; }
+    [JsonPropertyName("rows")] public List<PacketRecord> Rows { get; set; } = new();
+    [JsonPropertyName("protocols")] public Dictionary<string, int> Protocols { get; set; } = new();
+    [JsonPropertyName("flags")] public Dictionary<string, int> Flags { get; set; } = new();
+    [JsonPropertyName("sources")] public Dictionary<string, int> Sources { get; set; } = new();
+    [JsonPropertyName("destinations")] public Dictionary<string, int> Destinations { get; set; } = new();
+    [JsonPropertyName("ports")] public Dictionary<string, int> Ports { get; set; } = new();
+    [JsonPropertyName("ip_versions")] public Dictionary<string, int> IpVersions { get; set; } = new();
+    [JsonPropertyName("interfaces")] public Dictionary<string, int> Interfaces { get; set; } = new();
+    [JsonPropertyName("columns")] public List<string> Columns { get; set; } = new();
+    [JsonPropertyName("first_time")] public double? FirstTime { get; set; }
 }
 
 
@@ -1027,6 +1372,18 @@ public class ReportThreatFinding
     [JsonPropertyName("shap_explanation")]
     public ShapExplanation?
         ShapExplanation { get; set; }
+
+
+    [JsonPropertyName("verdict")]
+    public string? Verdict { get; set; }
+
+
+    [JsonPropertyName("verdict_source")]
+    public string? VerdictSource { get; set; }
+
+
+    [JsonPropertyName("rule_findings")]
+    public List<RuleHit>? RuleFindings { get; set; }
 
 
     [JsonPropertyName("investigator_review")]

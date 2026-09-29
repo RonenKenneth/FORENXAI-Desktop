@@ -1,0 +1,73 @@
+# ForenXAI pipeline
+# Install:  pip install -r requirements.txt
+
+# ==========================================================================
+# THE VERIFIED SET
+#
+# Stages 00-12 were run end to end on exactly these versions, on CPython
+# 3.11.9 (Windows, CPU-only torch):
+#
+#     pandas 3.0.5          scikit-learn 1.9.0     torch 2.13.0+cpu
+#     numpy 2.4.6           joblib 1.5.3           xgboost 3.2.0
+#     pyarrow 25.0.1        psutil 7.2.2
+#
+# The ranges below admit that set. To reproduce it exactly rather than
+# approximately -- which is what a results chapter wants -- freeze it once and
+# install from the freeze afterwards:
+#
+#     pip freeze > requirements.lock.txt
+#     pip install -r requirements.lock.txt
+# ==========================================================================
+
+pandas>=3.0,<4.0
+numpy>=2.0,<3.0
+
+# Parquet engine. Nothing imports pyarrow directly; pandas needs it for the
+# .to_parquet / .read_parquet calls that carry data between every stage.
+pyarrow>=14.0
+
+# Pinned to one minor version on purpose. Script 05 pickles a fitted
+# StandardScaler and an XGBoost wrapper, and scripts 06 and 12 unpickle them;
+# scikit-learn does not guarantee those load across minor versions, so the
+# environment that trains and the one that scores have to agree. Raise both
+# bounds together and retrain, rather than widening the range.
+scikit-learn>=1.9,<1.10
+
+joblib>=1.3.0
+
+# CPU wheels by default. For GPU, install the CUDA build FIRST, then run this
+# file -- pip keeps the build already present:
+#     pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Models are saved as state_dicts, which are portable across 2.x, so this does
+# not need the tight pin scikit-learn does.
+torch>=2.0,<3.0
+
+# 2.0 introduced the `device=` parameter that src/models.py sets only when
+# CUDA is actually available.
+xgboost>=2.0,<4.0
+
+# Used by scripts/00_verify_environment.py to report available RAM.
+psutil>=5.9.0
+
+# ==========================================================================
+# WHAT CHANGED, AND WHY THE OLD PINS WERE WRONG
+#
+# numpy was held at <2.0 and scikit-learn at <1.6. Neither matched what the
+# pipeline actually runs on, so `pip install -r requirements.txt` built a
+# DIFFERENT environment from the one every result was produced in -- and the
+# scikit-learn bound contradicted its own stated reason, since the pickles in
+# artifacts/ are written by 1.9.0.
+#
+# The old numpy note said other packages still used aliases numpy 2 removed.
+# That is no longer true of this stack: pandas 3.0.5 requires numpy>=1.26 and
+# runs on 2.4.6, and nothing here touches a removed alias.
+#
+# matplotlib was listed but nothing in scripts/, src/ or config/ imports it --
+# every stage reports through logs, CSV and JSON. Dropped rather than silently
+# installed; add it back if you write plotting code.
+# ==========================================================================
+shap>=0.46
+anthropic>=0.40
+pypdf>=5.0
+requests>=2.31
+llama-cpp-python>=0.3

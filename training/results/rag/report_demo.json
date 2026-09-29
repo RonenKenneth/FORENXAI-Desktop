@@ -1,0 +1,698 @@
+{
+  "source": "mc_test_random.parquet (demo)",
+  "provider": "ollama",
+  "findings": [
+    {
+      "class": "Slowloris",
+      "flow_count": 154,
+      "share_of_capture": 0.077,
+      "confidence_mean": 0.6774,
+      "confidence_min": 0.5027,
+      "confidence_max": 0.9997,
+      "low_confidence_count": 41,
+      "runner_up_profile": {
+        "DoS": 154
+      },
+      "dominant_runner_up": "DoS",
+      "dominant_runner_up_share": 1.0,
+      "representative_rows": [
+        441,
+        61
+      ],
+      "reliability_f1": 0.7639
+    },
+    {
+      "class": "DDoS",
+      "flow_count": 138,
+      "share_of_capture": 0.069,
+      "confidence_mean": 0.9997,
+      "confidence_min": 0.988,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "PortScan": 112,
+        "WebBased": 14,
+        "Benign": 12
+      },
+      "dominant_runner_up": "PortScan",
+      "dominant_runner_up_share": 0.8116,
+      "representative_rows": [
+        1199,
+        1501
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "WebBased",
+      "flow_count": 130,
+      "share_of_capture": 0.065,
+      "confidence_mean": 0.992,
+      "confidence_min": 0.5074,
+      "confidence_max": 1.0,
+      "low_confidence_count": 1,
+      "runner_up_profile": {
+        "Benign": 78,
+        "Exploitation": 30,
+        "Bruteforce": 10
+      },
+      "dominant_runner_up": "Benign",
+      "dominant_runner_up_share": 0.6,
+      "representative_rows": [
+        603,
+        1267
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "BufferOverflow",
+      "flow_count": 125,
+      "share_of_capture": 0.0625,
+      "confidence_mean": 0.8289,
+      "confidence_min": 0.3132,
+      "confidence_max": 1.0,
+      "low_confidence_count": 29,
+      "runner_up_profile": {
+        "Exploitation": 39,
+        "Bruteforce": 37,
+        "Benign": 18
+      },
+      "dominant_runner_up": "Exploitation",
+      "dominant_runner_up_share": 0.312,
+      "representative_rows": [
+        1965,
+        1030
+      ],
+      "reliability_f1": 0.8017
+    },
+    {
+      "class": "Exploitation",
+      "flow_count": 123,
+      "share_of_capture": 0.0615,
+      "confidence_mean": 0.7183,
+      "confidence_min": 0.3679,
+      "confidence_max": 0.9997,
+      "low_confidence_count": 47,
+      "runner_up_profile": {
+        "BufferOverflow": 90,
+        "Bruteforce": 15,
+        "Benign": 8
+      },
+      "dominant_runner_up": "BufferOverflow",
+      "dominant_runner_up_share": 0.7317,
+      "representative_rows": [
+        1429,
+        1824
+      ],
+      "reliability_f1": 0.7838
+    },
+    {
+      "class": "C2Beaconing",
+      "flow_count": 120,
+      "share_of_capture": 0.06,
+      "confidence_mean": 0.9945,
+      "confidence_min": 0.3799,
+      "confidence_max": 1.0,
+      "low_confidence_count": 1,
+      "runner_up_profile": {
+        "Exploitation": 52,
+        "Benign": 22,
+        "Bruteforce": 21
+      },
+      "dominant_runner_up": "Exploitation",
+      "dominant_runner_up_share": 0.4333,
+      "representative_rows": [
+        483,
+        1124
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "PortScan",
+      "flow_count": 114,
+      "share_of_capture": 0.057,
+      "confidence_mean": 0.9904,
+      "confidence_min": 0.8572,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "DDoS": 65,
+        "Benign": 49
+      },
+      "dominant_runner_up": "DDoS",
+      "dominant_runner_up_share": 0.5702,
+      "representative_rows": [
+        327,
+        480
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "Exfiltration",
+      "flow_count": 113,
+      "share_of_capture": 0.0565,
+      "confidence_mean": 1.0,
+      "confidence_min": 0.9994,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "Benign": 57,
+        "Exploitation": 19,
+        "WebBased": 13
+      },
+      "dominant_runner_up": "Benign",
+      "dominant_runner_up_share": 0.5044,
+      "representative_rows": [
+        1133,
+        1177
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "DNS",
+      "flow_count": 109,
+      "share_of_capture": 0.0545,
+      "confidence_mean": 1.0,
+      "confidence_min": 0.9997,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "Exploitation": 55,
+        "Benign": 33,
+        "C2Beaconing": 11
+      },
+      "dominant_runner_up": "Exploitation",
+      "dominant_runner_up_share": 0.5046,
+      "representative_rows": [
+        1090,
+        1947
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "TLSSSL",
+      "flow_count": 109,
+      "share_of_capture": 0.0545,
+      "confidence_mean": 0.9857,
+      "confidence_min": 0.4081,
+      "confidence_max": 1.0,
+      "low_confidence_count": 2,
+      "runner_up_profile": {
+        "Exploitation": 63,
+        "API": 18,
+        "Benign": 12
+      },
+      "dominant_runner_up": "Exploitation",
+      "dominant_runner_up_share": 0.578,
+      "representative_rows": [
+        1647,
+        1394
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "MITM",
+      "flow_count": 107,
+      "share_of_capture": 0.0535,
+      "confidence_mean": 0.9999,
+      "confidence_min": 0.9975,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "Benign": 94,
+        "Exploitation": 8,
+        "DoS": 4
+      },
+      "dominant_runner_up": "Benign",
+      "dominant_runner_up_share": 0.8785,
+      "representative_rows": [
+        510,
+        861
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "Evasion",
+      "flow_count": 105,
+      "share_of_capture": 0.0525,
+      "confidence_mean": 1.0,
+      "confidence_min": 1.0,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "Exploitation": 46,
+        "Bruteforce": 40,
+        "TLSSSL": 19
+      },
+      "dominant_runner_up": "Exploitation",
+      "dominant_runner_up_share": 0.4381,
+      "representative_rows": [
+        1840,
+        1973
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "API",
+      "flow_count": 100,
+      "share_of_capture": 0.05,
+      "confidence_mean": 0.9996,
+      "confidence_min": 0.9815,
+      "confidence_max": 1.0,
+      "low_confidence_count": 0,
+      "runner_up_profile": {
+        "Benign": 77,
+        "TLSSSL": 7,
+        "Bruteforce": 5
+      },
+      "dominant_runner_up": "Benign",
+      "dominant_runner_up_share": 0.77,
+      "representative_rows": [
+        138,
+        1065
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "Bruteforce",
+      "flow_count": 97,
+      "share_of_capture": 0.0485,
+      "confidence_mean": 0.9849,
+      "confidence_min": 0.5129,
+      "confidence_max": 1.0,
+      "low_confidence_count": 1,
+      "runner_up_profile": {
+        "Exploitation": 71,
+        "Benign": 11,
+        "TLSSSL": 6
+      },
+      "dominant_runner_up": "Exploitation",
+      "dominant_runner_up_share": 0.732,
+      "representative_rows": [
+        1386,
+        1900
+      ],
+      "reliability_f1": null
+    },
+    {
+      "class": "DoS",
+      "flow_count": 63,
+      "share_of_capture": 0.0315,
+      "confidence_mean": 0.8308,
+      "confidence_min": 0.5007,
+      "confidence_max": 1.0,
+      "low_confidence_count": 14,
+      "runner_up_profile": {
+        "Slowloris": 63
+      },
+      "dominant_runner_up": "Slowloris",
+      "dominant_runner_up_share": 1.0,
+      "representative_rows": [
+        893,
+        383
+      ],
+      "reliability_f1": 0.6714
+    }
+  ],
+  "panels": [
+    {
+      "panel": "capture_summary",
+      "facts": {
+        "source": "mc_test_random.parquet (demo)",
+        "total_flows": 2000,
+        "benign_flows": 293,
+        "attack_flows": 1707,
+        "attack_share": 0.8535,
+        "distinct_attack_classes": 15,
+        "class_counts": {
+          "Benign": 293,
+          "Slowloris": 154,
+          "DDoS": 138,
+          "WebBased": 130,
+          "BufferOverflow": 125,
+          "Exploitation": 123,
+          "C2Beaconing": 120,
+          "PortScan": 114,
+          "Exfiltration": 113,
+          "TLSSSL": 109,
+          "DNS": 109,
+          "MITM": 107,
+          "Evasion": 105,
+          "API": 100,
+          "Bruteforce": 97,
+          "DoS": 63
+        },
+        "mean_confidence": 0.9384,
+        "low_confidence_flows": 136,
+        "total_flow_seconds": 961278.1,
+        "longest_flow_seconds": 13112.9,
+        "median_flow_seconds": 0.002
+      },
+      "cached_context": null,
+      "prompt": "Summarise this network capture for an investigator opening\nit for the first time. Three or four sentences, no bullet points.\n\nCAPTURE\n{\n  \"source\": \"mc_test_random.parquet (demo)\",\n  \"total_flows\": 2000,\n  \"benign_flows\": 293,\n  \"attack_flows\": 1707,\n  \"attack_share\": 0.8535,\n  \"distinct_attack_classes\": 15,\n  \"class_counts\": {\n    \"Benign\": 293,\n    \"Slowloris\": 154,\n    \"DDoS\": 138,\n    \"WebBased\": 130,\n    \"BufferOverflow\": 125,\n    \"Exploitation\": 123,\n    \"C2Beaconing\": 120,\n    \"PortScan\": 114,\n    \"Exfiltration\": 113,\n    \"TLSSSL\": 109,\n    \"DNS\": 109,\n    \"MITM\": 107,\n    \"Evasion\": 105,\n    \"API\": 100,\n    \"Bruteforce\": 97,\n    \"DoS\": 63\n  },\n  \"mean_confidence\": 0.9384,\n  \"low_confidence_flows\": 136,\n  \"total_flow_seconds\": 961278.1,\n  \"longest_flow_seconds\": 13112.9,\n  \"median_flow_seconds\": 0.002\n}\n\nSay what the capture contains, which activity dominates, and anything about\nthe shape of it that deserves a second look. `total_flow_seconds` is the sum\nof all flow durations, NOT how long the capture ran -- flows overlap. Do not\ndescribe it as a duration or a span. Do not recommend actions --\nanother panel does that. Do not speculate about attacker intent.\n\nWrite for an investigator. Never name a field from the JSON in your prose,\nnever restate these instructions, and report only figures that appear\nabove.",
+      "narrative": null,
+      "display": {
+        "title": "Capture summary",
+        "source": "mc_test_random.parquet (demo)",
+        "stats": [
+          [
+            "Flows",
+            "2,000"
+          ],
+          [
+            "Flagged",
+            "1,707 (85.4%)"
+          ],
+          [
+            "Classes",
+            "15"
+          ],
+          [
+            "Mean confidence",
+            "0.94"
+          ],
+          [
+            "Below 0.60",
+            "136"
+          ],
+          [
+            "Longest flow",
+            "13,112.9 s"
+          ]
+        ],
+        "class_counts": {
+          "Benign": 293,
+          "Slowloris": 154,
+          "DDoS": 138,
+          "WebBased": 130,
+          "BufferOverflow": 125,
+          "Exploitation": 123,
+          "C2Beaconing": 120,
+          "PortScan": 114,
+          "Exfiltration": 113,
+          "TLSSSL": 109,
+          "DNS": 109,
+          "MITM": 107,
+          "Evasion": 105,
+          "API": 100,
+          "Bruteforce": 97,
+          "DoS": 63
+        },
+        "narrative": null,
+        "warning": null
+      }
+    },
+    {
+      "panel": "shap_explanation",
+      "detections": [
+        {
+          "row": 441,
+          "predicted": "Slowloris",
+          "confidence": 0.9997,
+          "runner_up": "DoS",
+          "runner_up_confidence": 0.0003,
+          "attributions": [
+            {
+              "feature": "Flow IAT Min",
+              "plain": "shortest gap between any two packets",
+              "caution": null,
+              "raw_value": 1205279.0,
+              "contribution": 2.491464,
+              "direction": "supports"
+            },
+            {
+              "feature": "Fwd Packet Length Max",
+              "plain": "largest outbound packet",
+              "caution": null,
+              "raw_value": 0.0,
+              "contribution": 1.743746,
+              "direction": "supports"
+            },
+            {
+              "feature": "Subflow Bwd Bytes",
+              "plain": "average bytes per inbound burst",
+              "caution": null,
+              "raw_value": 120.0,
+              "contribution": -1.630014,
+              "direction": "argues against"
+            },
+            {
+              "feature": "Bwd IAT Total",
+              "plain": "total idle time in the inbound direction",
+              "caution": null,
+              "raw_value": 1205280.0,
+              "contribution": 1.294298,
+              "direction": "supports"
+            },
+            {
+              "feature": "Bwd IAT Min",
+              "plain": "shortest gap between inbound packets",
+              "caution": null,
+              "raw_value": 1205280.0,
+              "contribution": 0.606504,
+              "direction": "supports"
+            },
+            {
+              "feature": "Dst Port",
+              "plain": "destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS)",
+              "caution": "Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.",
+              "raw_value": 58692.0,
+              "contribution": 0.465222,
+              "direction": "supports"
+            }
+          ],
+          "features_typical_for_class": [
+            "Flow IAT Min",
+            "Fwd Packet Length Max",
+            "Subflow Bwd Bytes",
+            "Dst Port"
+          ]
+        },
+        {
+          "row": 61,
+          "predicted": "Slowloris",
+          "confidence": 0.5027,
+          "runner_up": "DoS",
+          "runner_up_confidence": 0.4972,
+          "nearly_undecided": true,
+          "attributions": [
+            {
+              "feature": "Fwd Packet Length Max",
+              "plain": "largest outbound packet",
+              "caution": null,
+              "raw_value": 0.0,
+              "contribution": 1.614705,
+              "direction": "supports"
+            },
+            {
+              "feature": "Bwd Bulk Rate Avg",
+              "plain": "how fast the server moved data during sustained bursts",
+              "caution": null,
+              "raw_value": 0.0,
+              "contribution": 0.275033,
+              "direction": "supports"
+            },
+            {
+              "feature": "Fwd Packet Length Mean",
+              "plain": "average outbound packet size",
+              "caution": null,
+              "raw_value": 0.0,
+              "contribution": 0.16534,
+              "direction": "supports"
+            },
+            {
+              "feature": "Dst Port",
+              "plain": "destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS)",
+              "caution": "Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.",
+              "raw_value": 36525.0,
+              "contribution": -0.126027,
+              "direction": "argues against"
+            },
+            {
+              "feature": "Subflow Bwd Bytes",
+              "plain": "average bytes per inbound burst",
+              "caution": null,
+              "raw_value": 60.0,
+              "contribution": 0.117984,
+              "direction": "supports"
+            },
+            {
+              "feature": "Bwd Packet/Bulk Avg",
+              "plain": "average packets per inbound burst",
+              "caution": null,
+              "raw_value": 0.0,
+              "contribution": 0.087536,
+              "direction": "supports"
+            }
+          ],
+          "features_typical_for_class": [
+            "Fwd Packet Length Max",
+            "Bwd Bulk Rate Avg",
+            "Dst Port",
+            "Subflow Bwd Bytes"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "row": {
+                  "type": "integer",
+                  "description": "The row number, copied exactly."
+                },
+                "summary": {
+                  "type": "string",
+                  "description": "One sentence naming what was detected. No numbers."
+                },
+                "readings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "feature": {
+                        "type": "string",
+                        "description": "The feature name, copied exactly from the input."
+                      },
+                      "reading": {
+                        "type": "string",
+                        "description": "What this value means as observable network behaviour. Never say whether it supports or argues against the class."
+                      }
+                    },
+                    "required": [
+                      "feature",
+                      "reading"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "row",
+                "summary",
+                "readings"
+              ]
+            }
+          }
+        },
+        "required": [
+          "decisions"
+        ]
+      },
+      "cached_context": "FEATURE GLOSSARY\n# Flow feature glossary\n\nPlain-English definitions for every feature `artifacts/mc_random/XGBoost.pkl` was trained on.\n\n**Generated from `config/feature_glossary.py` \u2014 edit there, not here.** That file is checked against `features.pkl`, so a definition cannot drift away from the model without the check failing.\n\n**Direction.** *Forward* (Fwd) is client \u2192 server, the direction that opened the connection. *Backward* (Bwd) is server \u2192 client. Reversing this inverts about half these definitions.\n\n**Units.** Times are microseconds, lengths are bytes. `Flow Duration` of 4,200,000 is 4.2 seconds.\n\n## Identity\n\n| Feature | Plain English |\n|---|---|\n| `Dst Port` | destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS) |\n| `Protocol` | transport protocol number (6 TCP, 17 UDP, 1 ICMP) |\n\n## Duration and rate\n\n| Feature | Plain English |\n|---|---|\n| `Down/Up Ratio` | downloaded bytes over uploaded bytes -- high means the server sent far more than it received, low is what exfiltration looks like |\n| `Flow Bytes/s` | throughput -- bytes per second across the whole conversation |\n| `Flow Duration` | how long the conversation lasted |\n| `Flow Packets/s` | packets per second across the whole conversation |\n\n## Volume\n\n| Feature | Plain English |\n|---|---|\n| `Subflow Bwd Bytes` | average bytes per inbound burst |\n| `Subflow Bwd Packets` | average packets per inbound burst |\n| `Subflow Fwd Bytes` | average bytes per outbound burst -- the client's typical burst size |\n| `Subflow Fwd Packets` | average packets per outbound burst |\n| `Total Bwd packets` | number of packets the server sent |\n| `Total Fwd Packet` | number of packets the client sent |\n| `Total Length of Bwd Packet` | total bytes the server sent |\n| `Total Length of Fwd Packet` | total bytes the client sent |\n\n## Packet size\n\n| Feature | Plain English |\n|---|---|\n| `Average Packet Size` | mean size of every packet in the conversation |\n| `Bwd Packet Length Max` | largest inbound packet -- a large value means the server returned something substantial |\n| `Bwd Packet Length Mean` | average inbound packet size |\n| `Bwd Packet Length Min` | smallest inbound packet |\n| `Bwd Packet Length Std` | how much inbound packet sizes varied |\n| `Fwd Packet Length Max` | largest outbound packet |\n| `Fwd Packet Length Mean` | average outbound packet size |\n| `Fwd Packet Length Min` | smallest outbound packet |\n| `Fwd Packet Length Std` | how much outbound packet sizes varied |\n| `Packet Length Max` | largest packet in either direction |\n| `Packet Length Mean` | average packet size in either direction (computed slightly differently from Average Packet Size, which is why both exist) |\n| `Packet Length Min` | smallest packet in either direction |\n| `Packet Length Std` | how much packet sizes varied -- low means uniform, machine-generated traffic |\n| `Packet Length Variance` | spread of packet sizes across the connection |\n\n## Timing between packets\n\n| Feature | Plain English |\n|---|---|\n| `Bwd IAT Max` | longest pause between inbound packets |\n| `Bwd IAT Mean` | average gap between inbound packets |\n| `Bwd IAT Min` | shortest gap between inbound packets |\n| `Bwd IAT Std` | how irregular the gaps between inbound packets were -- very low is a hallmark of beaconing, a machine answering on a schedule |\n| `Bwd IAT Total` | total idle time in the inbound direction |\n| `Flow IAT Max` | longest gap between any two packets -- a large value means the connection sat idle, characteristic of one held open deliberately |\n| `Flow IAT Mean` | average gap between packets in either direction |\n| `Flow IAT Min` | shortest gap between any two packets |\n| `Flow IAT Std` | how irregular the packet gaps were |\n| `Fwd IAT Max` | longest pause between outbound packets |\n| `Fwd IAT Mean` | average gap between outbound packets |\n| `Fwd IAT Min` | shortest gap between outbound packets -- near zero means packets sent back to back, typically automated |\n| `Fwd IAT Std` | how irregular the gaps between outbound packets were |\n| `Fwd IAT Total` | total time spanned by the client's packets |\n\n## TCP flags\n\n| Feature | Plain English |\n|---|---|\n| `ACK Flag Count` | acknowledgements |\n| `Bwd PSH Flags` | server pushes requesting immediate delivery |\n| `Bwd URG Flags` | urgent markers set by the server |\n| `CWR Flag Count` | congestion window reduced -- the sender slowing down after congestion (spelled CWE in some source files; folded to CWR here) |\n| `ECE Flag Count` | network congestion notifications |\n| `FIN Flag Count` | orderly connection closes |\n| `Fwd PSH Flags` | client pushes requesting immediate delivery |\n| `Fwd URG Flags` | urgent markers set by the client |\n| `PSH Flag Count` | pushes requesting immediate delivery rather than buffering |\n| `RST Flag Count` | abrupt resets -- high counts mean connections refused or dropped, typical of scanning a closed port |\n| `SYN Flag Count` | connection-open requests -- many with few completions indicates scanning or SYN flooding |\n| `URG Flag Count` | urgent-data markers -- rare in normal traffic |\n\n## Headers and windows\n\n| Feature | Plain English |\n|---|---|\n| `Bwd Header Length` | total header bytes in inbound packets |\n| `Bwd Init Win Bytes` | TCP receive window the server advertised at connection open |\n| `Bwd Segment Size Avg` | average inbound payload segment size |\n| `FWD Init Win Bytes` | TCP receive window the client advertised at connection open -- partly an operating-system fingerprint |\n| `Fwd Header Length` | total header bytes in outbound packets -- large relative to payload suggests many small packets |\n| `Fwd Segment Size Avg` | average outbound payload segment size |\n\n## Bulk transfer\n\n| Feature | Plain English |\n|---|---|\n| `Bwd Bulk Rate Avg` | how fast the server moved data during sustained bursts |\n| `Bwd Bytes/Bulk Avg` | average bytes per inbound burst |\n| `Bwd Packet/Bulk Avg` | average packets per inbound burst |\n| `Fwd Bulk Rate Avg` | how fast the client moved data during sustained bursts |\n| `Fwd Bytes/Bulk Avg` | average bytes per outbound burst |\n| `Fwd Packet/Bulk Avg` | average packets per outbound burst |\n\n## Features that need a warning shown with them\n\n- **`Dst Port`** \u2014 Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.\n- **`FWD Init Win Bytes`** \u2014 Partly an OS fingerprint. Phase 11 ablated it to test whether the model was recognising the capture host; removing it changed macro F1 by 0.0002, so it is not carrying the result.\n- **`Bwd Init Win Bytes`** \u2014 See FWD Init Win Bytes.\n- **`Bwd PSH Flags`** \u2014 Constant zero throughout the binary training data but non-zero in TRUSTLab, so it enters those models unscaled. See knowledge/datasets/scope.md.\n- **`Bwd URG Flags`** \u2014 Constant zero in the binary training data. See Bwd PSH Flags.\n- **`Fwd Bulk Rate Avg`** \u2014 Constant zero in the binary training data. See Bwd PSH Flags.\n- **`Fwd Bytes/Bulk Avg`** \u2014 Constant zero in the binary training data. See Bwd PSH Flags.\n- **`Fwd Packet/Bulk Avg`** \u2014 Constant zero in the binary training data. See Bwd PSH Flags.\n- **`Flow Duration`** \u2014 Capped by the extractor's flow timeout. Training data stops at 120 s; TRUSTLab runs to 15,717 s. A mismatch here invalidates every timing feature -- see deploy/README.md section 3.\n\n---\n\n## Reading these honestly\n\nA high attribution means the model weighted the feature, not that the feature caused the behaviour. Several of these move together \u2014 `Packet Length Mean`, `Max` and `Std` are not independent \u2014 so credit is shared between them in ways that look arbitrary. See `interpretability/caveats.md`.\n\nCovers 66 of 66 features.\n\n\nHOW FAR AN ATTRIBUTION CAN BE PUSHED\n# How far a SHAP attribution can be pushed\n\nQuote these limits alongside any explanation. They are what separates an\nexplanation from a claim.\n\n## What a SHAP value is\n\nThe contribution one feature made to this prediction, relative to the average\nprediction across the background data. Contributions sum to the prediction.\nThe algorithm here is exact TreeSHAP (Lundberg et al. 2020), not an\napproximation.\n\n## What it is not\n\n**Not causation.** \"Flow Duration drove this prediction\" means the model\nweighted that feature heavily. It does not mean long duration causes the\nattack, or that shortening it would prevent one.\n\n**Not an absolute.** Attribution is measured against a baseline -- the mean\nprediction -- not against zero. A feature with attribution near zero was not\nnecessarily irrelevant; it may simply have been near its typical value.\n\n**Not stable under correlation.** Flow features are heavily inter-correlated\n(packet length mean, max and std move together). Correlated features share\ncredit in ways that look arbitrary. A low attribution does not prove a\nfeature carries no information.\n\n**Not a defence of a wrong answer.** SHAP explains the model, not the world.\nA confident, coherent explanation of a misclassification is still a\nmisclassification.\n\n## Specific to this model\n\nValues are computed on **scaled** features. The raw value shown in the\ninterface is for human reading only; the model reasons in the scaled space.\n\nSlowloris and DoS have a per-feature importance correlation of **0.9159**\nand share six of their top ten features. When either is predicted with the\nother close behind, the attribution will look similar for both -- because it\ngenuinely is. Report the ambiguity, do not resolve it.\n\nThe model was trained and validated on TRUSTLab. An explanation of a flow\nfrom a different capture environment is an explanation of what the model\ndid, not evidence the model was right.\n\n\nUNITS\nSHAP contributions are in LOG-ODDS (model margin), not probability. A\ncontribution of +2.49 means the evidence pushed the score up by 2.49 in\nlog-odds. Never express one as a percentage or a probability change. Rank\nthem against each other and describe direction; do not quantify the effect\non the final probability.",
+      "prompt": "Translate these model decisions for a network investigator\nwho is not a machine-learning specialist.\n\nDECISIONS\n[\n  {\n    \"row\": 441,\n    \"predicted\": \"Slowloris\",\n    \"confidence\": 0.9997,\n    \"runner_up\": \"DoS\",\n    \"runner_up_confidence\": 0.0003,\n    \"attributions\": [\n      {\n        \"feature\": \"Flow IAT Min\",\n        \"plain\": \"shortest gap between any two packets\",\n        \"caution\": null,\n        \"raw_value\": 1205279.0,\n        \"contribution\": 2.491464,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Fwd Packet Length Max\",\n        \"plain\": \"largest outbound packet\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 1.743746,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Subflow Bwd Bytes\",\n        \"plain\": \"average bytes per inbound burst\",\n        \"caution\": null,\n        \"raw_value\": 120.0,\n        \"contribution\": -1.630014,\n        \"direction\": \"argues against\"\n      },\n      {\n        \"feature\": \"Bwd IAT Total\",\n        \"plain\": \"total idle time in the inbound direction\",\n        \"caution\": null,\n        \"raw_value\": 1205280.0,\n        \"contribution\": 1.294298,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Bwd IAT Min\",\n        \"plain\": \"shortest gap between inbound packets\",\n        \"caution\": null,\n        \"raw_value\": 1205280.0,\n        \"contribution\": 0.606504,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Dst Port\",\n        \"plain\": \"destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS)\",\n        \"caution\": \"Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.\",\n        \"raw_value\": 58692.0,\n        \"contribution\": 0.465222,\n        \"direction\": \"supports\"\n      }\n    ],\n    \"features_typical_for_class\": [\n      \"Flow IAT Min\",\n      \"Fwd Packet Length Max\",\n      \"Subflow Bwd Bytes\",\n      \"Dst Port\"\n    ]\n  },\n  {\n    \"row\": 61,\n    \"predicted\": \"Slowloris\",\n    \"confidence\": 0.5027,\n    \"runner_up\": \"DoS\",\n    \"runner_up_confidence\": 0.4972,\n    \"nearly_undecided\": true,\n    \"attributions\": [\n      {\n        \"feature\": \"Fwd Packet Length Max\",\n        \"plain\": \"largest outbound packet\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 1.614705,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Bwd Bulk Rate Avg\",\n        \"plain\": \"how fast the server moved data during sustained bursts\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 0.275033,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Fwd Packet Length Mean\",\n        \"plain\": \"average outbound packet size\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 0.16534,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Dst Port\",\n        \"plain\": \"destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS)\",\n        \"caution\": \"Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.\",\n        \"raw_value\": 36525.0,\n        \"contribution\": -0.126027,\n        \"direction\": \"argues against\"\n      },\n      {\n        \"feature\": \"Subflow Bwd Bytes\",\n        \"plain\": \"average bytes per inbound burst\",\n        \"caution\": null,\n        \"raw_value\": 60.0,\n        \"contribution\": 0.117984,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Bwd Packet/Bulk Avg\",\n        \"plain\": \"average packets per inbound burst\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 0.087536,\n        \"direction\": \"supports\"\n      }\n    ],\n    \"features_typical_for_class\": [\n      \"Fwd Packet Length Max\",\n      \"Bwd Bulk Rate Avg\",\n      \"Dst Port\",\n      \"Subflow Bwd Bytes\"\n    ]\n  }\n]\n\nReturn JSON matching the schema. For each decision give:\n\n  summary   One sentence naming what was detected. No numbers, no confidence\n            figures, no mention of the runner-up -- those are printed\n            separately and do not need repeating.\n\n  readings  One entry per feature listed for that row, and no others:\n  row 441: Flow IAT Min, Fwd Packet Length Max, Subflow Bwd Bytes, Bwd IAT Total, Bwd IAT Min, Dst Port\n  row 61: Fwd Packet Length Max, Bwd Bulk Rate Avg, Fwd Packet Length Mean, Dst Port, Subflow Bwd Bytes, Bwd Packet/Bulk Avg\n            `reading` says what THAT RAW VALUE means as observable network\n            behaviour -- what an analyst would see on the wire. Use the raw\n            value, not the scaled one, and keep each to one sentence.\n\nA reading describes behaviour. It never renders a verdict: do not write that\na feature supports, argues against, indicates, confirms, or is typical,\natypical, unusual, characteristic or consistent with anything. Whether a\nfeature counted for or against the class is printed beside your reading from\nthe model's own output, and a reading that contradicts it is discarded.\n\nDo not write causal language: attribution shows what the model weighted, not\nwhat caused the attack. If the glossary does not define a feature, describe\nthe value literally rather than guessing what the feature means.",
+      "narrative": null,
+      "display": {
+        "title": "Why this decision",
+        "decisions": []
+      }
+    },
+    {
+      "panel": "recommendations",
+      "class": "Slowloris",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "what_was_found": {
+            "type": "string",
+            "description": "Two sentences, plain language, no jargon. Include how many flows."
+          },
+          "confidence_assessment": {
+            "type": "string",
+            "description": "How much to trust this, given the model's confidence and this class's measured reliability. Be direct about doubt."
+          },
+          "ambiguous_with": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The class this may actually be, when the model could not separate them. null if unambiguous."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "description": "One step to take."
+                },
+                "source": {
+                  "type": "string",
+                  "description": "The document path this came from, exactly as given."
+                },
+                "quote": {
+                  "type": "string",
+                  "description": "The sentence from that document that prescribes it, copied verbatim."
+                }
+              },
+              "required": [
+                "action",
+                "source",
+                "quote"
+              ]
+            }
+          },
+          "false_positive_conditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Concrete conditions an investigator can check."
+          },
+          "not_covered": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the situation needs that the supplied documentation does not address."
+          }
+        },
+        "required": [
+          "what_was_found",
+          "confidence_assessment",
+          "ambiguous_with",
+          "actions",
+          "false_positive_conditions",
+          "not_covered"
+        ]
+      },
+      "supplied_documents": {
+        "detection/attack_slowloris.md": "# Slowloris \u2014 detection notes\n\n> **PLACEHOLDER.** Written to exercise the retrieval and citation-verification\n> path, not sourced from any standard. Replace the body of each section with\n> the relevant text of NIST SP 800-61r3 and your own runbook before this is\n> used on real traffic. Keep the heading structure intact: the retrieval and\n> quote-verification steps depend on it.\n\n## 1.1 What this class covers\n\nLow-and-slow connection exhaustion: many half-open requests held for a long time to consume worker slots without generating volume.\n\n## 1.2 How it appears in flow records\n\nLong flow durations with very low byte counts and large minimum inter-arrival times. `Flow IAT Min` is high because the client deliberately waits between partial requests, which is the opposite shape to a flood.\n\n## 1.3 Classes it is confused with\n\nDoS. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9159 and seven of the top ten features are shared. Report both sub-types rather than choosing one.\n\n## 1.4 Common false positives\n\nClients on high-latency links, long-polling and server-sent-event connections, and idle keep-alive sessions from a mobile network.\n",
+        "incident_response/denial_of_service.md": "# Denial of service \u2014 response\n\n> **PLACEHOLDER.** Written to exercise the citation-verification path, not\n> sourced from any standard. Replace with the relevant sections of NIST\n> SP 800-61r3 and your own runbook before this is used on real traffic.\n> Keep the heading structure intact: the retrieval and quote-verification\n> steps depend on it.\n\n## 4.1 Detection and analysis\n\nRecord the source addresses, the destination service, and the request rate.\nEstablish whether the traffic volume exceeds the normal baseline for that\nservice before declaring an incident.\n\nDistinguish resource exhaustion from bandwidth exhaustion. A service that is\nunresponsive while the link is not saturated indicates connection or worker\nexhaustion rather than flooding.\n\n## 4.2 Containment\n\nApply rate limiting at the perimeter for the identified source addresses.\nWhere the source set is large or spoofed, apply rate limiting by\ndestination service rather than by source.\n\nIncrease the connection timeout floor and reduce the maximum keep-alive\nduration on the affected service. This is the specific mitigation for\nconnection-holding attacks that consume worker slots without generating\nvolume.\n\nDo not block on the basis of a single detection. Confirm the source is not an\nauthorised scanner, monitoring probe, or health check before applying any\nblock.\n\n## 4.3 Eradication and recovery\n\nRestore normal timeout and rate-limit configuration once the source traffic\nhas stopped for a sustained period. Record the configuration change and its\nreversal in the incident log.\n\n## 4.4 Distinguishing slow-rate from high-rate\n\nSlow-rate attacks hold many connections open with minimal traffic per\nconnection; high-rate attacks generate large volumes across shorter\nconnections. The mitigations differ: slow-rate is addressed by timeout and\nper-source connection limits, high-rate by rate limiting and upstream\nfiltering.\n\nWhere the two cannot be distinguished from flow records alone, apply the\nslow-rate mitigations first, since they are lower impact on legitimate\ntraffic.\n",
+        "detection/attack_dos.md": "# DoS \u2014 detection notes\n\n> **PLACEHOLDER.** Written to exercise the retrieval and citation-verification\n> path, not sourced from any standard. Replace the body of each section with\n> the relevant text of NIST SP 800-61r3 and your own runbook before this is\n> used on real traffic. Keep the heading structure intact: the retrieval and\n> quote-verification steps depend on it.\n\n## 1.1 What this class covers\n\nSingle-source resource exhaustion at an intermediate rate, against a service rather than a link.\n\n## 1.2 How it appears in flow records\n\nSustained flows from one source to one destination port at a rate high enough to consume worker capacity but not the link. Backward volume is low relative to forward volume.\n\n## 1.3 Classes it is confused with\n\nSlowloris. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9159 and seven of the top ten features are shared. Always report the pair. DDoS, which is the same behaviour from many sources.\n\n## 1.4 Common false positives\n\nA retry storm from a broken client, an unthrottled batch job, and a monitoring check configured at too short an interval.\n"
+      },
+      "retrieval": {
+        "mode": "whole_document",
+        "sections": [],
+        "document_tokens": 1217,
+        "search_threshold": 0,
+        "nodes_available": 15
+      },
+      "mitre": [
+        "T1499.002"
+      ],
+      "controls": [
+        "SC-5",
+        "SC-7"
+      ],
+      "ambiguity": "Slow-rate denial-of-service. This model cannot reliably separate Slowloris from DoS: per-feature SHAP importance correlates at 0.92 and seven of the top ten features are shared. Treat as one finding with two candidate sub-types.",
+      "citations": [
+        "detection/attack_dos.md",
+        "detection/attack_slowloris.md",
+        "incident_response/denial_of_service.md"
+      ],
+      "missing_documents": [],
+      "cached_context": "SCOPE AND LIMITS\n# Scope and claim boundary\n\n## What this model was built from\n\nTrained and validated entirely on TRUSTLab. 951,944 training flows, 167,993\nheld out for early stopping and 280,063 held-out test flows, sixteen\nclasses, random split. Test accuracy 0.9313, macro F1 0.9267.\n\n## Where it has been shown to work\n\nTRUSTLab held-out data only -- the same capture environment it learned from.\n\n## Where it has not\n\nEverywhere else. This is measured, not cautious wording. The same project\ntrained fifteen binary detectors on CICIDS2018 and TII-SSRC-23 and tested\nthem on TRUSTLab: mean ROC-AUC 0.4698, with ten of fifteen below 0.50 --\nworse than a coin flip, despite scoring 0.839-0.999 on their own data.\n\nThe cause was diagnosed: flow features do not survive a change of capture\nenvironment. Training flows were extracted with a 120-second timeout;\nTRUSTLab flows run to 15,717 seconds. Seventeen of the 66 features differ\nby more than three standard deviations between the two, and twenty-five do\nfor the CICIDS2018-only detector.\n\n## What to say in an interface\n\n> Trained and validated on TRUSTLab. Accuracy on other capture environments\n> is not established.\n\n## What deploying elsewhere would require\n\nLabelled traffic from the target network, extracted with a documented and\nmatching flow-timeout configuration, and retraining. Not a configuration\nchange.\n\n## Per-class reliability\n\nTwelve of sixteen classes are at F1 0.94 or above. Four are not:\n\n| Class | F1 | Note |\n|---|---|---|\n| DoS | 0.6714 | confused with Slowloris |\n| Slowloris | 0.7639 | confused with DoS |\n| Exploitation | 0.7838 | bleeds into BufferOverflow |\n| BufferOverflow | 0.8017 | overlaps Exploitation |\n\n\nDOCUMENTATION -- quote only from here\n=== detection/attack_slowloris.md ===\n# Slowloris \u2014 detection notes\n\n> **PLACEHOLDER.** Written to exercise the retrieval and citation-verification\n> path, not sourced from any standard. Replace the body of each section with\n> the relevant text of NIST SP 800-61r3 and your own runbook before this is\n> used on real traffic. Keep the heading structure intact: the retrieval and\n> quote-verification steps depend on it.\n\n## 1.1 What this class covers\n\nLow-and-slow connection exhaustion: many half-open requests held for a long time to consume worker slots without generating volume.\n\n## 1.2 How it appears in flow records\n\nLong flow durations with very low byte counts and large minimum inter-arrival times. `Flow IAT Min` is high because the client deliberately waits between partial requests, which is the opposite shape to a flood.\n\n## 1.3 Classes it is confused with\n\nDoS. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9159 and seven of the top ten features are shared. Report both sub-types rather than choosing one.\n\n## 1.4 Common false positives\n\nClients on high-latency links, long-polling and server-sent-event connections, and idle keep-alive sessions from a mobile network.\n\n\n=== incident_response/denial_of_service.md ===\n# Denial of service \u2014 response\n\n> **PLACEHOLDER.** Written to exercise the citation-verification path, not\n> sourced from any standard. Replace with the relevant sections of NIST\n> SP 800-61r3 and your own runbook before this is used on real traffic.\n> Keep the heading structure intact: the retrieval and quote-verification\n> steps depend on it.\n\n## 4.1 Detection and analysis\n\nRecord the source addresses, the destination service, and the request rate.\nEstablish whether the traffic volume exceeds the normal baseline for that\nservice before declaring an incident.\n\nDistinguish resource exhaustion from bandwidth exhaustion. A service that is\nunresponsive while the link is not saturated indicates connection or worker\nexhaustion rather than flooding.\n\n## 4.2 Containment\n\nApply rate limiting at the perimeter for the identified source addresses.\nWhere the source set is large or spoofed, apply rate limiting by\ndestination service rather than by source.\n\nIncrease the connection timeout floor and reduce the maximum keep-alive\nduration on the affected service. This is the specific mitigation for\nconnection-holding attacks that consume worker slots without generating\nvolume.\n\nDo not block on the basis of a single detection. Confirm the source is not an\nauthorised scanner, monitoring probe, or health check before applying any\nblock.\n\n## 4.3 Eradication and recovery\n\nRestore normal timeout and rate-limit configuration once the source traffic\nhas stopped for a sustained period. Record the configuration change and its\nreversal in the incident log.\n\n## 4.4 Distinguishing slow-rate from high-rate\n\nSlow-rate attacks hold many connections open with minimal traffic per\nconnection; high-rate attacks generate large volumes across shorter\nconnections. The mitigations differ: slow-rate is addressed by timeout and\nper-source connection limits, high-rate by rate limiting and upstream\nfiltering.\n\nWhere the two cannot be distinguished from flow records alone, apply the\nslow-rate mitigations first, since they are lower impact on legitimate\ntraffic.\n\n\n=== detection/attack_dos.md ===\n# DoS \u2014 detection notes\n\n> **PLACEHOLDER.** Written to exercise the retrieval and citation-verification\n> path, not sourced from any standard. Replace the body of each section with\n> the relevant text of NIST SP 800-61r3 and your own runbook before this is\n> used on real traffic. Keep the heading structure intact: the retrieval and\n> quote-verification steps depend on it.\n\n## 1.1 What this class covers\n\nSingle-source resource exhaustion at an intermediate rate, against a service rather than a link.\n\n## 1.2 How it appears in flow records\n\nSustained flows from one source to one destination port at a rate high enough to consume worker capacity but not the link. Backward volume is low relative to forward volume.\n\n## 1.3 Classes it is confused with\n\nSlowloris. The model cannot reliably separate the two: per-feature SHAP importance correlates at 0.9159 and seven of the top ten features are shared. Always report the pair. DDoS, which is the same behaviour from many sources.\n\n## 1.4 Common false positives\n\nA retry storm from a broken client, an unthrottled batch job, and a monitoring check configured at too short an interval.\n",
+      "prompt": "You are assisting a network forensics investigator. Produce\nresponse guidance for this detection.\n\nFINDING\n  class            : Slowloris\n  flows            : 154 (7.7% of the capture)\n  confidence       : mean 0.68, range 0.50-1.00\n  low-confidence   : 41 flows below 0.60\n  nearly-said      : DoS for 100% of these flows\n  class summary    : Low-and-slow connection exhaustion -- many half-open requests held for a long time.\n  MITRE ATT&CK     : T1499.002\n  NIST controls    : SC-5, SC-7\n\nMODEL RELIABILITY FOR THIS CLASS\n  test F1          : 0.7639 -- the second weakest of the 4 classes this model scores below 0.94. This measures the CLASS across the test set, not this finding, and it is not a confidence value\n  AMBIGUITY      : Slow-rate denial-of-service. This model cannot reliably separate Slowloris from DoS: per-feature SHAP importance correlates at 0.92 and seven of the top ten features are shared. Treat as one finding with two candidate sub-types.\n\nCAPTURE CONTEXT\n{\n  \"source\": \"mc_test_random.parquet (demo)\",\n  \"total_flows\": 2000,\n  \"benign_flows\": 293,\n  \"attack_flows\": 1707,\n  \"attack_share\": 0.8535,\n  \"distinct_attack_classes\": 15,\n  \"class_counts\": {\n    \"Benign\": 293,\n    \"Slowloris\": 154,\n    \"DDoS\": 138,\n    \"WebBased\": 130,\n    \"BufferOverflow\": 125,\n    \"Exploitation\": 123,\n    \"C2Beaconing\": 120,\n    \"PortScan\": 114,\n    \"Exfiltration\": 113,\n    \"TLSSSL\": 109,\n    \"DNS\": 109,\n    \"MITM\": 107,\n    \"Evasion\": 105,\n    \"API\": 100,\n    \"Bruteforce\": 97,\n    \"DoS\": 63\n  },\n  \"mean_confidence\": 0.9384,\n  \"low_confidence_flows\": 136,\n  \"total_flow_seconds\": 961278.1,\n  \"longest_flow_seconds\": 13112.9,\n  \"median_flow_seconds\": 0.002\n}\n\nWHY THE MODEL DECIDED THIS\n[\n  {\n    \"row\": 441,\n    \"predicted\": \"Slowloris\",\n    \"confidence\": 0.9997,\n    \"runner_up\": \"DoS\",\n    \"runner_up_confidence\": 0.0003,\n    \"attributions\": [\n      {\n        \"feature\": \"Flow IAT Min\",\n        \"plain\": \"shortest gap between any two packets\",\n        \"caution\": null,\n        \"raw_value\": 1205279.0,\n        \"contribution\": 2.491464,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Fwd Packet Length Max\",\n        \"plain\": \"largest outbound packet\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 1.743746,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Subflow Bwd Bytes\",\n        \"plain\": \"average bytes per inbound burst\",\n        \"caution\": null,\n        \"raw_value\": 120.0,\n        \"contribution\": -1.630014,\n        \"direction\": \"argues against\"\n      },\n      {\n        \"feature\": \"Bwd IAT Total\",\n        \"plain\": \"total idle time in the inbound direction\",\n        \"caution\": null,\n        \"raw_value\": 1205280.0,\n        \"contribution\": 1.294298,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Bwd IAT Min\",\n        \"plain\": \"shortest gap between inbound packets\",\n        \"caution\": null,\n        \"raw_value\": 1205280.0,\n        \"contribution\": 0.606504,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Dst Port\",\n        \"plain\": \"destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS)\",\n        \"caution\": \"Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.\",\n        \"raw_value\": 58692.0,\n        \"contribution\": 0.465222,\n        \"direction\": \"supports\"\n      }\n    ],\n    \"features_typical_for_class\": [\n      \"Flow IAT Min\",\n      \"Fwd Packet Length Max\",\n      \"Subflow Bwd Bytes\",\n      \"Dst Port\"\n    ]\n  },\n  {\n    \"row\": 61,\n    \"predicted\": \"Slowloris\",\n    \"confidence\": 0.5027,\n    \"runner_up\": \"DoS\",\n    \"runner_up_confidence\": 0.4972,\n    \"nearly_undecided\": true,\n    \"attributions\": [\n      {\n        \"feature\": \"Fwd Packet Length Max\",\n        \"plain\": \"largest outbound packet\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 1.614705,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Bwd Bulk Rate Avg\",\n        \"plain\": \"how fast the server moved data during sustained bursts\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 0.275033,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Fwd Packet Length Mean\",\n        \"plain\": \"average outbound packet size\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 0.16534,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Dst Port\",\n        \"plain\": \"destination port -- effectively which service was contacted (22 SSH, 80 HTTP, 443 HTTPS, 53 DNS)\",\n        \"caution\": \"Often the strongest single signal, and worth suspicion for that reason: a model leaning on port number may have learned the lab's service layout rather than the attack.\",\n        \"raw_value\": 36525.0,\n        \"contribution\": -0.126027,\n        \"direction\": \"argues against\"\n      },\n      {\n        \"feature\": \"Subflow Bwd Bytes\",\n        \"plain\": \"average bytes per inbound burst\",\n        \"caution\": null,\n        \"raw_value\": 60.0,\n        \"contribution\": 0.117984,\n        \"direction\": \"supports\"\n      },\n      {\n        \"feature\": \"Bwd Packet/Bulk Avg\",\n        \"plain\": \"average packets per inbound burst\",\n        \"caution\": null,\n        \"raw_value\": 0.0,\n        \"contribution\": 0.087536,\n        \"direction\": \"supports\"\n      }\n    ],\n    \"features_typical_for_class\": [\n      \"Fwd Packet Length Max\",\n      \"Bwd Bulk Rate Avg\",\n      \"Dst Port\",\n      \"Subflow Bwd Bytes\"\n    ]\n  }\n]\n\nReturn JSON matching the schema.\n\n  what_was_found            two sentences, plain language, no jargon; say\n                            how many flows and let the scale inform how\n                            serious this reads\n  confidence_assessment     the model confidence, this class's measured\n                            reliability, and the ambiguity above if present;\n                            be direct about doubt\n  ambiguous_with            the class this may actually be, or null\n  actions                   each needs `action`, `source` (a document path\n                            exactly as given above) and `quote` (the\n                            sentence from that document that prescribes it,\n                            copied VERBATIM -- it is checked against the\n                            document and the action is discarded if it does\n                            not appear)\n  false_positive_conditions concrete conditions an investigator can check\n  not_covered               what this situation needs that the supplied\n                            documentation does not address\n\nIf no documentation was supplied, return an empty `actions` array and say so\nin `not_covered`. Do not write an action you cannot quote.\n\nRules:\n  - Cite only the documentation above. If it does not cover something the\n    situation needs, say \"not covered by the available documentation\" and\n    move on. Do not supply the step from general knowledge.\n  - Missing documents: none. Where a document is missing, say\n    which guidance is unavailable rather than filling the gap.\n  - The model was trained and validated on TRUSTLab only. Do not imply the\n    finding generalises to networks it has not been tested on.\n  - No severity rating unless the documentation defines one.",
+      "narrative": null,
+      "display": {
+        "title": "Recommended actions",
+        "actions": [],
+        "unavailable": "The model did not return usable output for this finding."
+      }
+    }
+  ]
+}

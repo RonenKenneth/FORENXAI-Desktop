@@ -37,3 +37,34 @@ frontend/FORENXAI.Desktop/obj/
 # Miscellaneous
 # ==========================================
 *.log
+
+# ==========================================
+# RAG source documents: third-party publications, kept off Git.
+# Only the manifest and the hash list are tracked.
+# ==========================================
+rag/_sources/*
+!rag/_sources/manifest.json
+!rag/_sources/SHA256SUMS.txt
+
+# Project-local JDK for CICFlowMeter. Unpacked by hand, never committed:
+# a JDK is ~180 MB and machine-specific. tools/README.md says how.
+tools/*
+!tools/README.md
+!tools/jdk.path
+
+# ==========================================
+# Extracted source text: regenerated, not authored.
+# ==========================================
+# rag/config/extract_sources.py rebuilds rag/_extracted/ from the PDFs in
+# rag/_sources/, which are not committed either -- the archive is
+# third-party publisher material. Nothing at runtime reads the extracts:
+# EXTRACTED_SEARCHABLE and LITERATURE_SEARCHABLE are both False in
+# rag/config/source_index.py, so a clone without them behaves the same.
+rag/_extracted/
+
+# ==========================================
+# Prepared RAG index: derived from knowledge/ and _sources/ by
+# rag/config/rag_index.py, rebuilt automatically when they change.
+# ==========================================
+rag/.rag_index.json
+rag/.rag_index.tmp

@@ -1,0 +1,17 @@
+,pred_API,pred_Benign,pred_Bruteforce,pred_BufferOverflow,pred_C2Beaconing,pred_DDoS,pred_DNS,pred_DoS,pred_Evasion,pred_Exfiltration,pred_Exploitation,pred_MITM,pred_PortScan,pred_Slowloris,pred_TLSSSL,pred_WebBased
+true_API,15999,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0
+true_Benign,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+true_Bruteforce,0,0,14990,363,23,0,0,0,0,5,488,0,0,0,127,0
+true_BufferOverflow,0,0,8,12469,75,0,0,0,0,0,3448,0,0,0,0,0
+true_C2Beaconing,1,0,2,560,14644,0,0,0,0,0,792,0,0,0,0,0
+true_DDoS,0,0,0,0,0,15945,0,0,0,0,0,0,62,0,0,0
+true_DNS,0,0,0,0,0,0,16000,0,0,0,0,0,0,0,0,0
+true_DoS,0,0,0,0,0,0,0,9206,0,0,0,0,0,6818,0,0
+true_Evasion,0,0,0,0,0,0,0,0,15981,0,1,21,0,0,0,0
+true_Exfiltration,0,0,2,0,0,0,0,0,0,16006,0,0,0,0,0,0
+true_Exploitation,0,0,496,1316,54,0,0,0,0,3,13960,0,0,0,91,84
+true_MITM,0,0,0,0,0,0,0,0,33,1,1,16015,0,0,0,0
+true_PortScan,0,0,0,0,0,151,0,0,0,0,0,0,15838,0,0,0
+true_Slowloris,0,0,0,0,0,0,0,1908,0,0,0,0,0,14071,0,0
+true_TLSSSL,0,0,226,0,0,0,0,0,0,0,87,0,0,0,15687,0
+true_WebBased,0,0,0,0,0,0,0,0,0,0,74,0,0,0,1,15925

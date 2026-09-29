@@ -1,0 +1,571 @@
+{
+  "version": "tier1-1.2+tier2-1.0",
+  "description": "Tier 1 rule-based detection on CICFlowMeter flow records. Every threshold is here; change it here, not in code. Count thresholds are multiplied by the sensitivity factor (high sensitivity = lower thresholds = more alerts).",
+  "window_seconds": 60,
+  "sensitivity": "medium",
+  "sensitivity_factors": {
+    "low": 1.5,
+    "medium": 1.0,
+    "high": 0.7
+  },
+  "priority": [
+    "Exploitation",
+    "BufferOverflow",
+    "WebBased",
+    "API",
+    "MITM",
+    "Evasion",
+    "DDoS",
+    "DoS",
+    "Slowloris",
+    "Bruteforce",
+    "PortScan",
+    "C2Beaconing",
+    "Exfiltration",
+    "DNS",
+    "TLSSSL"
+  ],
+  "rules": {
+    "T1-PORTSCAN-01": {
+      "class": "PortScan",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source probes many destination ports of one host inside a window, each probe carrying almost no data.",
+      "min_distinct_ports": 50,
+      "max_median_fwd_packets": 3,
+      "basis": "Tuned on labelled public data (TII-SSRC-23, CSE-CIC-IDS2018 02-20-2018), held-out test: recall 0.9997, precision 0.9636, benign false alarms 0.02%. Comparable open-source signatures: ET Open 'ET SCAN Behavioral Unusual Port' rules (sid 2001580-2001583) alert at 40-70 SYNs per source in 60 s."
+    },
+    "T1-DDOS-01": {
+      "class": "DDoS",
+      "enabled": false,
+      "severity": "high",
+      "description": "Several sources each flood the same destination service inside a window.",
+      "min_flooding_sources": 3,
+      "per_source_min_flows": 100,
+      "disabled_reason": "No tested setting keeps benign false alarms at or below 1%: the best flags 6.71% of benign flows on held-out data (recall 0.8162, precision 0.5356). Enable only on a network whose busy services are known; the DoS rule still flags each flooding source individually.",
+      "basis": "Tuned on labelled public data; disabled because no setting kept benign false alarms at or below 1% (see disabled_reason)."
+    },
+    "T1-DOS-01": {
+      "class": "DoS",
+      "enabled": true,
+      "severity": "high",
+      "description": "One source opens a sustained, high number of flows to one destination service inside a window. Name-service ports are excluded: many small queries to a resolver are normal, and DNS abuse is its own class.",
+      "min_flows": 800,
+      "exclude_ports": [
+        53,
+        67,
+        68,
+        123,
+        137,
+        138,
+        5353
+      ],
+      "basis": "Tuned on labelled public data (TII-SSRC-23, CSE-CIC-IDS2018 02-20-2018), held-out test: recall 0.9939, precision 0.9268, benign false alarms 0.00%."
+    },
+    "T1-SLOWLORIS-01": {
+      "class": "Slowloris",
+      "enabled": true,
+      "severity": "high",
+      "description": "One source holds many long, near-idle connections open to a web service at the same time.",
+      "web_ports": [
+        80,
+        443,
+        8000,
+        8080,
+        8443
+      ],
+      "min_duration_seconds": 30,
+      "max_fwd_packet_mean_bytes": 60,
+      "min_concurrent_flows": 20,
+      "basis": "Not tuned: the public datasets with real addresses have no labelled Slowloris flows. Measured on them: benign false alarms 0.01%, but 40,563 flows of other attack classes also match. Heuristic threshold, supporting evidence only (the verdict follows the model). For reference, Apache httpd's mod_reqtimeout default allows 20-40 s for request headers. Tier 2 runs ET Open 'ET SCAN Simple Slowloris Flooder' (sid 2016033) on the packets."
+    },
+    "T1-BRUTEFORCE-01": {
+      "class": "Bruteforce",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source makes many connection attempts of similar size to an authentication service inside a window.",
+      "auth_ports": [
+        21,
+        22,
+        23,
+        25,
+        110,
+        143,
+        389,
+        445,
+        587,
+        993,
+        995,
+        1433,
+        3306,
+        3389,
+        5432,
+        5900
+      ],
+      "min_attempts": 20,
+      "max_size_cv": 1.0,
+      "basis": "Tuned on labelled public data, held-out test: recall 0.4633, precision 0.2009, benign false alarms 0.55%. Low precision, so the verdict for this class follows the model. Comparable open-source signatures: ET Open 'ET SCAN Potential SSH Scan' (sid 2001219) alerts at 5 SYNs to port 22 per source in 120 s, and 'Multiple FTP Root Login Attempts' (sid 2010642) at 5 in 60 s; this rule is stricter (20 in 60 s)."
+    },
+    "T1-C2-01": {
+      "class": "C2Beaconing",
+      "enabled": true,
+      "severity": "high",
+      "description": "One source contacts the same destination service at regular intervals across the capture.",
+      "min_flows": 6,
+      "max_interval_cv": 0.2,
+      "min_mean_interval_seconds": 2,
+      "max_mean_bytes": 10000,
+      "basis": "Not tuned: no labelled beaconing flows with real addresses and timestamps. Measured benign false alarms 0.75%. Heuristic interval-regularity check (the approach of the open-source RITA beacon analysis), supporting evidence only (the verdict follows the model). Tier 2 runs ET Open CnC signatures on the packets."
+    },
+    "T1-EXFIL-01": {
+      "class": "Exfiltration",
+      "enabled": true,
+      "severity": "high",
+      "description": "A flow sends far more data out than it receives.",
+      "min_fwd_bytes": 10000000,
+      "max_down_up_ratio": 0.1,
+      "basis": "Not tuned: no labelled exfiltration flows with real addresses. Measured benign false alarms below 0.001%. Heuristic volume/ratio check, supporting evidence only (the verdict follows the model)."
+    },
+    "T1-DNS-01": {
+      "class": "DNS",
+      "enabled": true,
+      "severity": "high",
+      "description": "Many DNS flows between one host and one resolver inside a window whose replies are many times the size of the queries (amplification / reflection).",
+      "min_flows": 20,
+      "min_reply_ratio": 10,
+      "basis": "Not tuned on labelled data. The reply/query ratio of 10 is below the DNS amplification factors documented by US-CERT TA14-017A (28-54) and Rossow, NDSS 2014, so real amplification exceeds it. Comparable open-source signature: ET Open 'ET DOS DNS Amplification Attack Inbound' (sid 2016016), 5 per destination in 60 s. Supporting evidence only (the verdict follows the model)."
+    },
+    "T1-TLS-01": {
+      "class": "TLSSSL",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source makes many short TLS connections that end in a reset inside a window: failed or aborted handshakes.",
+      "tls_ports": [
+        443,
+        465,
+        636,
+        853,
+        993,
+        995,
+        8443
+      ],
+      "max_packets": 8,
+      "min_failed_handshakes": 10,
+      "basis": "Not tuned on labelled data. Heuristic count of short TLS connections ending in a reset, supporting evidence only (the verdict follows the model). Tier 2 runs Suricata's TLS protocol checks and ET Open TLS signatures on the packets."
+    },
+    "T1-BOF-01": {
+      "class": "BufferOverflow",
+      "enabled": false,
+      "severity": "high",
+      "description": "A flow's largest forward packet exceeds the largest benign packet seen to that destination port (p99.9 of TRUSTLab benign training flows; ports with fewer than 1,000 benign flows use the overall benign maximum).",
+      "baseline_bytes": {
+        "3306": 74.0,
+        "53": 113.0,
+        "110": 275.0,
+        "21": 277.0,
+        "443": 279.9,
+        "143": 280.6,
+        "80": 389.0,
+        "22": 1602.0
+      },
+      "default_limit_bytes": 7306.0,
+      "disabled_reason": "Measured on the TRUSTLab test split (baseline fitted on the training split only): 0 of 16,000 BufferOverflow flows exceed their port's baseline at p99, p99.9 or the maximum, while 5,424 Exfiltration and 427 PortScan flows do. Packet size does not separate overflow payloads in this data; the Tier 2 NOP-sled check and Suricata's ET SHELLCODE rules cover the class instead.",
+      "basis": "Baseline fitted on TRUSTLab benign training flows; disabled because it does not separate overflow payloads (see disabled_reason)."
+    }
+  },
+  "tuning": {
+    "method": "Thresholds chosen on flows in even-numbered minutes of TII-SSRC-23 and CSE-CIC-IDS2018 (02-20-2018), tested on flows in odd-numbered minutes.",
+    "selection": "best F1 on the rule's own class with benign false alarms <= 1%",
+    "tuned_rules": [
+      "T1-BRUTEFORCE-01",
+      "T1-DDOS-01",
+      "T1-DOS-01",
+      "T1-PORTSCAN-01"
+    ],
+    "untuned_rules": [
+      "T1-C2-01",
+      "T1-EXFIL-01",
+      "T1-SLOWLORIS-01"
+    ],
+    "untuned_reason": "no labelled attack flows with real addresses and timestamps for these classes",
+    "test_results": {
+      "T1-PORTSCAN-01": {
+        "recall": 0.9997,
+        "precision": 0.9636,
+        "f1": 0.9813,
+        "benign_fa": 0.0002,
+        "attack_flows_flagged": 668835
+      },
+      "T1-DDOS-01": {
+        "recall": 0.8162,
+        "precision": 0.5356,
+        "f1": 0.6468,
+        "benign_fa": 0.0671,
+        "attack_flows_flagged": 285329
+      },
+      "T1-DOS-01": {
+        "recall": 0.9939,
+        "precision": 0.9268,
+        "f1": 0.9592,
+        "benign_fa": 0.0,
+        "attack_flows_flagged": 3931651
+      },
+      "T1-SLOWLORIS-01": {
+        "recall": null,
+        "precision": 0.0,
+        "f1": 0.0,
+        "benign_fa": 0.0001,
+        "attack_flows_flagged": 40563
+      },
+      "T1-BRUTEFORCE-01": {
+        "recall": 0.4633,
+        "precision": 0.2009,
+        "f1": 0.2803,
+        "benign_fa": 0.0055,
+        "attack_flows_flagged": 6591
+      },
+      "T1-C2-01": {
+        "recall": null,
+        "precision": 0.0,
+        "f1": 0.0,
+        "benign_fa": 0.0075,
+        "attack_flows_flagged": 737
+      },
+      "T1-EXFIL-01": {
+        "recall": null,
+        "precision": 0.0,
+        "f1": 0.0,
+        "benign_fa": 0.0,
+        "attack_flows_flagged": 0
+      }
+    },
+    "report": "rules_tuning.json"
+  },
+  "allowlist": {
+    "description": "Known-good traffic: flows to or from these addresses, or to these destination ports, are marked Benign and no other rule is applied to them. Empty by default; fill in per network (resolvers, NTP, update servers, backup jobs).",
+    "ips": [],
+    "ports": []
+  },
+  "packet_rules": {
+    "description": "Tier 2 header, ARP and unencrypted-payload checks, run with scapy on the uploaded pcap (packet_rule_service.py).",
+    "encrypted_ports": [
+      22,
+      443,
+      465,
+      636,
+      853,
+      993,
+      995,
+      8443
+    ],
+    "max_payload_bytes": 4096,
+    "T2-MITM-01": {
+      "class": "MITM",
+      "enabled": true,
+      "severity": "high",
+      "description": "Several MAC addresses claim one IP (ARP replies or IPv6 neighbour advertisements), a burst of gratuitous ARP, or more than one DHCP server answering.",
+      "min_macs_per_ip": 2,
+      "min_gratuitous_arp": 5,
+      "min_dhcp_servers": 2,
+      "attach_window_seconds": 300,
+      "attach_note": "Flows of the contested address are marked only from the spoof onwards, for attach_window_seconds, so a busy host is not marked for the whole capture.",
+      "basis": "Definitional: two MAC addresses claiming one IP is a conflicting ARP binding, the condition the open-source arpwatch reports as a changed Ethernet address; more than one DHCP server answering is a rogue-DHCP condition. Gratuitous-ARP burst size is a heuristic."
+    },
+    "T2-EVASION-01": {
+      "class": "Evasion",
+      "enabled": true,
+      "severity": "medium",
+      "description": "Illegal TCP flag sets (NULL, XMAS, SYN+FIN), overlapping IP fragments, or TTL changes inside one flow.",
+      "min_illegal_flag_packets": 1,
+      "min_overlapping_fragments": 1,
+      "min_ttl_changes": 3,
+      "basis": "NULL, XMAS and SYN+FIN flag sets are not valid TCP (RFC 9293). Overlapping fragments and TTL changes are the insertion/evasion techniques of Ptacek & Newsham (1998) and Handley et al., USENIX Security 2001. Suricata's decoder events cover the same conditions."
+    },
+    "T2-WEB-01": {
+      "class": "WebBased",
+      "enabled": true,
+      "severity": "high",
+      "description": "An unencrypted HTTP request line or body (URL-decoded) matches an injection pattern: SQL injection, XSS, path traversal, command injection. Also fires when one client collects many 4xx replies for many different paths from one server inside a window (a scanner or fuzzer sweeping the site). The pattern check is a fallback for when Suricata is not installed; Suricata's ET WEB_SERVER rules are the primary source.",
+      "min_matches": 1,
+      "min_error_replies": 20,
+      "min_distinct_paths": 10,
+      "error_note": "The design's starting value was 3 error replies; ordinary browsing produces a few 404s (favicon, robots.txt), so a sweep is required instead: at least 20 4xx replies covering at least 10 distinct paths in one window.",
+      "basis": "Fallback only: Suricata's ET Open WEB_SERVER signatures are the primary source for this class. The 4xx sweep counts are heuristics."
+    },
+    "T2-API-01": {
+      "class": "API",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One source calls API paths at a high rate, or collects many 401 / 403 / 429 replies, inside a window.",
+      "api_path_markers": [
+        "/api/",
+        "/v1/",
+        "/v2/",
+        "/v3/",
+        "/graphql",
+        "/rest/"
+      ],
+      "min_calls": 100,
+      "min_auth_failures": 10,
+      "basis": "Heuristic rate and authorisation-failure counts (OWASP API Security Top 10 2023: API2 Broken Authentication, API4 Unrestricted Resource Consumption). Not validated on labelled data."
+    },
+    "T2-BRUTEFORCE-01": {
+      "class": "Bruteforce",
+      "enabled": true,
+      "severity": "medium",
+      "description": "Failed-login replies to one client inside a window: FTP 530, SMTP 535, POP3 -ERR, HTTP 401.",
+      "min_failed_logins": 5,
+      "basis": "Matches the open-source ET Open signature 'ET SCAN Potential FTP Brute-Force attempt response' (sid 2002383): 5 failed-login (530) replies to one client."
+    },
+    "T2-DNS-01": {
+      "class": "DNS",
+      "enabled": true,
+      "severity": "medium",
+      "description": "One client sends many DNS queries with long or random-looking names inside a window (tunnelling).",
+      "min_name_length": 50,
+      "min_label_entropy": 4.0,
+      "min_queries": 10,
+      "basis": "Heuristic name-length and label-entropy limits for DNS tunnelling. Not validated on labelled data."
+    },
+    "T2-TLS-01": {
+      "class": "TLSSSL",
+      "enabled": true,
+      "severity": "medium",
+      "description": "A TLS ClientHello offers SSL 2.0, SSL 3.0, TLS 1.0 or TLS 1.1 as its highest version. The handshake is sent in the clear, so this works on encrypted traffic.",
+      "max_weak_version": "0x0302",
+      "basis": "RFC 8996 (2021) deprecates TLS 1.0 and 1.1 (SSL 2.0 and 3.0 by RFC 6176 and RFC 7568); NIST SP 800-52r2 requires TLS 1.2 or later."
+    },
+    "T2-BOF-01": {
+      "class": "BufferOverflow",
+      "enabled": true,
+      "severity": "high",
+      "description": "An unencrypted payload carries a long NOP run (0x90) or a long run of one filler character, typical of an overflow payload.",
+      "min_nop_run": 64,
+      "min_filler_run": 256,
+      "filler_bytes": [
+        "0x41",
+        "0x42",
+        "0x43",
+        "0x90"
+      ],
+      "basis": "Heuristic NOP-sled / filler-run lengths; Suricata's ET Open SHELLCODE signatures are the primary source for this class."
+    }
+  },
+  "suricata": {
+    "description": "Tier 2 signature engine: suricata -r <pcap> with the Emerging Threats Open ruleset. Used when the binary is found (FORENXAI_SURICATA, tools/suricata/, PATH, or C:/Program Files/Suricata); otherwise its classes rely on the scapy checks above and the case records that Suricata did not run.",
+    "enabled": true,
+    "binary": "",
+    "config": "",
+    "rules_file": "",
+    "timeout_seconds": 900,
+    "min_severity": 3,
+    "class_mapping": [
+      {
+        "class": "Exploitation",
+        "prefixes": [
+          "ATTACK [PTsecurity]"
+        ]
+      },
+      {
+        "class": "Exploitation",
+        "prefixes": [
+          "ET EXPLOIT",
+          "ET ATTACK_RESPONSE",
+          "GPL EXPLOIT"
+        ],
+        "categories": [
+          "Attempted Administrator Privilege Gain",
+          "Attempted User Privilege Gain",
+          "Successful Administrator Privilege Gain",
+          "Successful User Privilege Gain"
+        ]
+      },
+      {
+        "class": "BufferOverflow",
+        "prefixes": [
+          "ET SHELLCODE",
+          "GPL SHELLCODE"
+        ],
+        "categories": [
+          "Executable code was detected"
+        ]
+      },
+      {
+        "class": "WebBased",
+        "prefixes": [
+          "ET WEB_SERVER",
+          "ET WEB_SPECIFIC_APPS",
+          "ET WEB_CLIENT",
+          "GPL WEB_SERVER"
+        ],
+        "categories": [
+          "Web Application Attack"
+        ]
+      },
+      {
+        "class": "Evasion",
+        "prefixes": [
+          "POSSBL"
+        ],
+        "contains": [
+          "fin",
+          "null",
+          "xmas"
+        ]
+      },
+      {
+        "class": "Evasion",
+        "prefixes": [
+          "SURICATA FRAG",
+          "SURICATA STREAM",
+          "SURICATA TCP",
+          "SURICATA IPv4",
+          "SURICATA IPv6"
+        ]
+      },
+      {
+        "class": "Slowloris",
+        "prefixes": [
+          "ET DOS"
+        ],
+        "contains": [
+          "slow",
+          "slowloris",
+          "rudy"
+        ]
+      },
+      {
+        "class": "DDoS",
+        "prefixes": [
+          "ET DOS"
+        ],
+        "contains": [
+          "ddos",
+          "loic",
+          "hoic",
+          "botnet"
+        ]
+      },
+      {
+        "class": "DoS",
+        "prefixes": [
+          "ET DOS",
+          "GPL DOS"
+        ],
+        "categories": [
+          "Attempted Denial of Service",
+          "Detection of a Denial of Service Attack"
+        ]
+      },
+      {
+        "class": "Bruteforce",
+        "prefixes": [
+          "ET SCAN",
+          "ET POLICY",
+          "GPL"
+        ],
+        "contains": [
+          "brute",
+          "login",
+          "password",
+          "auth fail"
+        ]
+      },
+      {
+        "class": "PortScan",
+        "prefixes": [
+          "POSSBL PORT",
+          "POSSBL SCAN"
+        ]
+      },
+      {
+        "class": "PortScan",
+        "prefixes": [
+          "ET SCAN",
+          "GPL SCAN"
+        ],
+        "categories": [
+          "Detection of a Network Scan"
+        ]
+      },
+      {
+        "class": "C2Beaconing",
+        "prefixes": [
+          "MALWARE [PTsecurity]",
+          "SSLBL"
+        ]
+      },
+      {
+        "class": "C2Beaconing",
+        "prefixes": [
+          "ET MALWARE",
+          "ET TROJAN",
+          "ET CNC",
+          "ET JA3",
+          "ET MOBILE_MALWARE"
+        ],
+        "categories": [
+          "A Network Trojan was detected",
+          "Malware Command and Control Activity Detected"
+        ]
+      },
+      {
+        "class": "DNS",
+        "prefixes": [
+          "ET DNS",
+          "SURICATA DNS"
+        ]
+      },
+      {
+        "class": "TLSSSL",
+        "prefixes": [
+          "SURICATA TLS",
+          "ET POLICY"
+        ],
+        "contains": [
+          "tls",
+          "ssl",
+          "certificate"
+        ]
+      },
+      {
+        "class": "Exfiltration",
+        "prefixes": [
+          "ET POLICY"
+        ],
+        "contains": [
+          "upload",
+          "exfil",
+          "file transfer",
+          "outbound"
+        ]
+      }
+    ],
+    "class_mapping_note": "Ordered: the first entry whose signature prefix or category (Suricata's classtype description as written in eve.json) matches wins; 'contains' words, when given, must also appear in the signature. Unmapped signatures are listed in the case's rule_analysis.",
+    "ignore_signatures_containing": [
+      "invalid checksum"
+    ],
+    "ignore_note": "Captures taken on the sending host carry wrong checksums from NIC offloading; Suricata's checksum signatures then fire on nearly every packet (6,991 of 7,029 alerts on LabActivity2) without any attack.",
+    "home_net": "auto",
+    "external_net": "any",
+    "home_net_note": "'auto' = private ranges (10/8, 172.16/12, 192.168/16, 100.64/10, 169.254/16, fc00::/7, fe80::/10) plus the 256 busiest hosts that received connections in the capture; or give an explicit list. EXTERNAL_NET 'any' keeps attacks between two internal hosts in scope.",
+    "sid_classes": {},
+    "sid_classes_note": "Per-signature overrides, checked before class_mapping: {\"2012345\": \"WebBased\"} maps a signature ID to a class; null ignores it.",
+    "rulesets": [
+      "et/open",
+      "ptrules/open",
+      "ptresearch/attackdetection",
+      "aleksibovellan/nmap",
+      "abuse.ch/sslbl-ja3",
+      "abuse.ch/sslbl-blacklist",
+      "suricata event rules: decoder, stream, http, dns, tls, smtp, app-layer"
+    ]
+  },
+  "decision": {
+    "description": "decide(): which detector's class becomes the verdict. trust = 'rule' only where the rule was measured as precise on held-out data (tuning.test_results precision >= 0.9); every other class trusts the model. Confidence thresholds and the out-of-distribution limit come from the model bundle (decision_thresholds.json, ood_stats.json).",
+    "trust": {
+      "PortScan": "rule",
+      "DoS": "rule"
+    }
+  }
+}

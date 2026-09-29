@@ -1,0 +1,12 @@
+{
+  "arm": "cicids_only",
+  "rows": 800000,
+  "benign": 400000,
+  "attack": 400000,
+  "source_composition": {
+    "CICIDS2018": 800000
+  },
+  "source_share": {
+    "CICIDS2018": 1.0
+  }
+}

@@ -2,6 +2,10 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 
+from app.services.logging_service import (
+    logger,
+)
+
 
 # ============================================================
 # VALID INVESTIGATOR DECISIONS
@@ -18,7 +22,7 @@ VALID_DECISIONS = {
 # SAVE INVESTIGATOR REVIEW
 # ============================================================
 
-def save_investigator_review(
+def _save_investigator_review_impl(
     case_directory: Path,
     case_id: str,
     flow_index: int,
@@ -270,10 +274,92 @@ def save_investigator_review(
 
 
 # ============================================================
+# PUBLIC LOGGED SAVE ENTRY POINT
+# ============================================================
+
+def save_investigator_review(
+    case_directory: Path,
+    case_id: str,
+    flow_index: int,
+    predicted_class: str,
+    decision: str,
+    notes: str
+) -> dict:
+    """
+    Save an investigator review with centralized
+    FORENXAI production logging.
+    """
+
+    case_directory = Path(
+        case_directory
+    ).resolve()
+
+    logger.info(
+        "Investigator review save started | Case ID: %s | "
+        "Flow: %s | Predicted class: %s | Decision: %s",
+        case_id,
+        flow_index,
+        predicted_class,
+        decision,
+    )
+
+    try:
+        review = _save_investigator_review_impl(
+            case_directory=case_directory,
+            case_id=case_id,
+            flow_index=flow_index,
+            predicted_class=predicted_class,
+            decision=decision,
+            notes=notes,
+        )
+
+    except FileNotFoundError as error:
+        logger.warning(
+            "Investigator review save failed because case was not found | "
+            "Case ID: %s | Flow: %s | Error: %s",
+            case_id,
+            flow_index,
+            error,
+        )
+        raise
+
+    except ValueError as error:
+        logger.warning(
+            "Investigator review save rejected | Case ID: %s | "
+            "Flow: %s | Error: %s",
+            case_id,
+            flow_index,
+            error,
+        )
+        raise
+
+    except Exception as error:
+        logger.exception(
+            "Investigator review save failed | Case ID: %s | "
+            "Flow: %s | Error: %s: %s",
+            case_id,
+            flow_index,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    logger.info(
+        "Investigator review saved | Case ID: %s | "
+        "Flow: %s | Decision: %s",
+        case_id,
+        flow_index,
+        decision,
+    )
+
+    return review
+
+
+# ============================================================
 # LOAD INVESTIGATOR REVIEWS
 # ============================================================
 
-def load_investigator_reviews(
+def _load_investigator_reviews_impl(
     case_directory: Path
 ) -> list:
     """
@@ -381,3 +467,67 @@ def load_investigator_reviews(
 
 
     return reviews
+
+# ============================================================
+# PUBLIC LOGGED LOAD ENTRY POINT
+# ============================================================
+
+def load_investigator_reviews(
+    case_directory: Path
+) -> list:
+    """
+    Load investigator reviews with centralized
+    FORENXAI production logging.
+    """
+
+    case_directory = Path(
+        case_directory
+    ).resolve()
+
+    logger.info(
+        "Investigator review load started | Case directory: %s",
+        case_directory,
+    )
+
+    try:
+        reviews = _load_investigator_reviews_impl(
+            case_directory
+        )
+
+    except FileNotFoundError as error:
+        logger.warning(
+            "Investigator review load failed because case was not found | "
+            "Case directory: %s | Error: %s",
+            case_directory,
+            error,
+        )
+        raise
+
+    except ValueError as error:
+        logger.error(
+            "Investigator review data invalid | Case directory: %s | "
+            "Error: %s",
+            case_directory,
+            error,
+        )
+        raise
+
+    except Exception as error:
+        logger.exception(
+            "Investigator review load failed | Case directory: %s | "
+            "Error: %s: %s",
+            case_directory,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    logger.info(
+        "Investigator review load completed | Case directory: %s | "
+        "Reviews: %s",
+        case_directory,
+        len(reviews),
+    )
+
+    return reviews
+

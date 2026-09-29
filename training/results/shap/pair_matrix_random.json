@@ -1,0 +1,1690 @@
+{
+  "n_sample": 8000,
+  "classes": [
+    "API",
+    "Benign",
+    "Bruteforce",
+    "BufferOverflow",
+    "C2Beaconing",
+    "DDoS",
+    "DNS",
+    "DoS",
+    "Evasion",
+    "Exfiltration",
+    "Exploitation",
+    "MITM",
+    "PortScan",
+    "Slowloris",
+    "TLSSSL",
+    "WebBased"
+  ],
+  "correlation": [
+    [
+      1.0,
+      0.172999,
+      0.286699,
+      0.12921,
+      0.416247,
+      0.128668,
+      0.056111,
+      0.525771,
+      -0.029568,
+      0.088231,
+      0.092662,
+      0.050147,
+      0.139281,
+      0.47996,
+      0.457961,
+      0.086082
+    ],
+    [
+      0.172999,
+      1.0,
+      0.409568,
+      0.287513,
+      0.333833,
+      0.214171,
+      0.248055,
+      0.168353,
+      0.344788,
+      0.27723,
+      0.605682,
+      0.361848,
+      0.177744,
+      0.087536,
+      0.234259,
+      0.250627
+    ],
+    [
+      0.286699,
+      0.409568,
+      1.0,
+      0.224774,
+      0.253785,
+      0.23521,
+      0.067016,
+      0.170652,
+      0.332662,
+      0.409298,
+      0.460511,
+      0.201985,
+      0.187856,
+      0.146984,
+      0.407943,
+      0.153083
+    ],
+    [
+      0.12921,
+      0.287513,
+      0.224774,
+      1.0,
+      0.41384,
+      0.443112,
+      0.016265,
+      0.220661,
+      0.070923,
+      0.110551,
+      0.190568,
+      0.115557,
+      0.378296,
+      0.166083,
+      0.401462,
+      0.090173
+    ],
+    [
+      0.416247,
+      0.333833,
+      0.253785,
+      0.41384,
+      1.0,
+      0.244053,
+      0.013966,
+      0.307886,
+      0.397663,
+      0.259658,
+      0.248656,
+      0.62428,
+      0.168423,
+      0.238201,
+      0.421901,
+      -0.064501
+    ],
+    [
+      0.128668,
+      0.214171,
+      0.23521,
+      0.443112,
+      0.244053,
+      1.0,
+      0.048672,
+      0.042868,
+      0.128139,
+      0.101455,
+      0.243868,
+      -0.007668,
+      0.970526,
+      -0.02302,
+      0.142864,
+      0.050191
+    ],
+    [
+      0.056111,
+      0.248055,
+      0.067016,
+      0.016265,
+      0.013966,
+      0.048672,
+      1.0,
+      -0.06546,
+      0.069733,
+      0.161609,
+      0.075364,
+      0.027357,
+      0.038364,
+      -0.065533,
+      0.175521,
+      0.206683
+    ],
+    [
+      0.525771,
+      0.168353,
+      0.170652,
+      0.220661,
+      0.307886,
+      0.042868,
+      -0.06546,
+      1.0,
+      0.027807,
+      0.136864,
+      0.016164,
+      0.236631,
+      -0.012341,
+      0.897488,
+      0.34814,
+      0.282959
+    ],
+    [
+      -0.029568,
+      0.344788,
+      0.332662,
+      0.070923,
+      0.397663,
+      0.128139,
+      0.069733,
+      0.027807,
+      1.0,
+      0.714902,
+      0.451611,
+      0.438715,
+      0.012193,
+      0.005111,
+      0.185933,
+      -0.004083
+    ],
+    [
+      0.088231,
+      0.27723,
+      0.409298,
+      0.110551,
+      0.259658,
+      0.101455,
+      0.161609,
+      0.136864,
+      0.714902,
+      1.0,
+      0.295199,
+      0.186136,
+      -0.006306,
+      0.092658,
+      0.641605,
+      -0.004065
+    ],
+    [
+      0.092662,
+      0.605682,
+      0.460511,
+      0.190568,
+      0.248656,
+      0.243868,
+      0.075364,
+      0.016164,
+      0.451611,
+      0.295199,
+      1.0,
+      0.175689,
+      0.257822,
+      0.012754,
+      0.224596,
+      0.121407
+    ],
+    [
+      0.050147,
+      0.361848,
+      0.201985,
+      0.115557,
+      0.62428,
+      -0.007668,
+      0.027357,
+      0.236631,
+      0.438715,
+      0.186136,
+      0.175689,
+      1.0,
+      -0.042242,
+      0.186618,
+      0.095213,
+      0.058888
+    ],
+    [
+      0.139281,
+      0.177744,
+      0.187856,
+      0.378296,
+      0.168423,
+      0.970526,
+      0.038364,
+      -0.012341,
+      0.012193,
+      -0.006306,
+      0.257822,
+      -0.042242,
+      1.0,
+      -0.049268,
+      0.101929,
+      0.063802
+    ],
+    [
+      0.47996,
+      0.087536,
+      0.146984,
+      0.166083,
+      0.238201,
+      -0.02302,
+      -0.065533,
+      0.897488,
+      0.005111,
+      0.092658,
+      0.012754,
+      0.186618,
+      -0.049268,
+      1.0,
+      0.325894,
+      0.277989
+    ],
+    [
+      0.457961,
+      0.234259,
+      0.407943,
+      0.401462,
+      0.421901,
+      0.142864,
+      0.175521,
+      0.34814,
+      0.185933,
+      0.641605,
+      0.224596,
+      0.095213,
+      0.101929,
+      0.325894,
+      1.0,
+      0.059845
+    ],
+    [
+      0.086082,
+      0.250627,
+      0.153083,
+      0.090173,
+      -0.064501,
+      0.050191,
+      0.206683,
+      0.282959,
+      -0.004083,
+      -0.004065,
+      0.121407,
+      0.058888,
+      0.063802,
+      0.277989,
+      0.059845,
+      1.0
+    ]
+  ],
+  "pairs": [
+    {
+      "a": "DDoS",
+      "b": "PortScan",
+      "corr": 0.970526,
+      "shared_top10": 7,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Dst Port",
+        "Flow Bytes/s",
+        "Fwd Bytes/Bulk Avg",
+        "SYN Flag Count"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "Slowloris",
+      "corr": 0.897488,
+      "shared_top10": 8,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Header Length",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Mean",
+        "Fwd Segment Size Avg",
+        "Protocol"
+      ]
+    },
+    {
+      "a": "Evasion",
+      "b": "Exfiltration",
+      "corr": 0.714902,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port",
+        "Subflow Bwd Bytes"
+      ]
+    },
+    {
+      "a": "Exfiltration",
+      "b": "TLSSSL",
+      "corr": 0.641605,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port",
+        "Fwd Packet/Bulk Avg",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "MITM",
+      "corr": 0.62428,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Bytes/Bulk Avg",
+        "Bwd Init Win Bytes",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "Exploitation",
+      "corr": 0.605682,
+      "shared_top10": 3,
+      "shared": [
+        "Down/Up Ratio",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "DoS",
+      "corr": 0.525771,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "Slowloris",
+      "corr": 0.47996,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "Exploitation",
+      "corr": 0.460511,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Down/Up Ratio",
+        "Dst Port",
+        "Fwd Bulk Rate Avg"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "TLSSSL",
+      "corr": 0.457961,
+      "shared_top10": 6,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Std",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "Evasion",
+      "b": "Exploitation",
+      "corr": 0.451611,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Down/Up Ratio",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "DDoS",
+      "corr": 0.443112,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Evasion",
+      "b": "MITM",
+      "corr": 0.438715,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Bytes/Bulk Avg",
+        "Down/Up Ratio",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "TLSSSL",
+      "corr": 0.421901,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "C2Beaconing",
+      "corr": 0.416247,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "C2Beaconing",
+      "corr": 0.41384,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "Bruteforce",
+      "corr": 0.409568,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Down/Up Ratio",
+        "Dst Port",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "Exfiltration",
+      "corr": 0.409298,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Dst Port",
+        "Fwd Packet/Bulk Avg",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "TLSSSL",
+      "corr": 0.407943,
+      "shared_top10": 6,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Dst Port",
+        "Fwd Packet Length Max",
+        "Fwd Packet/Bulk Avg",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "TLSSSL",
+      "corr": 0.401462,
+      "shared_top10": 6,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Std",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max",
+        "Packet Length Std"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "Evasion",
+      "corr": 0.397663,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Bytes/Bulk Avg",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "PortScan",
+      "corr": 0.378296,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "MITM",
+      "corr": 0.361848,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bytes/Bulk Avg",
+        "Down/Up Ratio",
+        "Dst Port",
+        "Packet Length Min"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "TLSSSL",
+      "corr": 0.34814,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "Evasion",
+      "corr": 0.344788,
+      "shared_top10": 6,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bytes/Bulk Avg",
+        "Down/Up Ratio",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg",
+        "RST Flag Count"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "C2Beaconing",
+      "corr": 0.333833,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bytes/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "Evasion",
+      "corr": 0.332662,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Down/Up Ratio",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Slowloris",
+      "b": "TLSSSL",
+      "corr": 0.325894,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "DoS",
+      "corr": 0.307886,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Exfiltration",
+      "b": "Exploitation",
+      "corr": 0.295199,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "BufferOverflow",
+      "corr": 0.287513,
+      "shared_top10": 2,
+      "shared": [
+        "Average Packet Size",
+        "Down/Up Ratio"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "Bruteforce",
+      "corr": 0.286699,
+      "shared_top10": 6,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Fwd Bulk Rate Avg",
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Std",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "WebBased",
+      "corr": 0.282959,
+      "shared_top10": 2,
+      "shared": [
+        "Bwd Header Length",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Slowloris",
+      "b": "WebBased",
+      "corr": 0.277989,
+      "shared_top10": 2,
+      "shared": [
+        "Bwd Header Length",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "Exfiltration",
+      "corr": 0.27723,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Dst Port",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "Exfiltration",
+      "corr": 0.259658,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Exploitation",
+      "b": "PortScan",
+      "corr": 0.257822,
+      "shared_top10": 6,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Dst Port",
+        "Fwd Bulk Rate Avg",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "C2Beaconing",
+      "corr": 0.253785,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "WebBased",
+      "corr": 0.250627,
+      "shared_top10": 3,
+      "shared": [
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Header Length",
+        "Fwd Packet Length Min"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "Exploitation",
+      "corr": 0.248656,
+      "shared_top10": 7,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Init Win Bytes",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "DNS",
+      "corr": 0.248055,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Packet Length Min",
+        "Packet Length Min"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "DDoS",
+      "corr": 0.244053,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "Exploitation",
+      "corr": 0.243868,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "Slowloris",
+      "corr": 0.238201,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "MITM",
+      "corr": 0.236631,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "FWD Init Win Bytes",
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Mean"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "DDoS",
+      "corr": 0.23521,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Dst Port",
+        "Fwd Packet Length Max",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "TLSSSL",
+      "corr": 0.234259,
+      "shared_top10": 2,
+      "shared": [
+        "Dst Port",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "BufferOverflow",
+      "corr": 0.224774,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Down/Up Ratio",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Exploitation",
+      "b": "TLSSSL",
+      "corr": 0.224596,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "DoS",
+      "corr": 0.220661,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "DDoS",
+      "corr": 0.214171,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "WebBased",
+      "corr": 0.206683,
+      "shared_top10": 2,
+      "shared": [
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Packet Length Min"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "MITM",
+      "corr": 0.201985,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Down/Up Ratio",
+        "Dst Port",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "Exploitation",
+      "corr": 0.190568,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Down/Up Ratio"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "PortScan",
+      "corr": 0.187856,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Dst Port",
+        "Fwd Bulk Rate Avg"
+      ]
+    },
+    {
+      "a": "MITM",
+      "b": "Slowloris",
+      "corr": 0.186618,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Mean"
+      ]
+    },
+    {
+      "a": "Exfiltration",
+      "b": "MITM",
+      "corr": 0.186136,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Dst Port",
+        "Fwd Packet Length Mean"
+      ]
+    },
+    {
+      "a": "Evasion",
+      "b": "TLSSSL",
+      "corr": 0.185933,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "PortScan",
+      "corr": 0.177744,
+      "shared_top10": 4,
+      "shared": [
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Header Length",
+        "RST Flag Count"
+      ]
+    },
+    {
+      "a": "Exploitation",
+      "b": "MITM",
+      "corr": 0.175689,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Init Win Bytes",
+        "Down/Up Ratio",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "TLSSSL",
+      "corr": 0.175521,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port",
+        "Fwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "Benign",
+      "corr": 0.172999,
+      "shared_top10": 2,
+      "shared": [
+        "Packet Length Max",
+        "Packet Length Min"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "DoS",
+      "corr": 0.170652,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "PortScan",
+      "corr": 0.168423,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Min",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "DoS",
+      "corr": 0.168353,
+      "shared_top10": 1,
+      "shared": [
+        "Average Packet Size"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "Slowloris",
+      "corr": 0.166083,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "Exfiltration",
+      "corr": 0.161609,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port",
+        "Fwd Packet/Bulk Avg",
+        "Packet Length Mean"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "WebBased",
+      "corr": 0.153083,
+      "shared_top10": 2,
+      "shared": [
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Std"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "Slowloris",
+      "corr": 0.146984,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "TLSSSL",
+      "corr": 0.142864,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Dst Port",
+        "Fwd Packet Length Max",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "PortScan",
+      "corr": 0.139281,
+      "shared_top10": 2,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Fwd Bulk Rate Avg"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "Exfiltration",
+      "corr": 0.136864,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Mean",
+        "Fwd Segment Size Avg"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "BufferOverflow",
+      "corr": 0.12921,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Std",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "DDoS",
+      "corr": 0.128668,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Fwd Packet Length Max",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "Evasion",
+      "corr": 0.128139,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Exploitation",
+      "b": "WebBased",
+      "corr": 0.121407,
+      "shared_top10": 1,
+      "shared": [
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "MITM",
+      "corr": 0.115557,
+      "shared_top10": 2,
+      "shared": [
+        "Down/Up Ratio",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "Exfiltration",
+      "corr": 0.110551,
+      "shared_top10": 2,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "PortScan",
+      "b": "TLSSSL",
+      "corr": 0.101929,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "Exfiltration",
+      "corr": 0.101455,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Dst Port",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "MITM",
+      "b": "TLSSSL",
+      "corr": 0.095213,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Dst Port",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "Exploitation",
+      "corr": 0.092662,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Bulk Rate Avg"
+      ]
+    },
+    {
+      "a": "Exfiltration",
+      "b": "Slowloris",
+      "corr": 0.092658,
+      "shared_top10": 6,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Fwd Packet Length Mean",
+        "Fwd Segment Size Avg",
+        "Subflow Bwd Bytes"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "WebBased",
+      "corr": 0.090173,
+      "shared_top10": 1,
+      "shared": [
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "Exfiltration",
+      "corr": 0.088231,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg",
+        "Packet Length Max"
+      ]
+    },
+    {
+      "a": "Benign",
+      "b": "Slowloris",
+      "corr": 0.087536,
+      "shared_top10": 1,
+      "shared": [
+        "Average Packet Size"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "WebBased",
+      "corr": 0.086082,
+      "shared_top10": 2,
+      "shared": [
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Std"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "Exploitation",
+      "corr": 0.075364,
+      "shared_top10": 5,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "Evasion",
+      "corr": 0.070923,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet/Bulk Avg",
+        "Down/Up Ratio"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "Evasion",
+      "corr": 0.069733,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Bruteforce",
+      "b": "DNS",
+      "corr": 0.067016,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Dst Port",
+        "Fwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "PortScan",
+      "b": "WebBased",
+      "corr": 0.063802,
+      "shared_top10": 2,
+      "shared": [
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Header Length"
+      ]
+    },
+    {
+      "a": "TLSSSL",
+      "b": "WebBased",
+      "corr": 0.059845,
+      "shared_top10": 1,
+      "shared": [
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "MITM",
+      "b": "WebBased",
+      "corr": 0.058888,
+      "shared_top10": 1,
+      "shared": [
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "DNS",
+      "corr": 0.056111,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg",
+        "Packet Length Min"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "WebBased",
+      "corr": 0.050191,
+      "shared_top10": 2,
+      "shared": [
+        "Fwd Bytes/Bulk Avg",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "MITM",
+      "corr": 0.050147,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Fwd Packet Length Max",
+        "Packet Length Min"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "DNS",
+      "corr": 0.048672,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "DoS",
+      "corr": 0.042868,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "PortScan",
+      "corr": 0.038364,
+      "shared_top10": 4,
+      "shared": [
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "Evasion",
+      "corr": 0.027807,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Header Length",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "MITM",
+      "corr": 0.027357,
+      "shared_top10": 2,
+      "shared": [
+        "Dst Port",
+        "Packet Length Min"
+      ]
+    },
+    {
+      "a": "BufferOverflow",
+      "b": "DNS",
+      "corr": 0.016265,
+      "shared_top10": 4,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "Exploitation",
+      "corr": 0.016164,
+      "shared_top10": 3,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "DNS",
+      "corr": 0.013966,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet/Bulk Avg",
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "Exploitation",
+      "b": "Slowloris",
+      "corr": 0.012754,
+      "shared_top10": 2,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Evasion",
+      "b": "PortScan",
+      "corr": 0.012193,
+      "shared_top10": 3,
+      "shared": [
+        "Dst Port",
+        "Fwd Bytes/Bulk Avg",
+        "RST Flag Count"
+      ]
+    },
+    {
+      "a": "Evasion",
+      "b": "Slowloris",
+      "corr": 0.005111,
+      "shared_top10": 5,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Bulk Rate Avg",
+        "Bwd Header Length",
+        "Bwd Packet/Bulk Avg",
+        "Subflow Bwd Bytes"
+      ]
+    },
+    {
+      "a": "Exfiltration",
+      "b": "WebBased",
+      "corr": -0.004065,
+      "shared_top10": 0,
+      "shared": []
+    },
+    {
+      "a": "Evasion",
+      "b": "WebBased",
+      "corr": -0.004083,
+      "shared_top10": 2,
+      "shared": [
+        "Bwd Header Length",
+        "Fwd Bytes/Bulk Avg"
+      ]
+    },
+    {
+      "a": "Exfiltration",
+      "b": "PortScan",
+      "corr": -0.006306,
+      "shared_top10": 1,
+      "shared": [
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "MITM",
+      "corr": -0.007668,
+      "shared_top10": 2,
+      "shared": [
+        "Dst Port",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "DoS",
+      "b": "PortScan",
+      "corr": -0.012341,
+      "shared_top10": 1,
+      "shared": [
+        "Bwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "DDoS",
+      "b": "Slowloris",
+      "corr": -0.02302,
+      "shared_top10": 2,
+      "shared": [
+        "Average Packet Size",
+        "Fwd Packet Length Max"
+      ]
+    },
+    {
+      "a": "API",
+      "b": "Evasion",
+      "corr": -0.029568,
+      "shared_top10": 2,
+      "shared": [
+        "Bwd Bulk Rate Avg",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "MITM",
+      "b": "PortScan",
+      "corr": -0.042242,
+      "shared_top10": 1,
+      "shared": [
+        "Dst Port"
+      ]
+    },
+    {
+      "a": "PortScan",
+      "b": "Slowloris",
+      "corr": -0.049268,
+      "shared_top10": 0,
+      "shared": []
+    },
+    {
+      "a": "C2Beaconing",
+      "b": "WebBased",
+      "corr": -0.064501,
+      "shared_top10": 0,
+      "shared": []
+    },
+    {
+      "a": "DNS",
+      "b": "DoS",
+      "corr": -0.06546,
+      "shared_top10": 3,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet Length Max",
+        "Bwd Packet/Bulk Avg"
+      ]
+    },
+    {
+      "a": "DNS",
+      "b": "Slowloris",
+      "corr": -0.065533,
+      "shared_top10": 2,
+      "shared": [
+        "Average Packet Size",
+        "Bwd Packet/Bulk Avg"
+      ]
+    }
+  ],
+  "note": "Pearson correlation between the per-feature mean |SHAP| profiles of each class pair. Ranking a pair among all 120 is the only way to say whether its overlap is unusual."
+}

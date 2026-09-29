@@ -1,0 +1,11 @@
+{
+  "n_features": 66,
+  "n_sample": 8000,
+  "unused_features": [
+    "Bwd URG Flags",
+    "CWR Flag Count",
+    "ECE Flag Count",
+    "Fwd URG Flags",
+    "URG Flag Count"
+  ]
+}

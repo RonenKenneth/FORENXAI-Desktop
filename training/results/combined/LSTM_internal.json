@@ -1,0 +1,26 @@
+{
+  "arm": "combined",
+  "model": "LSTM",
+  "train_seconds": 1167.1,
+  "n_train": 679999,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.9826668111099074,
+    "precision": 0.9913883709103238,
+    "recall": 0.9738235587970826,
+    "f1": 0.9825274688350526,
+    "f2": 0.9772865517402726,
+    "benign_recall": 0.9915258478322518,
+    "attack_recall": 0.9738235587970826,
+    "false_alarm_rate": 0.008474152167748177,
+    "miss_rate": 0.026176441202917376,
+    "confusion": {
+      "tn": 59439,
+      "fp": 508,
+      "fn": 1572,
+      "tp": 58482
+    },
+    "roc_auc": 0.99335042970643,
+    "pr_auc": 0.9952703579327546
+  }
+}

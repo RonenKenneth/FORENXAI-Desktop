@@ -1,0 +1,12 @@
+{
+  "arm": "tii_only",
+  "rows": 401301,
+  "benign": 1301,
+  "attack": 400000,
+  "source_composition": {
+    "TII-SSRC-23": 401301
+  },
+  "source_share": {
+    "TII-SSRC-23": 1.0
+  }
+}

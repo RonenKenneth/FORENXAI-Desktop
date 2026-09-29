@@ -35,6 +35,20 @@ datas = [
             "forenxai"
         )
     ),
+    # rules.json: every Tier 1 / Tier 2 threshold and the decision table.
+    # rule_service resolves it relative to its own module, so it must sit
+    # at app/rules inside the bundle.
+    (
+        os.path.join(
+            project_root,
+            "app",
+            "rules"
+        ),
+        os.path.join(
+            "app",
+            "rules"
+        )
+    ),
 ]
 
 
@@ -55,6 +69,27 @@ hiddenimports += collect_submodules(
 hiddenimports += collect_submodules(
     "app"
 )
+
+
+# scapy loads its protocol layers by name at runtime (packet parsing,
+# Tier 2 packet rules), which static analysis cannot see.
+hiddenimports += collect_submodules(
+    "scapy"
+)
+
+
+# rag/config/*.py is loaded from disk with importlib (recommendation
+# service), so its imports are invisible to PyInstaller. It reads the
+# source PDFs through pypdf.
+hiddenimports += collect_submodules(
+    "pypdf"
+)
+
+# NOT bundled, shipped beside FORENXAI.Backend.exe instead (see SETUP.md):
+#   models/llm/qwen2.5-3b-q4.gguf   ~2 GB, too large for a onefile .exe
+#   rag/                            knowledge, config, index, sources
+#   tools/                          Suricata, JDK 8, CICFlowMeter, Maven,
+#                                   resolved by runtime_paths.find_tool
 
 
 # ============================================================

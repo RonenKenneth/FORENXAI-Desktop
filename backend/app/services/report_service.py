@@ -1,12 +1,16 @@
 from pathlib import Path
 import json
 
+from app.services.logging_service import (
+    logger,
+)
+
 from app.services.review_service import (
     load_investigator_reviews
 )
 
 
-def build_case_report(
+def _build_case_report_impl(
     case_directory: Path
 ) -> dict:
     """
@@ -46,16 +50,11 @@ def build_case_report(
 
     try:
 
-        with analysis_file.open(
-            "r",
-            encoding="utf-8"
-        ) as file:
+        from app.services.packet_store import read_analysis
 
-            analysis_data = (
-                json.load(
-                    file
-                )
-            )
+        analysis_data = read_analysis(
+            analysis_file
+        )
 
     except json.JSONDecodeError as error:
 
@@ -299,6 +298,22 @@ def build_case_report(
                     "recommendation"
                 ),
 
+            # Supporting evidence (rule tiers), shown beside the ML result.
+            "verdict":
+                finding.get(
+                    "verdict"
+                ),
+
+            "verdict_source":
+                finding.get(
+                    "verdict_source"
+                ),
+
+            "rule_findings":
+                finding.get(
+                    "rule_findings"
+                ),
+
             "shap_explanation":
                 shap_lookup.get(
                     flow_index
@@ -413,3 +428,104 @@ def build_case_report(
 
 
     return report
+
+# ============================================================
+# PUBLIC LOGGED REPORT ENTRY POINT
+# ============================================================
+
+def build_case_report(
+    case_directory: Path
+) -> dict:
+    """
+    Build the FORENXAI structured forensic report with
+    centralized production logging.
+    """
+
+    case_directory = Path(
+        case_directory
+    ).resolve()
+
+    logger.info(
+        "Forensic report generation started | Case directory: %s",
+        case_directory,
+    )
+
+    try:
+
+        report = _build_case_report_impl(
+            case_directory
+        )
+
+    except FileNotFoundError as error:
+
+        logger.warning(
+            "Forensic report source missing | Case directory: %s | "
+            "Error: %s",
+            case_directory,
+            error,
+        )
+
+        raise
+
+    except ValueError as error:
+
+        logger.error(
+            "Forensic report source data invalid | Case directory: %s | "
+            "Error: %s",
+            case_directory,
+            error,
+        )
+
+        raise
+
+    except Exception as error:
+
+        logger.exception(
+            "Forensic report generation failed | Case directory: %s | "
+            "Error: %s: %s",
+            case_directory,
+            type(error).__name__,
+            error,
+        )
+
+        raise
+
+    case_data = report.get(
+        "case",
+        {}
+    )
+
+    ml_summary = report.get(
+        "ml_summary",
+        {}
+    )
+
+    review_summary = report.get(
+        "review_summary",
+        {}
+    )
+
+    threat_findings = report.get(
+        "threat_findings",
+        []
+    )
+
+    logger.info(
+        "Forensic report generation completed | Case ID: %s | "
+        "Evidence: %s | Threat findings: %s | Reviews: %s | "
+        "ML flows: %s",
+        case_data.get("case_id", ""),
+        case_data.get("evidence_file", ""),
+        len(threat_findings)
+        if isinstance(threat_findings, list)
+        else 0,
+        review_summary.get("total_reviews", 0)
+        if isinstance(review_summary, dict)
+        else 0,
+        ml_summary.get("total_flows", 0)
+        if isinstance(ml_summary, dict)
+        else 0,
+    )
+
+    return report
+

@@ -1,0 +1,18 @@
+# Where the JDK for CICFlowMeter lives.
+#
+# One path per line; the first line that holds a usable JDK wins. Blank
+# lines and lines starting with # are ignored. Read by get_java_home() in
+# backend/app/utils/runtime_paths.py.
+#
+# The JDK is NOT unpacked into tools/ because this project tree is inside
+# OneDrive: a JDK is ~192 MB across 444 files and syncing all of it to
+# cloud storage buys nothing. It sits on the local disk beside the other
+# build tools this service already calls -- CICFlowMeter and Maven are
+# both under C:\Tools -- and this file records where.
+#
+# Installed 23 September 2026: Temurin OpenJDK 1.8.0_504-b01 (x64),
+# unpacked from Downloads/OpenJDK8U-jdk_x64_windows_hotspot_8u504b01.zip.
+# JDK 8 is required because CICFlowMeter's pom.xml compiles with
+# source/target 1.8 and JDK 24 removed -source 8.
+
+C:\Tools\jdk8u504-b01

@@ -1,7 +1,8 @@
-﻿<Window x:Class="FORENXAI.Desktop.MainWindow"
+<Window x:Class="FORENXAI.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="FORENXAI"
+        Icon="/Assets/logo.ico"
         Width="1450"
         Height="900"
         MinWidth="1100"
@@ -62,7 +63,7 @@
 
                         <Border x:Name="ButtonBorder"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="7">
+                                CornerRadius="8">
 
                             <ContentPresenter
                                 Margin="{TemplateBinding Padding}"
@@ -164,7 +165,7 @@
         <Grid.ColumnDefinitions>
 
             <!-- Sidebar -->
-            <ColumnDefinition Width="235"/>
+            <ColumnDefinition Width="240"/>
 
             <!-- Main application -->
             <ColumnDefinition Width="*"/>
@@ -210,15 +211,13 @@
                             <Border Width="38"
                                     Height="38"
                                     CornerRadius="9"
-                                    Background="#172554"
+                                    Background="Black"
+                                    ClipToBounds="True"
                                     Margin="0,0,10,0">
 
-                                <TextBlock Text="FX"
-                                           Foreground="#F4C542"
-                                           FontSize="15"
-                                           FontWeight="Bold"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"/>
+                                <Image Source="/Assets/logo.png"
+                                       Stretch="UniformToFill"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
 
                             </Border>
 
@@ -234,7 +233,7 @@
                                            Foreground="#64748B"
                                            FontSize="9"
                                            FontWeight="SemiBold"
-                                           Margin="0,2,0,0"/>
+                                           Margin="0,3,0,0"/>
 
                             </StackPanel>
 
@@ -341,13 +340,11 @@
                     </Button>
 
 
-                    <!-- INVESTIGATION TAB TEMPORARILY DISABLED -->
+                    <!-- INVESTIGATION -->
 
                     <Button x:Name="InvestigationButton"
                             Style="{StaticResource SidebarButtonStyle}"
-                            Click="Investigation_Click"
-                            IsEnabled="False"
-                            ToolTip="Investigation is temporarily unavailable">
+                            Click="Investigation_Click">
 
                         <StackPanel Orientation="Horizontal">
 
@@ -368,6 +365,34 @@
                         </StackPanel>
 
                     </Button>
+
+
+                    <!-- CASES -->
+
+                    <Button x:Name="CasesButton"
+                            Click="Cases_Click"
+                            Style="{StaticResource SidebarButtonStyle}">
+
+                        <StackPanel Orientation="Horizontal">
+
+                            <TextBlock Text="▦"
+                                       Width="28"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       FontSize="17"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Text="CASES"
+                                       Foreground="{Binding Foreground,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"
+                                       VerticalAlignment="Center"
+                                       FontWeight="{Binding FontWeight,
+                                            RelativeSource={RelativeSource AncestorType=Button}}"/>
+
+                        </StackPanel>
+
+                    </Button>
+
 
                     <!-- REPORTS -->
 

@@ -13,6 +13,11 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
+import xgboost
+
+from app.services.logging_service import (
+    logger,
+)
 
 from app.utils.runtime_paths import (
     get_model_directory,
@@ -246,6 +251,42 @@ def _get_manifest_entry(
     return None
 
 
+def _manifest_feature_count() -> int | None:
+    """
+    How many features the shipped bundle declares, or None.
+
+    Read from manifest.json rather than fixed in this file. The shared
+    feature contract went from 74 to 66 when the eight Active/Idle columns
+    TRUSTLab never populates were dropped, and a constant here turns a
+    legitimate bundle swap into a crash at load time instead of a check
+    that still does its job.
+    """
+
+    if not MANIFEST_FILE.exists():
+        return None
+
+    try:
+
+        with MANIFEST_FILE.open(
+            "r",
+            encoding="utf-8"
+        ) as manifest_file:
+
+            manifest = json.load(
+                manifest_file
+            )
+
+        count = manifest.get(
+            "n_features"
+        )
+
+        return int(count) if count else None
+
+    except (OSError, ValueError, TypeError):
+
+        return None
+
+
 # ============================================================
 # VERIFY MODEL BUNDLE
 # ============================================================
@@ -405,7 +446,72 @@ def verify_model_bundle() -> None:
 # LOAD MODEL BUNDLE
 # ============================================================
 
-def load_model_bundle() -> dict[str, Any]:
+# ============================================================
+# ABSTAIN LAYER (optional bundle files)
+# ============================================================
+#
+# decision_thresholds.json holds a confidence threshold per class and
+# ood_stats.json a Mahalanobis distance limit over the scaled features, both
+# fitted on the training data's validation split. A flow below its class's
+# threshold, or farther from the training data than the limit, is marked
+# abstained: the model's class is still reported, but the hybrid decision
+# does not rely on it. Without the files every flow is kept.
+
+DECISION_FILE = MODEL_DIRECTORY / "decision_thresholds.json"
+OOD_FILE = MODEL_DIRECTORY / "ood_stats.json"
+
+_cached_abstain: dict[str, Any] | None = None
+
+
+def _load_abstain_layer(features: list[str]) -> dict[str, Any] | None:
+    global _cached_abstain
+    if _cached_abstain is not None:
+        return _cached_abstain or None
+    _cached_abstain = {}
+    if not (DECISION_FILE.exists() and OOD_FILE.exists()):
+        print("[FORENXAI] Abstain layer off: decision_thresholds.json / "
+              "ood_stats.json not in the bundle.", flush=True)
+        return None
+    decision = json.loads(DECISION_FILE.read_text(encoding="utf-8"))
+    ood = json.loads(OOD_FILE.read_text(encoding="utf-8"))
+    order = [str(f) for f in ood["feature_order"]]
+    if sorted(order) != sorted(features):
+        print("[FORENXAI] Abstain layer off: ood_stats.json features do not "
+              "match the model's.", flush=True)
+        return None
+    _cached_abstain = {
+        "thresholds": {str(k): float(v) for k, v in decision["per_class_threshold"].items()},
+        "columns": np.array([features.index(f) for f in order]),
+        "mean": np.asarray(ood["mean"], dtype=np.float64),
+        "inv_cov": np.asarray(ood["inv_covariance"], dtype=np.float64),
+        "limit": float(ood["threshold"]),
+    }
+    return _cached_abstain
+
+
+def abstain_decisions(scaled_matrix, probabilities, class_names, features):
+    """Per row: (abstained, reason, squared Mahalanobis distance or None)."""
+    layer = _load_abstain_layer(features)
+    rows = len(probabilities)
+    if layer is None:
+        return [(False, None, None)] * rows
+    centred = np.asarray(scaled_matrix, dtype=np.float64)[:, layer["columns"]] - layer["mean"]
+    distance = np.einsum("ij,jk,ik->i", centred, layer["inv_cov"], centred)
+    best = probabilities.argmax(axis=1)
+    out = []
+    for i in range(rows):
+        name = class_names[best[i]]
+        confidence = float(probabilities[i, best[i]])
+        if not np.isfinite(distance[i]) or distance[i] > layer["limit"]:
+            out.append((True, "out_of_distribution", float(distance[i])))
+        elif confidence < layer["thresholds"].get(name, 0.5):
+            out.append((True, "low_confidence", float(distance[i])))
+        else:
+            out.append((False, None, float(distance[i])))
+    return out
+
+
+def _load_model_bundle_impl() -> dict[str, Any]:
     """
     Load and cache the FORENXAI multiclass XGBoost bundle.
     """
@@ -435,6 +541,14 @@ def load_model_bundle() -> dict[str, Any]:
     model = joblib.load(
         MODEL_FILE
     )
+
+    # The bundle was trained on a GPU and saved with device="cuda". Left
+    # that way, TreeSHAP runs on CUDA inside xgboost.dll and the process
+    # later dies with 0xC0000409 (reproduced 3 of 3 runs; 0 of 3 on CPU):
+    # the backend "stopping out of nowhere". The desktop app is CPU-only,
+    # so pin inference and SHAP to the CPU. Same trees, same predictions.
+    if hasattr(model, "set_params"):
+        model.set_params(device="cpu")
 
     scaler = joblib.load(
         SCALER_FILE
@@ -467,12 +581,26 @@ def load_model_bundle() -> dict[str, Any]:
     ]
 
 
-    if len(features) != 74:
+    expected_feature_count = (
+        _manifest_feature_count()
+    )
+
+    if (
+        expected_feature_count is not None
+        and len(features) != expected_feature_count
+    ):
 
         raise RuntimeError(
             "FORENXAI model feature schema is invalid.\n"
-            f"Expected 74 features but found "
-            f"{len(features)}."
+            f"manifest.json declares {expected_feature_count} features "
+            f"but features.pkl holds {len(features)}."
+        )
+
+
+    if not features:
+
+        raise RuntimeError(
+            "FORENXAI model feature schema is empty."
         )
 
 
@@ -484,6 +612,14 @@ def load_model_bundle() -> dict[str, Any]:
             "features.pkl contains duplicate "
             "feature names."
         )
+
+
+    # The contract, not just the shape: a 74-feature list would pass
+    # every check above and then be fed real Active/Idle values the
+    # model has never seen.
+    assert_feature_contract(
+        features
+    )
 
 
     classes = list(
@@ -519,6 +655,50 @@ def load_model_bundle() -> dict[str, Any]:
 
 
 # ============================================================
+# PUBLIC LOGGED MODEL LOADER
+# ============================================================
+
+def load_model_bundle() -> dict[str, Any]:
+    """
+    Load the FORENXAI model bundle with centralized
+    production logging.
+    """
+
+    global _cached_bundle
+
+    if _cached_bundle is not None:
+        return _cached_bundle
+
+    logger.info(
+        "Model bundle loading started | Directory: %s",
+        MODEL_DIRECTORY,
+    )
+
+    try:
+        bundle = _load_model_bundle_impl()
+
+    except Exception as error:
+        logger.exception(
+            "Model bundle loading failed | Directory: %s | "
+            "Error: %s: %s",
+            MODEL_DIRECTORY,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    logger.info(
+        "Model bundle loaded successfully | Model: %s | "
+        "Features: %s | Classes: %s",
+        MODEL_FILE,
+        len(bundle["features"]),
+        len(bundle["classes"]),
+    )
+
+    return bundle
+
+
+# ============================================================
 # COMPATIBILITY ALIAS
 # ============================================================
 
@@ -548,7 +728,7 @@ def get_model_bundle() -> dict[str, Any]:
 
 def get_expected_features() -> list[str]:
     """
-    Return the frozen 74-feature model schema.
+    Return the frozen model feature schema, as shipped in the bundle.
     """
 
     bundle = load_model_bundle()
@@ -580,6 +760,129 @@ def _normalize_columns(
     ]
 
     return dataframe
+
+
+# ============================================================
+# WHAT CICFLOWMETER EMITS THAT THE MODEL DOES NOT USE
+#
+# CICFlowMeter writes 84 columns. The model was trained on 66.
+# The 18 it does not use are not an accident, and they are not all
+# the same kind of thing, so they are named here rather than left
+# to be worked out by subtraction.
+# ============================================================
+
+# Identity, not behaviour. These say WHICH flow this is. They are
+# shown beside a prediction and must never be fed to the model:
+# training on a source address teaches the machine the lab, not the
+# attack. Dst Port and Protocol are NOT in this list -- they are
+# features, and they are in the 66, because they describe the
+# service rather than the host.
+IDENTITY_COLUMNS = (
+    "Flow ID",
+    "Src IP",
+    "Src Port",
+    "Dst IP",
+    "Timestamp",
+    "Label",
+)
+
+# Removed from the feature contract in the 74 -> 66 rebuild.
+# TRUSTLab exports these eight without populating them: four are
+# identically zero across all 1,400,000 rows, Active Max equals
+# Idle Max in every row, Active Mean is exactly half of Active Max,
+# and Active Max equals Flow Duration / 1e6.
+#
+# CICFlowMeter fills them properly from a real capture, and that is
+# precisely why they must stay dropped: the deployed model has only
+# ever seen zeros here. Feeding it real values would be feeding it
+# a distribution it never trained on.
+EXCLUDED_DEGENERATE_COLUMNS = (
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Mean",
+    "Idle Std",
+    "Idle Max",
+    "Idle Min",
+)
+
+
+def describe_extra_columns(
+    dataframe: pd.DataFrame
+) -> dict[str, list[str]]:
+    """
+    Classify the CICFlowMeter columns the model will not consume.
+
+    Set arithmetic over the header only -- no row access -- so it is
+    cheap enough to log on every run.
+
+    The third group is the one worth reading. It is whatever the
+    capture provides that is neither identity nor deliberately
+    excluded: a real flow feature the model was simply not trained
+    on, because the 66 are the intersection of what all three source
+    datasets export. Anything appearing there is a candidate for a
+    future retrain, not a bug to fix at inference time.
+    """
+    expected = set(get_expected_features())
+
+    present = [
+        str(column).replace("﻿", "").strip()
+        for column in dataframe.columns
+    ]
+
+    unused = [
+        column for column in present
+        if column not in expected
+    ]
+
+    return {
+        "identity": [
+            column for column in unused
+            if column in IDENTITY_COLUMNS
+        ],
+        "excluded_degenerate": [
+            column for column in unused
+            if column in EXCLUDED_DEGENERATE_COLUMNS
+        ],
+        "untrained": [
+            column for column in unused
+            if column not in IDENTITY_COLUMNS
+            and column not in EXCLUDED_DEGENERATE_COLUMNS
+        ],
+    }
+
+
+def assert_feature_contract(
+    features: list[str]
+) -> None:
+    """
+    Refuse a feature list that reintroduces the degenerate columns.
+
+    This guards a failure that is otherwise silent. Drop a
+    74-feature features.pkl into this bundle and every existing
+    check still passes -- those columns ARE present in CICFlowMeter
+    output, full of plausible numbers -- while the model is handed
+    real Active and Idle values where it only ever saw zeros.
+    Nothing would raise. The predictions would just be wrong.
+    """
+    reintroduced = [
+        feature for feature in features
+        if feature in EXCLUDED_DEGENERATE_COLUMNS
+    ]
+
+    if reintroduced:
+        raise RuntimeError(
+            "features.pkl lists "
+            f"{len(reintroduced)} column(s) removed from the feature "
+            "contract in the 74 -> 66 rebuild:\n\n"
+            + "\n".join(reintroduced)
+            + "\n\nTRUSTLab never populates these, so the deployed "
+            "model has only ever seen zeros in them, while a real "
+            "capture fills them with real values. This bundle is a "
+            "74-feature model or a mixed one, and must not be used "
+            "for inference."
+        )
 
 
 # ============================================================
@@ -653,6 +956,12 @@ def sanitize_model_input(
             f"{invalid_count} invalid numeric "
             f"value(s) before model inference.",
             flush=True
+        )
+
+        logger.warning(
+            "Model input contained invalid numeric values | "
+            "Count: %s | Action: sanitize before inference",
+            invalid_count,
         )
 
         row_indexes, column_indexes = np.where(
@@ -742,7 +1051,7 @@ def prepare_model_input(
     np.ndarray
 ]:
     """
-    Select the frozen 74 features, sanitize them, and apply the
+    Select the frozen feature set, sanitize it, and apply the
     training-time scaler.
 
     Returns:
@@ -778,6 +1087,13 @@ def prepare_model_input(
 
     if missing_features:
 
+        logger.error(
+            "Model schema validation failed | Missing count: %s | "
+            "Missing features: %s",
+            len(missing_features),
+            ", ".join(missing_features),
+        )
+
         raise ValueError(
             "CICFlowMeter output is missing "
             f"{len(missing_features)} required "
@@ -789,8 +1105,47 @@ def prepare_model_input(
 
 
     # --------------------------------------------------------
+    # Say what is being dropped, once, before dropping it
+    #
+    # CICFlowMeter gives 84 columns and the model consumes 66.
+    # Selecting by name below discards the other 18 silently, so
+    # they are reported here: identity columns that were never
+    # features, the eight Active/Idle columns excluded by the
+    # feature contract, and anything else -- which would be a real
+    # feature this model was not trained on.
+    # --------------------------------------------------------
+
+    unused = describe_extra_columns(
+        dataframe
+    )
+
+    print(
+        f"[FORENXAI] Features: {len(expected_features)} used, "
+        f"{sum(len(v) for v in unused.values())} not used "
+        f"({len(unused['identity'])} identity, "
+        f"{len(unused['excluded_degenerate'])} excluded by contract, "
+        f"{len(unused['untrained'])} untrained)",
+        flush=True
+    )
+
+    if unused["untrained"]:
+        print(
+            "[FORENXAI] Not trained on: "
+            + ", ".join(unused["untrained"]),
+            flush=True
+        )
+
+
+    # --------------------------------------------------------
     # CRITICAL:
     # Preserve EXACT feature order from features.pkl.
+    #
+    # dataframe[expected_features] selects those columns, in that
+    # order, and drops every other column. This single line IS the
+    # answer to "what happens to the extra CICFlowMeter columns":
+    # they are not reordered, imputed or averaged in -- they are
+    # left out, because the scaler and the booster were both fitted
+    # on exactly these 66 in exactly this order.
     # --------------------------------------------------------
 
     feature_frame = dataframe[
@@ -820,8 +1175,20 @@ def prepare_model_input(
     # Scale using the scaler from training
     # --------------------------------------------------------
 
+    # .to_numpy() rather than the DataFrame: the scaler was fitted on
+    # an unnamed array, so handing it a named frame makes scikit-learn
+    # warn that the feature names are unrecognised. Column ORDER is
+    # what the scaler actually relies on, and that was fixed and
+    # checked above -- the names were never carrying the contract.
+    #
+    # float32, not float64: training cast the features to float32 before
+    # scaling (clean_features() in the pipeline's src/common.py), so the
+    # trees' split points were learned on float32-scaled values. Scaling in
+    # float64 changed 3,004 of the 280,063 TRUSTLab test predictions and
+    # cost 0.5 points of accuracy (0.9304 against the reported 0.9351);
+    # with float32 the reported test figures reproduce exactly.
     scaled_matrix = scaler.transform(
-        feature_frame
+        feature_frame.to_numpy(dtype=np.float32)
     )
 
 
@@ -1072,19 +1439,46 @@ def classify_dataframe(
     )
 
 
-    encoded_predictions = model.predict(
-        scaled_matrix
+    # --------------------------------------------------------
+    # One pass, on the device the booster is already on
+    #
+    # The obvious code calls model.predict() for the class and
+    # model.predict_proba() for the confidence. For a multi:softprob
+    # booster those are the same computation: predict() IS
+    # predict_proba() followed by argmax, so calling both walks all
+    # 400 trees twice. Measured on this model: 2.0x slower at every
+    # size tried, 500 to 50,000 rows.
+    #
+    # Building the DMatrix explicitly also removes the "mismatched
+    # devices" warning. That warning fires because the booster was
+    # saved on cuda while the input array is in host memory, so
+    # inplace_predict falls back to building a DMatrix -- which is
+    # what this line now does openly. The warning's own suggestion,
+    # moving the booster to the CPU, was measured at 4.26 s against
+    # 0.74 s on 200,000 rows: six times slower for identical output.
+    # Verified byte-identical to the previous path, max probability
+    # difference 0.000e+00.
+    # --------------------------------------------------------
+
+    booster = model.get_booster()
+
+    probabilities = booster.predict(
+        xgboost.DMatrix(scaled_matrix)
     )
 
 
-    encoded_predictions = np.asarray(
-        encoded_predictions
+    probabilities = np.asarray(
+        probabilities,
+        dtype=np.float64
     )
 
 
-    # XGBoost multiclass normally returns integer class ids.
+    # multi:softprob returns one row of 16 class probabilities per
+    # flow; the predicted class is the argmax of that row, which is
+    # exactly what model.predict() would have returned.
     encoded_predictions = (
-        encoded_predictions
+        probabilities
+        .argmax(axis=1)
         .astype(int)
     )
 
@@ -1101,15 +1495,8 @@ def classify_dataframe(
     # Probabilities
     # --------------------------------------------------------
 
-    probabilities = model.predict_proba(
-        scaled_matrix
-    )
-
-
-    probabilities = np.asarray(
-        probabilities,
-        dtype=np.float64
-    )
+    # Probabilities were produced above, in the same pass that gave
+    # the class. Nothing to recompute.
 
 
     if probabilities.ndim != 2:
@@ -1157,6 +1544,13 @@ def classify_dataframe(
     findings: list[
         dict[str, Any]
     ] = []
+
+    abstain = abstain_decisions(
+        scaled_matrix,
+        probabilities,
+        class_names,
+        bundle["features"]
+    )
 
 
     class_counts: dict[
@@ -1261,6 +1655,17 @@ def classify_dataframe(
 
                 "metadata":
                     metadata,
+
+                # True when the flow is below its class's confidence
+                # threshold or outside the training distribution.
+                "abstained":
+                    abstain[row_index][0],
+
+                "abstain_reason":
+                    abstain[row_index][1],
+
+                "ood_distance":
+                    abstain[row_index][2],
             }
         )
 
@@ -1353,7 +1758,7 @@ def classify_dataframe(
 # CLASSIFY CICFLOWMETER CSV
 # ============================================================
 
-def classify_flow_csv(
+def _classify_flow_csv_impl(
     flow_csv: Path | str
 ) -> dict[str, Any]:
     """
@@ -1436,6 +1841,61 @@ def classify_flow_csv(
         flow_csv
     )
 
+
+    return result
+
+
+# ============================================================
+# PUBLIC LOGGED CLASSIFICATION ENTRY POINT
+# ============================================================
+
+def classify_flow_csv(
+    flow_csv: Path | str
+) -> dict[str, Any]:
+    """
+    Classify a CICFlowMeter CSV with centralized
+    FORENXAI production logging.
+    """
+
+    flow_path = Path(
+        flow_csv
+    ).resolve()
+
+    logger.info(
+        "XGBoost classification started | CSV: %s",
+        flow_path,
+    )
+
+    try:
+        result = _classify_flow_csv_impl(
+            flow_path
+        )
+
+    except Exception as error:
+        logger.exception(
+            "XGBoost classification failed | CSV: %s | "
+            "Error: %s: %s",
+            flow_path,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    summary = result.get(
+        "summary",
+        {}
+    )
+
+    logger.info(
+        "XGBoost classification completed | CSV: %s | "
+        "Total flows: %s | Benign: %s | Threats: %s | "
+        "Threat percentage: %s%%",
+        flow_path,
+        summary.get("total_flows", 0),
+        summary.get("benign_flows", 0),
+        summary.get("threat_flows", 0),
+        summary.get("threat_percentage", 0),
+    )
 
     return result
 

@@ -1,0 +1,26 @@
+{
+  "arm": "cicids_only",
+  "model": "CNN1D",
+  "train_seconds": 374.5,
+  "n_train": 680000,
+  "n_features": 66,
+  "internal_validation": {
+    "accuracy": 0.972125,
+    "precision": 0.9938786187652598,
+    "recall": 0.9500858576596702,
+    "f1": 0.9714889663578327,
+    "f2": 0.9585329260744369,
+    "benign_recall": 0.994151657030508,
+    "attack_recall": 0.9500858576596702,
+    "false_alarm_rate": 0.0058483429694919774,
+    "miss_rate": 0.04991414234032976,
+    "confusion": {
+      "tn": 59666,
+      "fp": 351,
+      "fn": 2994,
+      "tp": 56989
+    },
+    "roc_auc": 0.9872215545297305,
+    "pr_auc": 0.9906474358589267
+  }
+}

@@ -1,18 +1,35 @@
+from collections import Counter
 from pathlib import Path
 from hashlib import sha256
 import json
 import os
 import re
 
+from typing import Optional
+from fastapi.responses import FileResponse
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.pcap_service import extract_packets
+from app.services import packet_store
 from app.services.flow_service import build_flows
 from app.services.cicflowmeter_service import generate_flow_csv
 from app.services.model_service import classify_flow_csv
 from app.services.shap_service import explain_flow_csv
-from app.services.recommendation_service import get_recommendation
+from app.services.rule_service import evaluate as evaluate_rules
+from app.services.rule_service import decide, load_config as load_rule_config, rule_catalog, sort_hits
+from app.services.packet_rule_service import (
+    PacketInspector,
+    evaluate as evaluate_packet_rules,
+)
+from app.services.recommendation_service import (
+    get_recommendation,
+    warm_recommendations,
+)
+
+from app.services.logging_service import (
+    logger,
+)
 
 from app.services.narration_service import (
     generate_flow_narration
@@ -60,6 +77,30 @@ class InvestigatorReviewRequest(BaseModel):
 # SHA-256
 # ============================================================
 
+def summarise_rule_hits(findings, tier):
+    """Flows flagged per class and per rule for one tier (a flow counts
+    once per class, even when several rules of that class fired)."""
+    by_class, by_rule, by_source = Counter(), Counter(), Counter()
+    flagged = 0
+    for finding in findings:
+        hits = [
+            h for h in (finding.get("rule_findings") or [])
+            if h.get("tier") == tier and h.get("rule_id") != "ALLOWLIST"
+        ]
+        if not hits:
+            continue
+        flagged += 1
+        by_class.update({h.get("class", "?") for h in hits})
+        by_rule.update({h.get("rule_id", "?") for h in hits})
+        by_source.update({h.get("source", "flow") for h in hits})
+    return {
+        "flows_flagged": flagged,
+        "by_class": dict(by_class.most_common()),
+        "by_rule": dict(by_rule.most_common()),
+        "by_source": dict(by_source),
+    }
+
+
 def calculate_sha256(
     file_path: Path
 ) -> str:
@@ -90,8 +131,30 @@ def calculate_sha256(
 # START ANALYSIS
 # ============================================================
 
+from app.services.case_service import ACTIVE_CASES
+
+# Current pipeline step per case, polled by the desktop progress window.
+ANALYSIS_STAGES: dict[str, str] = {}
+
+
+@router.get("/{case_id}/progress")
+def get_analysis_progress(case_id: str):
+    return {"case_id": case_id, "stage": ANALYSIS_STAGES.get(case_id, "")}
+
+
 @router.post("/start")
 def start_analysis(
+    request: AnalysisRequest
+):
+    # Marks the case as busy so a scheduled deletion waits for it.
+    ACTIVE_CASES.add(request.case_id)
+    try:
+        return _run_analysis(request)
+    finally:
+        ACTIVE_CASES.discard(request.case_id)
+
+
+def _run_analysis(
     request: AnalysisRequest
 ):
 
@@ -115,6 +178,13 @@ def start_analysis(
         f"[FORENXAI] File: "
         f"{request.file_name}",
         flush=True
+    )
+
+
+    logger.info(
+        "Analysis started | Case ID: %s | Evidence: %s",
+        request.case_id,
+        request.file_name,
     )
 
 
@@ -270,8 +340,27 @@ def start_analysis(
         )
 
 
+        # Tier 2 packet rules look at every packet in this same pass, so
+        # the capture is read once. A broken rules.json turns them off
+        # without stopping the analysis.
+        try:
+            inspector = PacketInspector()
+        except Exception as error:  # noqa: BLE001
+            print(
+                f"[FORENXAI] Tier 2 packet rules off "
+                f"({type(error).__name__}: {error})",
+                flush=True
+            )
+            inspector = None
+
+        ANALYSIS_STAGES[request.case_id] = "Reading packets from the capture (Tier 2 packet checks)..."
         packets = extract_packets(
-            evidence_file
+            evidence_file,
+            on_packet=(
+                inspector.add
+                if inspector is not None
+                else None
+            )
         )
 
 
@@ -311,6 +400,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Building network flows..."
         flows = build_flows(
             packets
         )
@@ -334,6 +424,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Extracting flow features with CICFlowMeter..."
         cicflowmeter_csv = (
             generate_flow_csv(
                 evidence_file=evidence_file,
@@ -360,6 +451,7 @@ def start_analysis(
         )
 
 
+        ANALYSIS_STAGES[request.case_id] = "Classifying flows with XGBoost..."
         ml_result = (
             classify_flow_csv(
                 cicflowmeter_csv
@@ -402,6 +494,100 @@ def start_analysis(
         )
 
 
+        logger.info(
+            "ML classification complete | Case ID: %s | "
+            "ML flows: %s | Benign: %s | Threats: %s | "
+            "Threat percentage: %.2f%%",
+            request.case_id,
+            ml_summary["total_flows"],
+            ml_summary["benign_flows"],
+            ml_summary["threat_flows"],
+            ml_summary["threat_percentage"],
+        )
+
+
+        # =====================================================
+        # SHAP EXPLAINABILITY
+        # =====================================================
+
+        print(
+            "[FORENXAI] Generating "
+            "SHAP explanations...",
+            flush=True
+        )
+
+
+        ANALYSIS_STAGES[request.case_id] = "Computing TreeSHAP explanations..."
+        shap_result = (
+            explain_flow_csv(
+                ml_result,
+                top_n=10
+            )
+        )
+
+
+        print(
+            f"[FORENXAI] SHAP explanations: "
+            f"{shap_result['total_flows']}",
+            flush=True
+        )
+
+
+        print(
+            "[FORENXAI] SHAP "
+            "explainability complete.",
+            flush=True
+        )
+
+
+        # =====================================================
+        # RULE-BASED DETECTION
+        # =====================================================
+        #
+        # Runs beside the classifier on the same flows. None means no
+        # rule engine is configured yet; the recommendation then says the
+        # rule layer was not evaluated, rather than that nothing fired.
+
+        ANALYSIS_STAGES[request.case_id] = "Running Tier 1 flow rules and Tier 2 Suricata rules..."
+        rule_hits = evaluate_rules(
+            str(cicflowmeter_csv),
+            ml_result.get("findings", [])
+        )
+        tier1_evaluated = rule_hits is not None
+
+        # Tier 2: the scapy checks gathered while reading the pcap, plus
+        # Suricata when it is installed, matched to the same flows.
+        tier2_hits, encrypted_flows, tier2_summary = (None, None, {
+            "error": "Tier 2 packet rules were not run."
+        })
+        if inspector is not None:
+            tier2_hits, encrypted_flows, tier2_summary = (
+                evaluate_packet_rules(
+                    evidence_file,
+                    str(cicflowmeter_csv),
+                    ml_result.get("findings", []),
+                    inspector,
+                    case_directory
+                )
+            )
+
+        try:
+            rule_config = load_rule_config()
+        except Exception:  # noqa: BLE001
+            rule_config = {}
+
+        if rule_hits is None and tier2_hits is not None:
+            rule_hits = {index: [] for index in tier2_hits}
+        if rule_hits is not None and tier2_hits:
+            rule_hits = {
+                index: sort_hits(
+                    hits + tier2_hits.get(index, []),
+                    rule_config
+                )
+                for index, hits in rule_hits.items()
+            }
+
+
         # =====================================================
         # PHASE 15.3
         # ATTACH RESPONSE RECOMMENDATIONS
@@ -433,6 +619,56 @@ def start_analysis(
             )
 
 
+        # Generate each distinct recommendation ONCE, before the loop.
+        #
+        # Every flow that shares a class, a confidence band and the same
+        # alternative classes shares an answer, so a capture of two
+        # hundred flows is a handful of questions, not two hundred.
+        # Doing them here makes the work countable and reportable -- the
+        # loop below then costs nothing, instead of the first flow of
+        # each class silently blocking for two minutes inside it.
+        # SHAP ran above, so each flow's drivers are available here; the
+        # rule hits too. Both are attached only for the recommendation
+        # stage and removed again below, so analysis.json does not carry
+        # a second copy of the SHAP explanations.
+        top_features_per_flow = shap_result.get(
+            "top_features_per_flow", {}
+        )
+
+        for finding in ml_findings:
+            if isinstance(finding, dict):
+                index = finding.get("flow_index")
+                finding["top_features"] = top_features_per_flow.get(
+                    str(index)
+                )
+                finding["rule_findings"] = (
+                    None if rule_hits is None
+                    else rule_hits.get(index, [])
+                )
+                finding["payload_encrypted"] = (
+                    None if encrypted_flows is None
+                    else encrypted_flows.get(index)
+                )
+                verdict, source = decide(
+                    finding,
+                    finding["rule_findings"],
+                    rule_config or None
+                )
+                finding["verdict"] = verdict
+                finding["verdict_source"] = source
+
+        ANALYSIS_STAGES[request.case_id] = "Writing recommendations with the local Qwen model (slowest step)..."
+        generated = warm_recommendations(
+            ml_findings
+        )
+
+        print(
+            f"[FORENXAI] {generated} distinct recommendation(s) "
+            f"for {len(ml_findings)} flow(s)",
+            flush=True
+        )
+
+
         for finding in ml_findings:
 
             if not isinstance(
@@ -461,9 +697,22 @@ def start_analysis(
                 )
 
 
+            # TreeSHAP runs later in the pipeline, so pass whatever
+            # drivers the finding already carries. The parameter is
+            # optional: the recommendation is grounded in the retrieved
+            # documents either way, and SHAP only tells the model which
+            # features to mention where a source explains them.
+            # The class alone is not the whole prediction. Confidence and
+            # the probability distribution decide whether the flow has a
+            # live alternative, and an alternative brings its own
+            # documents into the retrieval.
             recommendation = (
                 get_recommendation(
-                    predicted_class
+                    predicted_class,
+                    finding.get("top_features"),
+                    finding.get("confidence"),
+                    finding.get("probabilities"),
+                    finding.get("rule_findings"),
                 )
             )
 
@@ -471,6 +720,10 @@ def start_analysis(
             finding[
                 "recommendation"
             ] = recommendation
+
+            # Rule hits stay on the finding; SHAP already has its own
+            # section in the analysis document.
+            finding.pop("top_features", None)
 
 
         print(
@@ -489,41 +742,14 @@ def start_analysis(
 
 
         # =====================================================
-        # SHAP EXPLAINABILITY
-        # =====================================================
-
-        print(
-            "[FORENXAI] Generating "
-            "SHAP explanations...",
-            flush=True
-        )
-
-
-        shap_result = (
-            explain_flow_csv(
-                ml_result,
-                top_n=10
-            )
-        )
-
-
-        print(
-            f"[FORENXAI] SHAP explanations: "
-            f"{shap_result['total_flows']}",
-            flush=True
-        )
-
-
-        print(
-            "[FORENXAI] SHAP "
-            "explainability complete.",
-            flush=True
-        )
-
-
-        # =====================================================
         # CONSTRUCT ANALYSIS JSON
         # =====================================================
+
+        packet_store.attach_connection_stats(
+            ml_findings,
+            packet_store.connection_stats(packets),
+            {a for p in packets for a in (p.get("source_ip"), p.get("destination_ip")) if a},
+        )
 
         analysis_result = {
 
@@ -554,6 +780,45 @@ def start_analysis(
 
             "flows":
                 flows,
+
+
+            "rule_analysis": {
+
+                "rules_version":
+                    rule_config.get("version"),
+
+                "sensitivity":
+                    rule_config.get("sensitivity"),
+
+                "tier1_evaluated":
+                    tier1_evaluated,
+
+                # Chart data for the Dashboard: flows flagged per
+                # class and per rule, for each tier.
+                "tier1_chart":
+                    summarise_rule_hits(ml_findings, 1),
+
+                # Every Tier 1 rule with the settings this case used,
+                # its basis and the flows it flagged (Dashboard list).
+                "tier1_rules":
+                    rule_catalog(
+                        rule_config,
+                        summarise_rule_hits(ml_findings, 1).get("by_rule", {})
+                    ) if rule_config else [],
+
+                "tier2_chart":
+                    summarise_rule_hits(ml_findings, 2),
+
+                "tier2":
+                    tier2_summary,
+
+                "verdict_sources":
+                    dict(Counter(
+                        f.get("verdict_source")
+                        for f in ml_findings
+                        if isinstance(f, dict)
+                    )),
+            },
 
 
             "ml_analysis": {
@@ -592,8 +857,15 @@ def start_analysis(
             },
 
 
-            "packets":
-                packets
+            # Packets live in packets.json, served a page at a time by
+            # GET /analysis/{case_id}/packets.
+            "packet_count":
+                len(packets),
+
+            # Share of the capture's conversations in the flow records
+            # (ML / Tier 1 input), measured from the packets.
+            "capture_coverage":
+                packet_store.capture_coverage(packets, ml_findings)
         }
 
 
@@ -601,6 +873,7 @@ def start_analysis(
         # WRITE ANALYSIS SAFELY
         # =====================================================
 
+        ANALYSIS_STAGES[request.case_id] = "Saving analysis results..."
         analysis_file = (
             case_directory
             / "analysis.json"
@@ -628,9 +901,14 @@ def start_analysis(
             json.dump(
                 analysis_result,
                 file,
-                indent=4,
-                ensure_ascii=False
+                ensure_ascii=False,
+                separators=(",", ":")
             )
+
+        packet_store.write_packets(
+            case_directory,
+            packets
+        )
 
 
         os.replace(
@@ -684,6 +962,19 @@ def start_analysis(
         )
 
 
+        logger.info(
+            "Analysis completed successfully | Case ID: %s | "
+            "Evidence: %s | Packets: %s | Forensic flows: %s | "
+            "ML flows: %s | Threats: %s",
+            request.case_id,
+            safe_file_name,
+            traffic_summary["total_packets"],
+            len(flows),
+            ml_summary["total_flows"],
+            ml_summary["threat_flows"],
+        )
+
+
         # =====================================================
         # RETURN SUMMARY TO FRONTEND
         # =====================================================
@@ -710,10 +1001,6 @@ def start_analysis(
                     "total_packets"
                 ],
 
-            # Packet records are returned for the Investigation view so
-            # investigators can manually validate the XAI findings.
-            "packets":
-                packets,
 
             "total_flows":
                 len(flows),
@@ -774,7 +1061,16 @@ def start_analysis(
         }
 
 
-    except HTTPException:
+    except HTTPException as error:
+
+        logger.warning(
+            "Analysis request rejected | Case ID: %s | "
+            "Evidence: %s | HTTP %s | %s",
+            request.case_id,
+            request.file_name,
+            error.status_code,
+            error.detail,
+        )
 
         raise
 
@@ -786,6 +1082,16 @@ def start_analysis(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+
+        logger.exception(
+            "Analysis failed | Case ID: %s | Evidence: %s | "
+            "Error: %s: %s",
+            request.case_id,
+            request.file_name,
+            type(error).__name__,
+            error,
         )
 
 
@@ -818,6 +1124,13 @@ def save_review(
         case_id
     ):
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Invalid case ID.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=400,
             detail="Invalid case ID."
@@ -829,6 +1142,13 @@ def save_review(
     # ========================================================
 
     if request.flow_index < 0:
+
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Flow index cannot be negative.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=400,
@@ -854,6 +1174,13 @@ def save_review(
 
     if not case_directory.exists():
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | Case directory not found.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail="Case directory not found."
@@ -862,6 +1189,13 @@ def save_review(
 
     if not analysis_file.exists():
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | analysis.json not found.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail="analysis.json not found."
@@ -869,6 +1203,13 @@ def save_review(
 
 
     if analysis_file.stat().st_size == 0:
+
+        logger.error(
+            "Review request failed | Case ID: %s | Flow: %s | "
+            "HTTP 500 | analysis.json is empty.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -893,6 +1234,14 @@ def save_review(
 
 
     except json.JSONDecodeError as error:
+
+        logger.error(
+            "Review request failed because analysis data is invalid | "
+            "Case ID: %s | Flow: %s | HTTP 500 | %s",
+            case_id,
+            request.flow_index,
+            error,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -925,6 +1274,13 @@ def save_review(
         findings,
         list
     ):
+
+        logger.error(
+            "Review request failed | Case ID: %s | Flow: %s | "
+            "HTTP 500 | ML findings are not in the expected format.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -963,6 +1319,13 @@ def save_review(
 
     if selected_finding is None:
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | ML finding not found.",
+            case_id,
+            request.flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -992,6 +1355,13 @@ def save_review(
 
 
     if not predicted_class:
+
+        logger.error(
+            "Review request failed | Case ID: %s | Flow: %s | "
+            "HTTP 500 | Predicted class missing.",
+            case_id,
+            request.flow_index,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -1033,6 +1403,14 @@ def save_review(
 
     except ValueError as error:
 
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | %s",
+            case_id,
+            request.flow_index,
+            error,
+        )
+
         raise HTTPException(
             status_code=400,
             detail=str(error)
@@ -1040,6 +1418,14 @@ def save_review(
 
 
     except FileNotFoundError as error:
+
+        logger.warning(
+            "Review request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | %s",
+            case_id,
+            request.flow_index,
+            error,
+        )
 
         raise HTTPException(
             status_code=404,
@@ -1054,6 +1440,15 @@ def save_review(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+        logger.exception(
+            "Review save failed | Case ID: %s | Flow: %s | "
+            "Error: %s: %s",
+            case_id,
+            request.flow_index,
+            type(error).__name__,
+            error,
         )
 
         raise HTTPException(
@@ -1301,6 +1696,13 @@ def get_flow_narration(
         case_id
     ):
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Invalid case ID.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=400,
             detail="Invalid case ID."
@@ -1308,6 +1710,13 @@ def get_flow_narration(
 
 
     if flow_index < 0:
+
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 400 | Flow index cannot be negative.",
+            case_id,
+            flow_index,
+        )
 
         raise HTTPException(
             status_code=400,
@@ -1333,6 +1742,13 @@ def get_flow_narration(
 
     if not case_directory.exists():
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | Case directory not found.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail="Case directory not found."
@@ -1340,6 +1756,13 @@ def get_flow_narration(
 
 
     if not analysis_file.exists():
+
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | analysis.json not found.",
+            case_id,
+            flow_index,
+        )
 
         raise HTTPException(
             status_code=404,
@@ -1353,17 +1776,20 @@ def get_flow_narration(
 
     try:
 
-        with analysis_file.open(
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            analysis_data = json.load(
-                file
-            )
+        analysis_data = packet_store.read_analysis(
+            analysis_file
+        )
 
 
     except json.JSONDecodeError as error:
+
+        logger.error(
+            "Narration request failed because analysis data is invalid | "
+            "Case ID: %s | Flow: %s | HTTP 500 | %s",
+            case_id,
+            flow_index,
+            error,
+        )
 
         raise HTTPException(
             status_code=500,
@@ -1438,6 +1864,13 @@ def get_flow_narration(
 
     if selected_finding is None:
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | ML finding not found.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -1477,6 +1910,13 @@ def get_flow_narration(
 
     if selected_shap is None:
 
+        logger.warning(
+            "Narration request rejected | Case ID: %s | Flow: %s | "
+            "HTTP 404 | SHAP explanation not found.",
+            case_id,
+            flow_index,
+        )
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -1491,8 +1931,8 @@ def get_flow_narration(
     # ========================================================
 
     print(
-        f"[FORENXAI] Generating Qwen narration "
-        f"for {case_id} / Flow {flow_index}...",
+        f"[FORENXAI] Composing explanation from the retrieved "
+        f"documents for {case_id} / Flow {flow_index}...",
         flush=True
     )
 
@@ -1514,6 +1954,15 @@ def get_flow_narration(
             f"{type(error).__name__}: "
             f"{error}",
             flush=True
+        )
+
+        logger.exception(
+            "Narration generation failed | Case ID: %s | Flow: %s | "
+            "Error: %s: %s",
+            case_id,
+            flow_index,
+            type(error).__name__,
+            error,
         )
 
 
@@ -1624,30 +2073,50 @@ def get_analysis(
     # READ ANALYSIS JSON
     # ========================================================
 
-    try:
-
-        with analysis_file.open(
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            analysis_data = (
-                json.load(
-                    file
-                )
-            )
+    # Sent as stored: re-encoding the parsed document through FastAPI
+    # took about 20 s for a 44 MB analysis; the file itself is valid JSON
+    # (written atomically by start_analysis).
+    return FileResponse(
+        analysis_file,
+        media_type="application/json"
+    )
 
 
-    except json.JSONDecodeError as error:
+# ============================================================
+# PACKETS (paged and filtered on the server)
+# ============================================================
 
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "analysis.json contains "
-                "invalid JSON: "
-                f"{error}"
-            )
-        )
+@router.get("/{case_id}/packets")
+def get_packets(
+    case_id: str,
+    offset: int = 0,
+    limit: int = 500,
+    protocol: str = "",
+    flag: str = "",
+    source: str = "",
+    destination: str = "",
+    port: str = "",
+    ip_version: str = "",
+    interface: str = "",
+    min_length: Optional[int] = None,
+    max_length: Optional[int] = None,
+    q: str = ""
+):
+    if not re.fullmatch(r"FX-\d{8}-\d{6}", case_id):
+        raise HTTPException(status_code=400, detail="Invalid case ID.")
 
+    case_directory = get_cases_directory() / case_id
+    analysis_file = case_directory / "analysis.json"
+    if not analysis_file.exists():
+        raise HTTPException(status_code=404, detail="analysis.json not found.")
 
-    return analysis_data
+    packets = packet_store.load_packets(
+        case_directory, packet_store.read_analysis(analysis_file)
+    )
+    return packet_store.query_packets(
+        packets,
+        offset=max(0, offset), limit=max(1, min(limit, 5000)),
+        protocol=protocol, flag=flag, source=source, destination=destination,
+        port=port, ip_version=ip_version, interface=interface,
+        min_length=min_length, max_length=max_length, text=q
+    )

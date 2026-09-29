@@ -4,6 +4,10 @@ import numpy as np
 import pandas as pd
 import shap
 
+from app.services.logging_service import (
+    logger,
+)
+
 from app.services.model_service import (
     load_model_bundle
 )
@@ -17,7 +21,7 @@ _explainer = None
 # SHAP EXPLAINER
 # ==================================
 
-def generate_shap_explanations(
+def _generate_shap_explanations_impl(
     ml_result: dict,
     top_n: int = 5
 ) -> dict:
@@ -160,6 +164,14 @@ def generate_shap_explanations(
         flush=True
     )
 
+    logger.info(
+        "TreeSHAP explainer initialization started | "
+        "Rows: %s | Features: %s | Classes: %s",
+        scaled_matrix.shape[0],
+        len(features),
+        len(classes),
+    )
+
     explainer = shap.TreeExplainer(
         model,
         feature_perturbation=
@@ -177,6 +189,11 @@ def generate_shap_explanations(
 
     shap_output = explainer(
         scaled_matrix
+    )
+
+    logger.info(
+        "TreeSHAP value calculation completed | Rows: %s",
+        scaled_matrix.shape[0],
     )
 
     shap_values = np.asarray(
@@ -210,7 +227,7 @@ def generate_shap_explanations(
     #
     # Example:
     #
-    #     (8, 74, 16)
+    #     (8, 66, 16)
     #
     # Older SHAP releases can return other layouts,
     # so handle the known alternatives explicitly.
@@ -596,10 +613,24 @@ def generate_shap_explanations(
                 ranked_contributors,
         }
 
+        # The features left out of the top list, as one sum, so the
+        # table adds up: base + top + rest = margin (log-odds score of
+        # the predicted class; softmax over the class margins gives the
+        # confidence).
+        rest = contributors[top_n:]
+        explanation["rest_count"] = len(rest)
+        explanation["rest_shap_sum"] = float(
+            sum(item["shap_value"] for item in rest)
+        )
+
         if base_value is not None:
             explanation[
                 "base_value"
             ] = base_value
+            explanation["margin"] = float(
+                base_value
+                + sum(item["shap_value"] for item in contributors)
+            )
 
         explanations.append(
             explanation
@@ -629,6 +660,69 @@ def generate_shap_explanations(
         "explanations":
             explanations,
     }
+
+
+# ==================================
+# PUBLIC LOGGED SHAP ENTRY POINT
+# ==================================
+
+def generate_shap_explanations(
+    ml_result: dict,
+    top_n: int = 5
+) -> dict:
+    """
+    Generate TreeSHAP explanations with centralized
+    FORENXAI production logging.
+    """
+
+    findings = []
+
+    if isinstance(
+        ml_result,
+        dict
+    ):
+        findings = ml_result.get(
+            "findings",
+            []
+        )
+
+    flow_count = (
+        len(findings)
+        if isinstance(findings, list)
+        else 0
+    )
+
+    logger.info(
+        "SHAP explanation generation started | "
+        "Flows: %s | Top contributors per flow: %s",
+        flow_count,
+        top_n,
+    )
+
+    try:
+        result = _generate_shap_explanations_impl(
+            ml_result=ml_result,
+            top_n=top_n,
+        )
+
+    except Exception as error:
+        logger.exception(
+            "SHAP explanation generation failed | "
+            "Flows: %s | Error: %s: %s",
+            flow_count,
+            type(error).__name__,
+            error,
+        )
+        raise
+
+    logger.info(
+        "SHAP explanation generation completed | "
+        "Explained flows: %s | Top contributors per flow: %s",
+        result.get("total_flows", 0),
+        top_n,
+    )
+
+    return result
 
 
 # ==================================

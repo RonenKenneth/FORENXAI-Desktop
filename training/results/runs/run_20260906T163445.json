@@ -1,0 +1,28 @@
+{
+  "started": "2026-09-06T16:34:45",
+  "finished": "2026-09-06T16:34:53",
+  "total_seconds": 7.4,
+  "python": "3.11.9",
+  "git": {
+    "commit": "4b54657856ab7f385c7a93f16c4e6368398d5f16",
+    "dirty": false
+  },
+  "quick": false,
+  "skip_done": false,
+  "stages": [
+    {
+      "script": "00_verify_environment.py",
+      "status": "ok",
+      "seconds": 7.4,
+      "args": []
+    }
+  ],
+  "packages": {
+    "pandas": "3.0.5",
+    "numpy": "2.4.6",
+    "scikit-learn": "1.9.0",
+    "torch": "2.13.0",
+    "xgboost": "3.2.0",
+    "pyarrow": "25.0.1"
+  }
+}

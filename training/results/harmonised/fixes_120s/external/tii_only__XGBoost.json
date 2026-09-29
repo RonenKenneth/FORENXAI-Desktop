@@ -1,0 +1,172 @@
+{
+  "arm": "tii_only",
+  "model": "XGBoost",
+  "threshold": 0.445,
+  "accuracy_native_prevalence": 0.5348984168434052,
+  "accuracy_native_excluding_truncated": 0.5398184910210964,
+  "truncated_classes": [
+    "PortScan"
+  ],
+  "external_validation": {
+    "accuracy": 0.15548791561635078,
+    "precision": 0.9411312270737191,
+    "recall": 0.1212747303015286,
+    "f1": 0.21486219076499152,
+    "f2": 0.14686222445444844,
+    "benign_recall": 0.8467344423906347,
+    "attack_recall": 0.1212747303015286,
+    "false_alarm_rate": 0.15326555760936536,
+    "miss_rate": 0.8787252696984714,
+    "confusion": {
+      "tn": 16491,
+      "fp": 2985,
+      "fn": 345774,
+      "tp": 47721
+    },
+    "roc_auc": 0.44608845880155606,
+    "pr_auc": 0.9475747774467473
+  },
+  "external_validation_native_prevalence": {
+    "accuracy": 0.5348984168434052,
+    "precision": 0.3682528102499756,
+    "recall": 0.11911963555032286,
+    "f1": 0.1800107532764932,
+    "f2": 0.13775921688802037,
+    "benign_recall": 0.8467344423906243,
+    "attack_recall": 0.11911963555030676,
+    "false_alarm_rate": 0.15326555760937577,
+    "miss_rate": 0.8808803644496932,
+    "confusion": {
+      "tn": 2178130,
+      "fp": 394258,
+      "fn": 1699485,
+      "tp": 229818
+    },
+    "roc_auc": 0.42700404349834675,
+    "pr_auc": 0.4123280119343108
+  },
+  "external_validation_native_excluding_truncated": {
+    "accuracy": 0.5398184910210964,
+    "precision": 0.329665516301201,
+    "recall": 0.10643400999578635,
+    "f1": 0.16091566599580823,
+    "f2": 0.12310616620121319,
+    "benign_recall": 0.8467344423906243,
+    "attack_recall": 0.10643400999576966,
+    "false_alarm_rate": 0.15326555760937577,
+    "miss_rate": 0.8935659900042304,
+    "confusion": {
+      "tn": 2178130,
+      "fp": 394258,
+      "fn": 1627831,
+      "tp": 193893
+    },
+    "roc_auc": 0.4207459443669782,
+    "pr_auc": 0.39771150526914045
+  },
+  "baseline": {
+    "accuracy": 0.8963,
+    "f2": 0.935,
+    "roc_auc": 0.9676,
+    "attack_precision": 0.8802,
+    "attack_recall": 0.9498,
+    "benign_recall": 0.8229,
+    "threshold": 0.445,
+    "source": "Villafranca, A., Tasic, I. & Cano, M.-D. (2026). TRUSTLab dataset. Frontiers in Computer Science 8:1803271, Table 2.",
+    "protocol_note": "Their Phase-1 detector used DNN experts pre-trained on CICIDS2017, UNSW-NB15, BoT-IoT and IoTID20, then transferred into TRUSTLab. This experiment uses the same protocol shape -- train elsewhere, test on TRUSTLab -- with different source datasets. That is what makes the comparison meaningful."
+  },
+  "delta_vs_baseline": {
+    "accuracy": -0.7408,
+    "f2": -0.7881,
+    "roc_auc": -0.5215,
+    "attack_recall": -0.8285,
+    "benign_recall": 0.0238
+  },
+  "delta_vs_baseline_native_prevalence": {
+    "accuracy": -0.3614,
+    "f2": -0.7972,
+    "roc_auc": -0.5406,
+    "attack_recall": -0.8307,
+    "benign_recall": 0.0238
+  },
+  "per_class_accuracy": {
+    "API": {
+      "n": 10474,
+      "accuracy": 0.0
+    },
+    "Benign": {
+      "n": 19476,
+      "accuracy": 0.8467
+    },
+    "Bruteforce": {
+      "n": 23366,
+      "accuracy": 0.0
+    },
+    "BufferOverflow": {
+      "n": 28343,
+      "accuracy": 0.0
+    },
+    "C2Beaconing": {
+      "n": 28960,
+      "accuracy": 0.0
+    },
+    "DDoS": {
+      "n": 30000,
+      "accuracy": 0.6385
+    },
+    "DNS": {
+      "n": 28809,
+      "accuracy": 0.0
+    },
+    "DoS": {
+      "n": 30000,
+      "accuracy": 0.0065
+    },
+    "Evasion": {
+      "n": 29937,
+      "accuracy": 0.0877
+    },
+    "Exfiltration": {
+      "n": 28197,
+      "accuracy": 0.5256
+    },
+    "Exploitation": {
+      "n": 27722,
+      "accuracy": 0.0005
+    },
+    "MITM": {
+      "n": 29144,
+      "accuracy": 0.0093
+    },
+    "PortScan": {
+      "n": 29877,
+      "accuracy": 0.3339
+    },
+    "Slowloris": {
+      "n": 30000,
+      "accuracy": 0.0082
+    },
+    "TLSSSL": {
+      "n": 23272,
+      "accuracy": 0.0
+    },
+    "WebBased": {
+      "n": 15394,
+      "accuracy": 0.0271
+    }
+  },
+  "harmonised": {
+    "variant": "fixes_120s",
+    "changed": {
+      "sentinels": {},
+      "constants": {
+        "Bwd PSH Flags": 0.2982,
+        "Bwd URG Flags": 0.0,
+        "Fwd Bulk Rate Avg": 0.5873,
+        "Fwd Bytes/Bulk Avg": 0.5956,
+        "Fwd Packet/Bulk Avg": 0.5873
+      }
+    },
+    "rows": 412971
+  }
+}

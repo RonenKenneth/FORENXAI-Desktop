@@ -1,0 +1,6 @@
+strategy,model,accuracy,macro_f1,weighted_f1,F1_DoS,F1_Exploitation,F1_Slowloris
+random,XGBoost,0.9351,0.9305,0.9354,0.686,0.7896,0.7646
+random,CNN_BiLSTM,0.9258,0.9207,0.9261,0.6549,0.7737,0.7299
+random,CNN1D,0.9258,0.9202,0.9258,0.6252,0.7771,0.7329
+random,MLP,0.9204,0.9151,0.9207,0.6456,0.7438,0.7148
+random,LSTM,0.9109,0.9083,0.9113,0.6351,0.7372,0.7257

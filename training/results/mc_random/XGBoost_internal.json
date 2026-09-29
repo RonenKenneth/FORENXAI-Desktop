@@ -1,0 +1,42 @@
+{
+  "strategy": "random",
+  "model": "XGBoost",
+  "train_seconds": 53.9,
+  "n_train": 951944,
+  "n_features": 66,
+  "n_classes": 16,
+  "val_macro_f1": 0.9298662858683457,
+  "val_weighted_f1": 0.9345792200888778,
+  "val_per_class_f1": {
+    "API": 0.9994792751510102,
+    "Benign": 0.984569858380892,
+    "Bruteforce": 0.9450769555133881,
+    "BufferOverflow": 0.8017659562871314,
+    "C2Beaconing": 0.9506692160611855,
+    "DDoS": 0.9924555601488219,
+    "DNS": 1.0,
+    "DoS": 0.6914692808865616,
+    "Evasion": 0.9977621649752797,
+    "Exfiltration": 0.999739596895995,
+    "Exploitation": 0.7867185711014426,
+    "MITM": 0.9977045075125208,
+    "PortScan": 0.9820695390052492,
+    "Slowloris": 0.7694407789962233,
+    "TLSSSL": 0.9847769028871391,
+    "WebBased": 0.9941624100906912
+  },
+  "tuned": true,
+  "params": {
+    "learning_rate": 0.12912672619744828,
+    "max_depth": 13,
+    "min_child_weight": 3.586656628585957,
+    "subsample": 0.9183471047574291,
+    "colsample_bytree": 0.6429106870088556,
+    "gamma": 1.3995104621750438,
+    "reg_lambda": 0.7122409535813459,
+    "reg_alpha": 1.5705665956097656,
+    "max_bin": 512,
+    "hard_boost": 1.7107120849117017,
+    "n_estimators": 132
+  }
+}
